@@ -1,7 +1,7 @@
-# Konfigurasi server aplikasi. Port 8501 sering sudah dipakai aplikasi Streamlit
-# lain, jadi Lentera MVA memakai 8502 secara bawaan.
+# Konfigurasi server aplikasi. Port 8501 dan 8502 kerap sudah dipakai aplikasi
+# Streamlit lain, jadi Lentera MVA memakai 8503 secara bawaan.
 [server]
-port = 8502
+port = 8503
 
 [browser]
 gatherUsageStats = false

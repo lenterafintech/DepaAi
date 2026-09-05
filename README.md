@@ -25,7 +25,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Aplikasi terbuka di <http://localhost:8502> (port diatur pada `.streamlit/config.toml`). Mulai dari halaman **Beranda & Data**
+Aplikasi terbuka di <http://localhost:8503> (port diatur pada `.streamlit/config.toml`; bila port itu sedang dipakai, jalankan dengan `--server.port 8504`). Mulai dari halaman **Beranda & Data**
 untuk mengunggah berkas, atau tekan *Muat contoh data nasabah* untuk mencoba
 seluruh metode dengan data contoh.
 
