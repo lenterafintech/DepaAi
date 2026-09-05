@@ -29,6 +29,9 @@ PAGES = {
         st.Page("views/manova.py", title="MANOVA", icon="⚖️"),
         st.Page("views/korelasi_kanonik.py", title="Korelasi Kanonik", icon="🔀"),
     ],
+    "Pelaporan": [
+        st.Page("views/kesimpulan.py", title="Kesimpulan Analisis", icon="🧾"),
+    ],
 }
 
 st.navigation(PAGES).run()

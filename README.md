@@ -14,6 +14,7 @@ interpretasinya dalam bahasa Indonesia.
 | Pengelompokan | K-Means (elbow, silhouette, Calinski-Harabasz, Davies-Bouldin), hierarki + dendrogram, DBSCAN, profil klaster dengan uji ANOVA |
 | Pemodelan | Regresi linear berganda (koefisien baku, ANOVA, VIF, uji asumsi klasik, stepwise) dan regresi logistik biner (odds ratio, ROC/AUC, matriks konfusi) |
 | Uji beda & hubungan | Analisis diskriminan linear/kuadratik (fungsi kanonik, Wilks' lambda), MANOVA satu jalur + Hotelling's T², korelasi kanonik dengan indeks redundansi |
+| Pelaporan | Kesimpulan otomatis dalam tiga register pembaca (eksekutif/awam, akademik, profesional) lengkap dengan lampu status, peringkat pendorong, matriks prioritas, tabel bergaya APA, paragraf siap salin, rekomendasi, dan keterbatasan |
 
 ## Menjalankan aplikasi
 
@@ -24,9 +25,28 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Aplikasi terbuka di <http://localhost:8501>. Mulai dari halaman **Beranda & Data**
+Aplikasi terbuka di <http://localhost:8502> (port diatur pada `.streamlit/config.toml`). Mulai dari halaman **Beranda & Data**
 untuk mengunggah berkas, atau tekan *Muat contoh data nasabah* untuk mencoba
 seluruh metode dengan data contoh.
+
+## Halaman Kesimpulan Analisis
+
+Halaman **Kesimpulan Analisis** menjalankan seluruh rangkaian metode sekaligus pada
+data aktif, lalu menuliskan hasilnya sebagai narasi untuk tiga pembaca berbeda:
+
+- **Eksekutif & pengguna awam** — pernyataan kesimpulan utama, lampu status
+  pemeriksaan, peringkat pendorong beserta matriks prioritas (kepentingan terhadap
+  kinerja), rekomendasi tindakan, dan batas kesimpulan; ditulis tanpa notasi statistik.
+- **Akademik (mahasiswa & dosen)** — pelaporan bergaya jurnal lengkap dengan statistik
+  uji, derajat bebas, p-value, dan ukuran efek; tabel bergaya APA (deskriptif +
+  korelasi berbintang, regresi, MANOVA, ringkasan asumsi); paragraf siap salin untuk
+  bab metode, hasil, dan pembahasan; keterbatasan serta rujukan ambang yang dipakai.
+- **Profesional & analis** — metrik kunci model, kontribusi fitur, temuan teknis,
+  ringkasan pemeriksaan asumsi, tindak lanjut berprioritas, dan risiko pemakaian.
+
+Setiap register dapat diunduh sebagai laporan HTML mandiri (siap dicetak menjadi PDF)
+atau berkas Markdown. Seluruh angka dihitung ulang dari data yang sedang aktif —
+tidak ada nilai contoh yang ditanam.
 
 ## Format data yang didukung
 
@@ -54,6 +74,8 @@ lentera_mva/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   discriminant.py      LDA/QDA, fungsi kanonik, Wilks' lambda
   manova.py            MANOVA satu jalur, Hotelling's T²
   cca.py               Korelasi kanonik
+  narrative.py         Penyusun kesimpulan naratif tiga register pembaca
+  report_html.py       Laporan HTML mandiri yang dapat diunduh
   plots.py             Visualisasi Plotly
   ui.py                Komponen antarmuka bersama
 data/                  Contoh data
@@ -78,9 +100,11 @@ print(hasil.variance_table())
 pytest tests/ -q
 ```
 
-Terdapat dua lapis pengujian: kebenaran perhitungan statistik (koefisien regresi
+Terdapat tiga lapis pengujian: kebenaran perhitungan statistik (koefisien regresi
 dipulihkan dari data simulasi, klaster yang ditanam berhasil ditemukan, Hotelling's
-T² konsisten dengan MANOVA) dan uji asap yang merender setiap halaman Streamlit.
+T² konsisten dengan MANOVA), penyusunan narasi kesimpulan (ketiga register benar-benar
+berbeda, register awam bebas notasi statistik, metode yang gagal dicatat alih-alih
+menggagalkan laporan), dan uji asap yang merender setiap halaman Streamlit.
 
 ## Contoh data
 
