@@ -6,7 +6,12 @@ import streamlit as st
 
 from lentera_mva import assumptions, descriptive, manova, plots, preprocessing, ui
 
-ui.page_setup("MANOVA", "⚖️")
+ui.page_setup(
+    "MANOVA",
+    "Pemodelan & Uji Beda",
+    "Menguji apakah beberapa kelompok berbeda bila seluruh variabel dependen "
+    "dipertimbangkan bersama-sama.",
+)
 df = ui.require_dataset()
 ui.sidebar_info()
 

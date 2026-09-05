@@ -5,54 +5,54 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from lentera_mva import descriptive, io_utils, ui
+from lentera_mva import descriptive, formatting, io_utils, ui
 
-ui.page_setup("Beranda & Data", "🧭")
-
-st.markdown(
-    """
-Aplikasi ini menyediakan alur analisis multivariat lengkap: dari pemeriksaan data,
-uji asumsi, sampai pemodelan dan interpretasi hasil. Unggah data Anda, lalu pilih
-metode pada menu di sisi kiri.
-"""
+ui.page_setup(
+    "Beranda & Data",
+    "Lentera MVA",
+    "Muat data Anda di sini, lalu pilih metode analisis atau langsung baca "
+    "ringkasan kesimpulannya pada menu di sisi kiri.",
 )
 
-METHODS = [
-    ("🔍 Eksplorasi Data", "Deskriptif, distribusi, normalitas (univariat & Mardia), pencilan Mahalanobis"),
-    ("🔗 Korelasi & Asumsi", "Pearson/Spearman/Kendall, korelasi parsial, KMO, Bartlett, VIF"),
-    ("🧩 PCA", "Reduksi dimensi, scree plot, biplot, analisis paralel Horn"),
-    ("🧠 Analisis Faktor", "EFA: principal/PAF/ML dengan rotasi varimax & promax"),
-    ("🎯 Analisis Klaster", "K-Means, hierarki + dendrogram, DBSCAN, profil klaster"),
-    ("📈 Regresi", "Regresi linear berganda & regresi logistik biner"),
-    ("🧭 Analisis Diskriminan", "LDA/QDA, fungsi kanonik, Wilks' lambda, klasifikasi"),
-    ("⚖️ MANOVA", "Uji beda vektor rata-rata antar kelompok + Hotelling's T²"),
-    ("🔀 Korelasi Kanonik", "Hubungan antara dua gugus variabel sekaligus"),
+METODE = [
+    ("Eksplorasi Data", "Deskriptif, distribusi, normalitas (univariat & Mardia), pencilan Mahalanobis"),
+    ("Korelasi & Asumsi", "Pearson/Spearman/Kendall, korelasi parsial, KMO, Bartlett, VIF"),
+    ("PCA", "Reduksi dimensi, scree plot, biplot, analisis paralel Horn"),
+    ("Analisis Faktor", "EFA: principal/PAF/ML dengan rotasi varimax & promax"),
+    ("Analisis Klaster", "K-Means, hierarki + dendrogram, DBSCAN, profil klaster"),
+    ("Regresi", "Regresi linear berganda & regresi logistik biner"),
+    ("Analisis Diskriminan", "LDA/QDA, fungsi kanonik, Wilks' lambda, klasifikasi"),
+    ("MANOVA", "Uji beda vektor rata-rata antar kelompok + Hotelling's T²"),
+    ("Korelasi Kanonik", "Hubungan antara dua gugus variabel sekaligus"),
 ]
 
 RINGKASAN = [
-    ("📋 Ringkasan Eksekutif", "Kesimpulan, pendorong utama, dan rekomendasi tanpa notasi statistik"),
-    ("🎓 Ringkasan Akademik", "Pelaporan bergaya jurnal, tabel APA, dan paragraf siap salin"),
-    ("🛠️ Ringkasan Profesional", "Metrik model, pemeriksaan asumsi, dan tindak lanjut teknis"),
+    ("Ringkasan Eksekutif", "Untuk pimpinan dan pembaca non-statistik",
+     "Kesimpulan utama, pendorong terkuat, dan rekomendasi tindakan — tanpa notasi statistik."),
+    ("Ringkasan Akademik", "Untuk mahasiswa dan dosen",
+     "Pelaporan bergaya jurnal, tabel APA, paragraf siap salin, dan rujukan ambang."),
+    ("Ringkasan Profesional", "Untuk analis dan praktisi",
+     "Metrik model, pemeriksaan asumsi, tindak lanjut teknis, dan risiko pemakaian."),
 ]
 
-st.subheader("Metode yang tersedia")
-cols = st.columns(3)
-for i, (name, desc) in enumerate(METHODS):
-    with cols[i % 3]:
-        st.markdown(f"**{name}**  \n{desc}")
-
-st.subheader("Ringkasan kesimpulan")
-st.caption(
-    "Setelah data dimuat, ketiga halaman ini menjalankan seluruh metode di atas "
-    "sekaligus lalu menuliskan kesimpulannya untuk pembaca yang berbeda. Pilih salah "
-    "satu sesuai kepada siapa hasilnya akan disampaikan."
+st.html(
+    f"""
+<style>
+.mva-kartu {{display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px; margin: .4rem 0 1rem}}
+.mva-kartu .k {{border: 1px solid {ui.WARNA['garis']}; border-radius: 10px; padding: 14px 16px;
+  background: #fff}}
+.mva-kartu .j {{font-weight: 650; font-size: .95rem; color: {ui.WARNA['tinta']}}}
+.mva-kartu .u {{font-size: .7rem; letter-spacing: .08em; text-transform: uppercase;
+  color: {ui.WARNA['aksen2']}; font-weight: 700; margin: .3rem 0 .45rem}}
+.mva-kartu .d {{font-size: .84rem; line-height: 1.55; color: {ui.WARNA['tinta2']}}}
+.mva-kartu.ringkas .k {{padding: 11px 13px}}
+.mva-kartu.ringkas .j {{font-size: .88rem}}
+.mva-kartu.ringkas .d {{font-size: .8rem}}
+</style>
+"""
 )
-kartu = st.columns(3)
-for kolom, (nama, keterangan) in zip(kartu, RINGKASAN):
-    with kolom:
-        st.markdown(f"**{nama}**  \n{keterangan}")
 
-st.divider()
 st.subheader("1. Muat data")
 
 tab_upload, tab_sample = st.tabs(["Unggah berkas", "Contoh data"])
@@ -93,14 +93,16 @@ if df is None:
 st.divider()
 st.subheader("2. Periksa data")
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Baris", f"{len(df):,}".replace(",", "."))
-c2.metric("Kolom", df.shape[1])
-c3.metric("Kolom numerik", len(df.select_dtypes("number").columns))
-c4.metric("Sel kosong", int(df.isna().sum().sum()))
+# Angka ukuran data disampaikan sebagai satu baris keterangan, bukan empat kartu
+# raksasa — ia konteks, bukan temuan utama halaman ini.
+st.caption(
+    f"{formatting.num(len(df))} baris · {df.shape[1]} kolom "
+    f"({len(df.select_dtypes('number').columns)} numerik) · "
+    f"{formatting.num(int(df.isna().sum().sum()))} sel kosong"
+)
 
 st.markdown("**Pratinjau data**")
-st.dataframe(df.head(50), width="stretch")
+st.dataframe(df.head(50), width="stretch", hide_index=True)
 
 st.markdown("**Profil variabel**")
 ui.show_table(io_utils.profile(df), "profil_variabel.csv")
@@ -111,17 +113,42 @@ if not numeric_df.empty:
     ui.show_table(descriptive.describe(numeric_df), "statistik_deskriptif.csv")
 
 st.divider()
-st.subheader("3. Pilih metode")
-st.markdown(
-    "Gunakan menu halaman di sisi kiri. Panduan singkat memilih metode:\n\n"
-    "- Ingin **meringkas banyak variabel** menjadi sedikit dimensi → PCA atau Analisis Faktor\n"
-    "- Ingin **mengelompokkan observasi** yang mirip → Analisis Klaster\n"
-    "- Ingin **memprediksi nilai numerik** → Regresi Linear Berganda\n"
-    "- Ingin **memprediksi dua kategori** (mis. gagal bayar) → Regresi Logistik\n"
-    "- Ingin **memprediksi keanggotaan kelompok** dari banyak prediktor → Analisis Diskriminan\n"
-    "- Ingin **membandingkan beberapa variabel dependen** antar kelompok → MANOVA\n"
-    "- Ingin **menghubungkan dua gugus variabel** sekaligus → Korelasi Kanonik"
+st.subheader("3. Baca ringkasan kesimpulan")
+st.caption(
+    "Ketiga halaman ini menjalankan seluruh metode sekaligus pada data di atas, lalu "
+    "menuliskan kesimpulan yang sama untuk pembaca yang berbeda. Pilih sesuai kepada "
+    "siapa hasilnya akan disampaikan."
 )
+st.html(
+    '<div class="mva-kartu">'
+    + "".join(
+        f'<div class="k"><div class="j">{judul}</div>'
+        f'<div class="u">{untuk}</div><div class="d">{isi}</div></div>'
+        for judul, untuk, isi in RINGKASAN
+    )
+    + "</div>"
+)
+
+st.subheader("4. Atau pilih metode tertentu")
+st.caption("Panduan singkat memilih metode, sesuai pertanyaan yang ingin dijawab:")
+st.markdown(
+    "- Meringkas **banyak variabel** menjadi sedikit dimensi → PCA atau Analisis Faktor\n"
+    "- Mengelompokkan **observasi yang mirip** → Analisis Klaster\n"
+    "- Memprediksi **nilai numerik** → Regresi Linear Berganda\n"
+    "- Memprediksi **dua kategori** (mis. gagal bayar) → Regresi Logistik\n"
+    "- Memprediksi **keanggotaan kelompok** dari banyak prediktor → Analisis Diskriminan\n"
+    "- Membandingkan **beberapa variabel dependen** antar kelompok → MANOVA\n"
+    "- Menghubungkan **dua gugus variabel** sekaligus → Korelasi Kanonik"
+)
+with st.expander("Daftar lengkap metode yang tersedia"):
+    st.html(
+        '<div class="mva-kartu ringkas">'
+        + "".join(
+            f'<div class="k"><div class="j">{judul}</div><div class="d">{isi}</div></div>'
+            for judul, isi in METODE
+        )
+        + "</div>"
+    )
 
 with st.expander("Catatan mutu data"):
     dup = int(df.duplicated().sum())

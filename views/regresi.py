@@ -6,7 +6,12 @@ import streamlit as st
 
 from lentera_mva import plots, preprocessing, regression, ui
 
-ui.page_setup("Analisis Regresi", "📈")
+ui.page_setup(
+    "Analisis Regresi",
+    "Pemodelan & Uji Beda",
+    "Memodelkan satu variabel hasil dari beberapa faktor penjelas, lengkap "
+    "dengan pemeriksaan asumsi klasiknya.",
+)
 df = ui.require_dataset()
 ui.sidebar_info()
 

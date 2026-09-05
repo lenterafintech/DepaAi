@@ -2,17 +2,86 @@
 
 from __future__ import annotations
 
+import copy
+
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.io as pio
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from scipy import stats
 
-DIVERGING = "RdBu"
-SEQUENTIAL = "Blues"
-QUALITATIVE = px.colors.qualitative.Safe
-LAYOUT = dict(template="plotly_white", margin=dict(l=60, r=30, t=60, b=60))
+# Palet kategorik tervalidasi: urutannya tetap dan tidak pernah diputar ulang,
+# sehingga satu entitas selalu memakai warna yang sama di seluruh aplikasi.
+QUALITATIVE = [
+    "#2a78d6",  # biru
+    "#eb6834",  # oranye
+    "#1baf7a",  # aqua
+    "#eda100",  # kuning
+    "#e87ba4",  # magenta
+    "#008300",  # hijau
+    "#4a3aa7",  # violet
+    "#e34948",  # merah
+]
+# Divergen: dua kutub warna dengan titik tengah netral abu-abu, bukan warna ketiga.
+DIVERGING = [
+    [0.0, "#eb6834"],  # kutub negatif
+    [0.5, "#eef0f2"],  # titik tengah netral
+    [1.0, "#2a78d6"],  # kutub positif
+]
+# Sekuensial: satu warna, terang ke gelap.
+SEQUENTIAL = [
+    [0.0, "#f2f6fc"],
+    [0.5, "#7aa8e0"],
+    [1.0, "#1b3f77"],
+]
+TINTA = "#131a2b"
+TINTA_REDUP = "#6f7a91"
+GARIS = "#e4e8f0"
+ACUAN = "#8c2f4a"  # garis acuan/ambang, sengaja berbeda dari warna seri
+
+def _template() -> go.layout.Template:
+    """Template Plotly bersama: satu palet, satu huruf, garis bantu yang tenang."""
+    tpl = copy.deepcopy(pio.templates["plotly_white"])
+    tpl.layout.colorway = QUALITATIVE
+    tpl.layout.font = dict(
+        family="system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif",
+        size=12,
+        color=TINTA,
+    )
+    tpl.layout.title = dict(font=dict(size=15, color=TINTA), x=0, xanchor="left")
+    tpl.layout.legend = dict(font=dict(size=11), borderwidth=0)
+    tpl.layout.hoverlabel = dict(font_size=12)
+    tpl.layout.colorscale.sequential = SEQUENTIAL
+    tpl.layout.colorscale.diverging = DIVERGING
+    for sumbu in (tpl.layout.xaxis, tpl.layout.yaxis):
+        sumbu.gridcolor = GARIS
+        sumbu.zerolinecolor = GARIS
+        sumbu.linecolor = GARIS
+        sumbu.title.font.size = 12
+        sumbu.tickfont.color = TINTA_REDUP
+    return tpl
+
+
+pio.templates["lentera"] = _template()
+LAYOUT = dict(template="lentera", margin=dict(l=60, r=30, t=60, b=60))
+
+
+def _rapikan_peta(fig: go.Figure, judul_skala: str) -> go.Figure:
+    """Beri judul pada skala warna dan tenangkan teks di dalam sel."""
+    fig.update_coloraxes(
+        colorbar=dict(
+            title=dict(text=judul_skala, side="right", font=dict(size=11)),
+            thickness=12,
+            outlinewidth=0,
+            tickfont=dict(size=10, color=TINTA_REDUP),
+        )
+    )
+    fig.update_traces(textfont=dict(size=11), xgap=2, ygap=2)
+    fig.update_xaxes(tickangle=-40, tickfont=dict(size=11), showgrid=False)
+    fig.update_yaxes(tickfont=dict(size=11), showgrid=False)
+    return fig
 
 
 def correlation_heatmap(corr: pd.DataFrame, title: str = "Matriks Korelasi") -> go.Figure:
@@ -25,8 +94,8 @@ def correlation_heatmap(corr: pd.DataFrame, title: str = "Matriks Korelasi") -> 
         aspect="auto",
         title=title,
     )
-    fig.update_layout(**LAYOUT, height=max(400, 40 * len(corr) + 200))
-    return fig
+    fig.update_layout(**LAYOUT, height=max(400, 40 * len(corr) + 220))
+    return _rapikan_peta(fig, "Koefisien korelasi (r)")
 
 
 def loadings_heatmap(loadings: pd.DataFrame, title: str = "Matriks Muatan") -> go.Figure:
@@ -39,8 +108,8 @@ def loadings_heatmap(loadings: pd.DataFrame, title: str = "Matriks Muatan") -> g
         aspect="auto",
         title=title,
     )
-    fig.update_layout(**LAYOUT, height=max(400, 35 * len(loadings) + 200))
-    return fig
+    fig.update_layout(**LAYOUT, height=max(400, 35 * len(loadings) + 220))
+    return _rapikan_peta(fig, "Muatan faktor")
 
 
 def scree_plot(
@@ -60,7 +129,7 @@ def scree_plot(
         fig.add_hline(
             y=threshold,
             line_dash="dash",
-            line_color="crimson",
+            line_color=ACUAN,
             annotation_text=f"Kriteria Kaiser ({threshold})",
         )
     fig.update_layout(
@@ -129,13 +198,13 @@ def biplot(
             x=[0, vx],
             y=[0, vy],
             mode="lines+text",
-            line=dict(color="crimson", width=1.5),
+            line=dict(color=ACUAN, width=1.5),
             text=["", str(var)],
             textposition="top center",
             showlegend=False,
         )
-    fig.add_hline(y=0, line_color="lightgray")
-    fig.add_vline(x=0, line_color="lightgray")
+    fig.add_hline(y=0, line_color=GARIS)
+    fig.add_vline(x=0, line_color=GARIS)
     fig.update_layout(**LAYOUT, title=f"Biplot {x} vs {y}", xaxis_title=x, yaxis_title=y, height=560)
     return fig
 
@@ -167,7 +236,7 @@ def scatter_2d(
             x=centers[x],
             y=centers[y],
             mode="markers+text",
-            marker=dict(symbol="x", size=16, color="black", line=dict(width=2)),
+            marker=dict(symbol="x", size=16, color=TINTA, line=dict(width=2)),
             text=centers.index.astype(str),
             textposition="top center",
             name="Centroid",
@@ -240,7 +309,7 @@ def residual_plots(fitted: pd.Series, residuals: pd.Series) -> go.Figure:
         row=1,
         col=1,
     )
-    fig.add_hline(y=0, line_dash="dash", line_color="crimson", row=1, col=1)
+    fig.add_hline(y=0, line_dash="dash", line_color=ACUAN, row=1, col=1)
     fig.add_histogram(
         x=residuals, marker_color=QUALITATIVE[1], showlegend=False, row=1, col=2
     )
@@ -260,7 +329,7 @@ def residual_plots(fitted: pd.Series, residuals: pd.Series) -> go.Figure:
         x=line,
         y=line * slope + residuals.mean(),
         mode="lines",
-        line=dict(color="crimson", dash="dash"),
+        line=dict(color=ACUAN, dash="dash"),
         showlegend=False,
         row=1,
         col=3,
@@ -283,7 +352,7 @@ def roc_plot(roc: pd.DataFrame, auc: float) -> go.Figure:
         y=[0, 1],
         mode="lines",
         name="Tebakan acak",
-        line=dict(color="gray", dash="dash"),
+        line=dict(color=TINTA_REDUP, dash="dash"),
     )
     fig.update_layout(
         **LAYOUT,
@@ -364,7 +433,7 @@ def silhouette_plot(detail: pd.DataFrame) -> go.Figure:
     fig.add_hline(
         y=float(ordered["Silhouette"].mean()),
         line_dash="dash",
-        line_color="crimson",
+        line_color=ACUAN,
         annotation_text="Rata-rata",
     )
     fig.update_layout(**LAYOUT, height=420, xaxis_title="Observasi (diurutkan)")

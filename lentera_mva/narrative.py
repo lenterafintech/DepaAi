@@ -24,6 +24,7 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
+from lentera_mva.formatting import bintang, num, num_auto, pct, pval  # noqa: F401
 from lentera_mva import (
     assumptions,
     cca,
@@ -46,57 +47,29 @@ AUDIENCE_LABELS = {
 STATUS_LABELS = {"baik": "Memadai", "perhatian": "Perlu dicermati", "kritis": "Bermasalah"}
 
 
-# --------------------------------------------------------------------------- #
-# Pembantu format angka bergaya Indonesia (koma sebagai pemisah desimal)
-# --------------------------------------------------------------------------- #
+def tabel_markdown(df: pd.DataFrame) -> str:
+    """Ubah tabel menjadi Markdown tanpa bergantung pada paket tambahan."""
+    kolom = [str(c) for c in df.columns]
+    baris = ["| " + " | ".join(kolom) + " |", "|" + "|".join("---" for _ in kolom) + "|"]
+    for nilai in df.itertuples(index=False):
+        baris.append("| " + " | ".join(str(v).replace("|", "\\|") for v in nilai) + " |")
+    return "\n".join(baris)
 
 
-def num(value: float | int | None, digits: int = 2) -> str:
-    if value is None:
-        return "-"
-    if isinstance(value, (int, np.integer)) and not isinstance(value, bool):
-        return f"{int(value):,}".replace(",", ".")
-    if not np.isfinite(float(value)):
-        return "-"
-    text = f"{float(value):,.{digits}f}"
-    # Tukar pemisah ribuan dan desimal sekaligus ke gaya penulisan Indonesia.
-    return text.translate(str.maketrans({",": ".", ".": ","}))
-
-
-def num_auto(value: float | None, digits: int = 4) -> str:
-    """Seperti :func:`num`, tetapi beralih ke notasi ilmiah untuk nilai sangat kecil."""
-    if value is None:
-        return "-"
-    angka = float(value)
-    if not np.isfinite(angka):
-        return "-"
-    if angka != 0 and abs(angka) < 10**-digits:
-        return f"{angka:.2e}".replace(".", ",")
-    return num(angka, digits)
-
-
-def pval(p: float | None) -> str:
-    if p is None or not np.isfinite(p):
-        return "p tidak tersedia"
-    if p < 0.001:
-        return "p < 0,001"
-    return f"p = {num(p, 3)}"
-
-
-def pct(value: float, digits: int = 1) -> str:
-    return f"{num(value, digits)}%"
-
-
-def bintang(p: float) -> str:
-    if not np.isfinite(p):
-        return ""
-    if p < 0.001:
-        return "***"
-    if p < 0.01:
-        return "**"
-    if p < 0.05:
-        return "*"
-    return ""
+def _daftar(items: list[str], maksimal: int = 3) -> str:
+    """Rangkai daftar menjadi frasa: "a", "a dan b", "a, b, dan c"."""
+    semua = [str(i) for i in items]
+    if not semua:
+        return "tidak ada"
+    dipakai = semua if len(semua) == maksimal + 1 else semua[:maksimal]
+    sisa = len(semua) - len(dipakai)
+    if sisa > 0:
+        return ", ".join(dipakai) + f", dan {sisa} variabel lainnya"
+    if len(dipakai) == 1:
+        return dipakai[0]
+    if len(dipakai) == 2:
+        return f"{dipakai[0]} dan {dipakai[1]}"
+    return ", ".join(dipakai[:-1]) + f", dan {dipakai[-1]}"
 
 
 def _efek_r2(r2: float) -> str:

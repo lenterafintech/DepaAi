@@ -6,7 +6,12 @@ import streamlit as st
 
 from lentera_mva import cca, plots, preprocessing, ui
 
-ui.page_setup("Korelasi Kanonik", "🔀")
+ui.page_setup(
+    "Korelasi Kanonik",
+    "Pemodelan & Uji Beda",
+    "Menguji keterkaitan antara dua gugus variabel sekaligus, bukan sepasang "
+    "variabel satu per satu.",
+)
 df = ui.require_dataset()
 ui.sidebar_info()
 

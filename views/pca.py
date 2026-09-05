@@ -6,7 +6,12 @@ import streamlit as st
 
 from lentera_mva import assumptions, pca_analysis, plots, ui
 
-ui.page_setup("Principal Component Analysis (PCA)", "🧩")
+ui.page_setup(
+    "Principal Component Analysis",
+    "Reduksi Dimensi",
+    "Meringkas banyak variabel menjadi beberapa komponen utama yang tetap "
+    "menyimpan sebagian besar informasi aslinya.",
+)
 df = ui.require_dataset()
 ui.sidebar_info()
 

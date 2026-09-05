@@ -10,7 +10,6 @@ from lentera_mva import kesimpulan_ui as kui
 
 analisis, laporan = kui.buka_ringkasan(
     "Ringkasan Akademik",
-    "🎓",
     "Ditulis untuk mahasiswa dan dosen: statistik uji, derajat bebas, nilai p, ukuran "
     "efek, dan catatan asumsi — lengkap dengan tabel serta paragraf siap salin.",
 )

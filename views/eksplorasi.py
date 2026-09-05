@@ -6,7 +6,12 @@ import streamlit as st
 
 from lentera_mva import descriptive, plots, preprocessing, ui
 
-ui.page_setup("Eksplorasi Data", "🔍")
+ui.page_setup(
+    "Eksplorasi Data",
+    "Data",
+    "Statistik deskriptif, bentuk sebaran, uji normalitas, dan deteksi pencilan — "
+    "pemeriksaan yang perlu dilakukan sebelum metode lain dijalankan.",
+)
 df = ui.require_dataset()
 ui.sidebar_info()
 

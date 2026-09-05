@@ -12,27 +12,27 @@ st.session_state["_page_configured"] = True
 
 PAGES = {
     "Data": [
-        st.Page("views/beranda.py", title="Beranda & Data", icon="🧭", default=True),
-        st.Page("views/eksplorasi.py", title="Eksplorasi Data", icon="🔍"),
-        st.Page("views/korelasi.py", title="Korelasi & Asumsi", icon="🔗"),
+        st.Page("views/beranda.py", title="Beranda & Data", icon=":material/database:", default=True),
+        st.Page("views/eksplorasi.py", title="Eksplorasi Data", icon=":material/search_insights:"),
+        st.Page("views/korelasi.py", title="Korelasi & Asumsi", icon=":material/linked_services:"),
     ],
     "Reduksi Dimensi": [
-        st.Page("views/pca.py", title="PCA", icon="🧩"),
-        st.Page("views/analisis_faktor.py", title="Analisis Faktor", icon="🧠"),
+        st.Page("views/pca.py", title="PCA", icon=":material/compress:"),
+        st.Page("views/analisis_faktor.py", title="Analisis Faktor", icon=":material/hub:"),
     ],
     "Pengelompokan": [
-        st.Page("views/klaster.py", title="Analisis Klaster", icon="🎯"),
+        st.Page("views/klaster.py", title="Analisis Klaster", icon=":material/scatter_plot:"),
     ],
     "Pemodelan & Uji Beda": [
-        st.Page("views/regresi.py", title="Regresi", icon="📈"),
-        st.Page("views/diskriminan.py", title="Analisis Diskriminan", icon="🧭"),
-        st.Page("views/manova.py", title="MANOVA", icon="⚖️"),
-        st.Page("views/korelasi_kanonik.py", title="Korelasi Kanonik", icon="🔀"),
+        st.Page("views/regresi.py", title="Regresi", icon=":material/trending_up:"),
+        st.Page("views/diskriminan.py", title="Analisis Diskriminan", icon=":material/rule:"),
+        st.Page("views/manova.py", title="MANOVA", icon=":material/balance:"),
+        st.Page("views/korelasi_kanonik.py", title="Korelasi Kanonik", icon=":material/compare_arrows:"),
     ],
     "Ringkasan Kesimpulan": [
-        st.Page("views/ringkasan_eksekutif.py", title="Ringkasan Eksekutif", icon="📋"),
-        st.Page("views/ringkasan_akademik.py", title="Ringkasan Akademik", icon="🎓"),
-        st.Page("views/ringkasan_profesional.py", title="Ringkasan Profesional", icon="🛠️"),
+        st.Page("views/ringkasan_eksekutif.py", title="Ringkasan Eksekutif", icon=":material/summarize:"),
+        st.Page("views/ringkasan_akademik.py", title="Ringkasan Akademik", icon=":material/school:"),
+        st.Page("views/ringkasan_profesional.py", title="Ringkasan Profesional", icon=":material/engineering:"),
     ],
 }
 

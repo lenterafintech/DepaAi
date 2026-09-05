@@ -7,7 +7,12 @@ import streamlit as st
 
 from lentera_mva import clustering, pca_analysis, plots, ui
 
-ui.page_setup("Analisis Klaster", "🎯")
+ui.page_setup(
+    "Analisis Klaster",
+    "Pengelompokan",
+    "Mengelompokkan observasi yang berkarakter mirip, lalu memeriksa seberapa "
+    "tegas kelompok-kelompok itu benar-benar terpisah.",
+)
 df = ui.require_dataset()
 ui.sidebar_info()
 

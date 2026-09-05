@@ -6,7 +6,12 @@ import streamlit as st
 
 from lentera_mva import assumptions, correlation, plots, ui
 
-ui.page_setup("Korelasi & Uji Asumsi", "🔗")
+ui.page_setup(
+    "Korelasi & Uji Asumsi",
+    "Data",
+    "Kekuatan hubungan antarvariabel beserta pemeriksaan kelayakan data: KMO, "
+    "Bartlett, multikolinearitas, dan homogenitas.",
+)
 df = ui.require_dataset()
 ui.sidebar_info()
 

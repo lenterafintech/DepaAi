@@ -6,7 +6,12 @@ import streamlit as st
 
 from lentera_mva import assumptions, discriminant, plots, preprocessing, ui
 
-ui.page_setup("Analisis Diskriminan", "🧭")
+ui.page_setup(
+    "Analisis Diskriminan",
+    "Pemodelan & Uji Beda",
+    "Mencari kombinasi variabel yang paling membedakan kelompok, sekaligus "
+    "menguji seberapa tepat keanggotaan kelompok dapat diprediksi.",
+)
 df = ui.require_dataset()
 ui.sidebar_info()
 

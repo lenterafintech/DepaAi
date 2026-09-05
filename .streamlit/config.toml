@@ -5,3 +5,19 @@ port = 8503
 
 [browser]
 gatherUsageStats = false
+
+# Palet laporan keuangan: netral berbias biru dengan aksen navy. Warna status
+# (hijau/amber/merah bata) didefinisikan di lentera_mva/ui.py karena Streamlit
+# hanya menyediakan satu warna aksen di sini.
+[theme]
+base = "light"
+primaryColor = "#26356b"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f4f6fb"
+textColor = "#131a2b"
+linkColor = "#3b4ea0"
+borderColor = "#dde3ee"
+font = "sans-serif"
+headingFont = "sans-serif"
+codeFont = "monospace"
+baseRadius = "medium"

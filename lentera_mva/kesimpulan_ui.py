@@ -186,21 +186,26 @@ def matriks_prioritas(laporan: nr.Laporan) -> go.Figure:
     """Sebar pendorong: kepentingan (kekuatan pengaruh) terhadap kinerja saat ini."""
     p = palet()
     titik = [d for d in laporan.pendorong if d.kinerja is not None]
+    # Label langsung hanya untuk faktor yang kekuatannya minimal separuh dari yang
+    # terkuat; faktor lemah menumpuk di kuadran bawah, jadi namanya cukup lewat
+    # tooltip agar tidak saling menimpa.
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
             x=[d.kinerja for d in titik],
             y=[d.kekuatan * 100 for d in titik],
             mode="markers+text",
-            text=[d.nama for d in titik],
+            text=[d.nama if (d.signifikan and d.kekuatan >= 0.5) else "" for d in titik],
             textposition="top center",
+            textfont=dict(size=11),
+            customdata=[d.nama for d in titik],
             marker=dict(
                 size=14,
                 color=[p["accent2"] if d.signifikan else p["muted"] for d in titik],
                 line=dict(width=1.5, color="rgba(255,255,255,.7)"),
             ),
             hovertemplate=(
-                "<b>%{text}</b><br>Kepentingan: %{y:.0f}/100<br>"
+                "<b>%{customdata}</b><br>Kepentingan: %{y:.0f}/100<br>"
                 "Kinerja saat ini: persentil %{x:.0f}<extra></extra>"
             ),
         )
@@ -387,13 +392,12 @@ def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan]:
     return st.session_state["kesimpulan_analisis"], laporan
 
 
-def buka_ringkasan(judul: str, ikon: str, pengantar: str) -> tuple[nr.Analisis, nr.Laporan]:
+def buka_ringkasan(judul: str, pengantar: str) -> tuple[nr.Analisis, nr.Laporan]:
     """Rangkaian pembuka yang sama untuk ketiga halaman ringkasan."""
-    ui.page_setup(judul, ikon)
+    ui.page_setup(judul, "Ringkasan Kesimpulan", pengantar)
     df = ui.require_dataset()
     ui.sidebar_info()
     pasang_gaya()
-    st.caption(pengantar)
     analisis, laporan = siapkan_laporan(df)
     kartu_headline(laporan)
     st.subheader("Status pemeriksaan")

@@ -7,19 +7,78 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from lentera_mva import preprocessing
+from lentera_mva import formatting, preprocessing
 
 DATA_KEY = "dataset"
 NAME_KEY = "dataset_name"
 SAMPLE_PATH = Path(__file__).resolve().parents[1] / "data" / "contoh_data_nasabah.csv"
 
+# Palet laporan: netral berbias biru, aksen navy, warna status terpisah dari aksen.
+WARNA = {
+    "tinta": "#131a2b",
+    "tinta2": "#3d4860",
+    "redup": "#6f7a91",
+    "garis": "#dde3ee",
+    "aksen": "#26356b",
+    "aksen2": "#3b4ea0",
+    "aksenSamar": "#eef1f8",
+    "baik": "#1b6f4a",
+    "baikSamar": "#e4f0ea",
+    "perhatian": "#96690b",
+    "perhatianSamar": "#f8f1e0",
+    "kritis": "#9c3327",
+    "kritisSamar": "#f7e7e4",
+}
 
-def page_setup(title: str, icon: str = "📊") -> None:
-    """Judul halaman. Konfigurasi global diatur sekali di app.py."""
+_GAYA = f"""
+<style>
+/* Lebar halaman dibatasi agar baris teks tidak membentang terlalu panjang. */
+.block-container {{max-width: 1200px; padding-top: 2.2rem; padding-bottom: 4rem}}
+.block-container [data-testid="stMarkdownContainer"] p,
+.block-container [data-testid="stMarkdownContainer"] li {{max-width: 76ch}}
+
+/* Kepala halaman: kicker kecil, judul, deskripsi, lalu garis pemisah. */
+.mva-head {{margin: 0 0 1.4rem}}
+.mva-head .kicker {{font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+  color: {WARNA['aksen2']}; font-weight: 700; margin-bottom: .45rem}}
+.mva-head h1 {{font-size: 1.85rem; line-height: 1.2; font-weight: 700; margin: 0;
+  letter-spacing: -.015em; color: {WARNA['tinta']}}}
+.mva-head .desc {{font-size: .95rem; line-height: 1.6; color: {WARNA['tinta2']};
+  margin: .5rem 0 0; max-width: 76ch}}
+.mva-head hr {{border: 0; border-top: 1px solid {WARNA['garis']}; margin: 1.1rem 0 0}}
+
+/* Kotak "cara membaca" dibuat tenang, bukan biru menyala bawaan. */
+.mva-baca {{border-left: 3px solid {WARNA['aksen2']}; background: {WARNA['aksenSamar']};
+  padding: .8rem 1rem; border-radius: 0 8px 8px 0; margin: .6rem 0 1rem;
+  font-size: .88rem; line-height: 1.6; color: {WARNA['tinta2']}; max-width: 82ch}}
+.mva-baca b {{color: {WARNA['tinta']}}}
+
+/* Panel data aktif pada sidebar. */
+.mva-data {{border: 1px solid {WARNA['garis']}; border-radius: 9px; padding: .6rem .75rem;
+  background: {WARNA['aksenSamar']}}}
+.mva-data .nama {{font-size: .82rem; font-weight: 650; color: {WARNA['tinta']};
+  overflow-wrap: anywhere}}
+.mva-data .rinci {{font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .72rem; color: {WARNA['redup']}; margin-top: .2rem}}
+</style>
+"""
+
+
+def page_setup(title: str, kicker: str = "Lentera MVA", description: str = "") -> None:
+    """Kepala halaman standar: kicker, judul, deskripsi, garis pemisah.
+
+    Ikon sengaja tidak dipakai di sini — penanda visual tiap halaman sudah ada pada
+    menu sisi kiri, sehingga judul cukup berupa teks dan tidak menyaingi isi halaman.
+    """
     if not st.session_state.get("_page_configured"):
         st.set_page_config(page_title="Lentera MVA", page_icon="📊", layout="wide")
         st.session_state["_page_configured"] = True
-    st.title(f"{icon} {title}")
+    st.html(_GAYA)
+    deskripsi = f'<p class="desc">{description}</p>' if description else ""
+    st.html(
+        f'<div class="mva-head"><div class="kicker">{kicker}</div>'
+        f"<h1>{title}</h1>{deskripsi}<hr></div>"
+    )
 
 
 def set_dataset(df: pd.DataFrame, name: str) -> None:
@@ -51,15 +110,20 @@ def require_dataset() -> pd.DataFrame:
 
 
 def sidebar_info() -> None:
+    """Ringkasan data aktif pada sidebar, dibuat ringkas agar tidak memakan ruang."""
     df = get_dataset()
     with st.sidebar:
-        st.markdown("### Data aktif")
+        st.divider()
         if df is None:
             st.caption("Belum ada data dimuat.")
             return
-        st.caption(st.session_state.get(NAME_KEY, "data"))
-        st.metric("Baris", f"{len(df):,}".replace(",", "."))
-        st.metric("Kolom", df.shape[1])
+        nama = st.session_state.get(NAME_KEY, "data")
+        numerik = len(preprocessing.numeric_columns(df))
+        st.html(
+            f'<div class="mva-data"><div class="nama">{nama}</div>'
+            f'<div class="rinci">{formatting.num(len(df))} baris · {df.shape[1]} kolom · '
+            f"{numerik} numerik</div></div>"
+        )
 
 
 def numeric_selector(
@@ -104,31 +168,61 @@ def group_selector(
 
 
 def format_number(value: object) -> str:
-    """Format angka desimal: notasi ilmiah untuk nilai sangat kecil/besar."""
+    """Angka desimal bergaya Indonesia, dengan notasi ilmiah untuk nilai ekstrem."""
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return "-"
     number = float(value)
-    magnitude = abs(number)
-    if magnitude != 0 and (magnitude < 1e-4 or magnitude >= 1e7):
-        return f"{number:.3e}"
+    besaran = abs(number)
+    if besaran != 0 and (besaran < 1e-4 or besaran >= 1e9):
+        return f"{number:.3e}".replace(".", ",")
     if number.is_integer():
-        return f"{number:,.0f}"
-    return f"{number:,.4f}"
+        return formatting.num(int(number))
+    return formatting.num(number, 4)
+
+
+def _warna_keputusan(nilai: object) -> str:
+    nada = formatting.nada_keputusan(nilai)
+    if nada == "baik":
+        return f"color: {WARNA['baik']}; font-weight: 600"
+    if nada == "buruk":
+        return f"color: {WARNA['kritis']}; font-weight: 600"
+    return ""
 
 
 def styled(df: pd.DataFrame):
-    """Terapkan pemformatan angka pada seluruh kolom desimal."""
-    float_cols = [c for c in df.columns if pd.api.types.is_float_dtype(df[c])]
-    return df.style.format({c: format_number for c in float_cols}) if float_cols else df
+    """Format angka, nilai p, dan beri warna pada kolom keputusan.
+
+    Penataan dilewati pada tabel panjang (misalnya pratinjau data mentah) karena
+    biayanya tidak sebanding dengan manfaatnya di sana.
+    """
+    if len(df) > 250:
+        return df
+    format_kolom: dict = {}
+    for kolom in df.columns:
+        if not pd.api.types.is_numeric_dtype(df[kolom]):
+            continue
+        if formatting.kolom_p(kolom):
+            format_kolom[kolom] = formatting.pval_ringkas
+        elif pd.api.types.is_float_dtype(df[kolom]):
+            format_kolom[kolom] = format_number
+        else:
+            format_kolom[kolom] = formatting.num
+    kolom_keputusan = [c for c in df.columns if formatting.kolom_keputusan(c)]
+    if not format_kolom and not kolom_keputusan:
+        return df
+    gaya = df.style.format(format_kolom) if format_kolom else df.style
+    if kolom_keputusan:
+        gaya = gaya.map(_warna_keputusan, subset=kolom_keputusan)
+    return gaya
 
 
 def show_table(df: pd.DataFrame, filename: str, height: int | None = None) -> None:
     """Tampilkan tabel beserta tombol unduh CSV."""
-    display = styled(df)
+    tampilan = styled(df)
     if height is None:
-        st.dataframe(display, width="stretch")
+        st.dataframe(tampilan, width="stretch", hide_index=True)
     else:
-        st.dataframe(display, width="stretch", height=height)
+        st.dataframe(tampilan, width="stretch", height=height, hide_index=True)
     st.download_button(
         "Unduh tabel (CSV)",
         df.to_csv(index=False).encode("utf-8"),
@@ -139,7 +233,7 @@ def show_table(df: pd.DataFrame, filename: str, height: int | None = None) -> No
 
 
 def interpretation(text: str) -> None:
-    st.info(f"**Cara membaca:** {text}")
+    st.html(f'<div class="mva-baca"><b>Cara membaca:</b> {text}</div>')
 
 
 def method_note(title: str, body: str) -> None:

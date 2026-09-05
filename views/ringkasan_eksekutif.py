@@ -9,7 +9,6 @@ from lentera_mva import ui
 
 analisis, laporan = kui.buka_ringkasan(
     "Ringkasan Eksekutif",
-    "📋",
     "Ditulis untuk pimpinan dan pembaca non-statistik: bahasa sehari-hari, fokus pada "
     "apa artinya dan apa yang sebaiknya dilakukan.",
 )
@@ -22,6 +21,10 @@ if laporan.pendorong:
     with kanan:
         if any(p.kinerja is not None for p in laporan.pendorong):
             st.plotly_chart(kui.matriks_prioritas(laporan), width="stretch")
+            st.caption(
+                "Hanya faktor terkuat yang diberi nama pada grafik; arahkan kursor ke "
+                "titik lain untuk melihat namanya."
+            )
     ui.interpretation(
         "Panjang batang menunjukkan seberapa kuat pengaruh sebuah faktor dibanding faktor "
         "terkuat. Pada matriks di sampingnya, faktor di kuadran kiri atas adalah yang "

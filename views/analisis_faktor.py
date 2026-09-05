@@ -6,7 +6,12 @@ import streamlit as st
 
 from lentera_mva import assumptions, factor_analysis, pca_analysis, plots, ui
 
-ui.page_setup("Analisis Faktor Eksploratori", "🧠")
+ui.page_setup(
+    "Analisis Faktor Eksploratori",
+    "Reduksi Dimensi",
+    "Menemukan faktor laten yang menjelaskan pola korelasi antarvariabel, lalu "
+    "memutarnya agar tiap faktor lebih mudah ditafsirkan.",
+)
 df = ui.require_dataset()
 ui.sidebar_info()
 
