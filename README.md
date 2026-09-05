@@ -14,7 +14,7 @@ interpretasinya dalam bahasa Indonesia.
 | Pengelompokan | K-Means (elbow, silhouette, Calinski-Harabasz, Davies-Bouldin), hierarki + dendrogram, DBSCAN, profil klaster dengan uji ANOVA |
 | Pemodelan | Regresi linear berganda (koefisien baku, ANOVA, VIF, uji asumsi klasik, stepwise) dan regresi logistik biner (odds ratio, ROC/AUC, matriks konfusi) |
 | Uji beda & hubungan | Analisis diskriminan linear/kuadratik (fungsi kanonik, Wilks' lambda), MANOVA satu jalur + Hotelling's T², korelasi kanonik dengan indeks redundansi |
-| Pelaporan | Kesimpulan otomatis dalam tiga register pembaca (eksekutif/awam, akademik, profesional) lengkap dengan lampu status, peringkat pendorong, matriks prioritas, tabel bergaya APA, paragraf siap salin, rekomendasi, dan keterbatasan |
+| Ringkasan kesimpulan | Tiga halaman ringkasan terpisah — Eksekutif, Akademik, Profesional — yang menuliskan satu hasil analisis dengan lampu status, peringkat pendorong, matriks prioritas, tabel bergaya APA, paragraf siap salin, rekomendasi, dan keterbatasan |
 
 ## Menjalankan aplikasi
 
@@ -29,24 +29,24 @@ Aplikasi terbuka di <http://localhost:8502> (port diatur pada `.streamlit/config
 untuk mengunggah berkas, atau tekan *Muat contoh data nasabah* untuk mencoba
 seluruh metode dengan data contoh.
 
-## Halaman Kesimpulan Analisis
+## Tiga halaman ringkasan
 
-Halaman **Kesimpulan Analisis** menjalankan seluruh rangkaian metode sekaligus pada
-data aktif, lalu menuliskan hasilnya sebagai narasi untuk tiga pembaca berbeda:
+Kelompok menu **Ringkasan Kesimpulan** berisi tiga halaman terpisah yang dapat dipilih
+pengguna. Ketiganya menjalankan rangkaian metode yang sama pada data aktif, namun
+menuliskan hasilnya untuk pembaca yang berbeda:
 
-- **Eksekutif & pengguna awam** — pernyataan kesimpulan utama, lampu status
-  pemeriksaan, peringkat pendorong beserta matriks prioritas (kepentingan terhadap
-  kinerja), rekomendasi tindakan, dan batas kesimpulan; ditulis tanpa notasi statistik.
-- **Akademik (mahasiswa & dosen)** — pelaporan bergaya jurnal lengkap dengan statistik
-  uji, derajat bebas, p-value, dan ukuran efek; tabel bergaya APA (deskriptif +
-  korelasi berbintang, regresi, MANOVA, ringkasan asumsi); paragraf siap salin untuk
-  bab metode, hasil, dan pembahasan; keterbatasan serta rujukan ambang yang dipakai.
-- **Profesional & analis** — metrik kunci model, kontribusi fitur, temuan teknis,
-  ringkasan pemeriksaan asumsi, tindak lanjut berprioritas, dan risiko pemakaian.
+| Halaman | Untuk siapa | Isinya |
+| --- | --- | --- |
+| **Ringkasan Eksekutif** | Pimpinan dan pembaca non-statistik | Kesimpulan utama, lampu status pemeriksaan, peringkat pendorong beserta matriks prioritas (kepentingan terhadap kinerja), rekomendasi tindakan berprioritas, dan batas kesimpulan — tanpa notasi statistik |
+| **Ringkasan Akademik** | Mahasiswa dan dosen | Pelaporan bergaya jurnal (statistik uji, derajat bebas, p-value, ukuran efek), tabel bergaya APA, paragraf siap salin untuk bab metode/hasil/pembahasan, keterbatasan, dan rujukan ambang |
+| **Ringkasan Profesional** | Analis dan praktisi | Metrik kunci model, kontribusi fitur, temuan teknis, ringkasan pemeriksaan asumsi, tindak lanjut berprioritas, dan risiko pemakaian |
 
-Setiap register dapat diunduh sebagai laporan HTML mandiri (siap dicetak menjadi PDF)
-atau berkas Markdown. Seluruh angka dihitung ulang dari data yang sedang aktif —
-tidak ada nilai contoh yang ditanam.
+Pengaturan cakupan analisis (variabel, target, prediktor, kelompok) dibuat sekali dan
+berlaku untuk ketiga halaman; hasil perhitungan dipakai ulang sehingga berpindah
+halaman tidak menghitung ulang. Tiap halaman menyediakan unduhan laporan HTML mandiri
+(siap dicetak menjadi PDF) dan Markdown untuk registernya, serta satu berkas HTML
+berisi ketiga ringkasan sekaligus untuk pembaca campuran. Seluruh angka dihitung ulang
+dari data yang sedang aktif — tidak ada nilai contoh yang ditanam.
 
 ## Format data yang didukung
 
@@ -76,6 +76,7 @@ lentera_mva/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   cca.py               Korelasi kanonik
   narrative.py         Penyusun kesimpulan naratif tiga register pembaca
   report_html.py       Laporan HTML mandiri yang dapat diunduh
+  kesimpulan_ui.py     Komponen bersama ketiga halaman ringkasan
   plots.py             Visualisasi Plotly
   ui.py                Komponen antarmuka bersama
 data/                  Contoh data

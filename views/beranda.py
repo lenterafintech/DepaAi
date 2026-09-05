@@ -29,11 +29,28 @@ METHODS = [
     ("🔀 Korelasi Kanonik", "Hubungan antara dua gugus variabel sekaligus"),
 ]
 
+RINGKASAN = [
+    ("📋 Ringkasan Eksekutif", "Kesimpulan, pendorong utama, dan rekomendasi tanpa notasi statistik"),
+    ("🎓 Ringkasan Akademik", "Pelaporan bergaya jurnal, tabel APA, dan paragraf siap salin"),
+    ("🛠️ Ringkasan Profesional", "Metrik model, pemeriksaan asumsi, dan tindak lanjut teknis"),
+]
+
 st.subheader("Metode yang tersedia")
 cols = st.columns(3)
 for i, (name, desc) in enumerate(METHODS):
     with cols[i % 3]:
         st.markdown(f"**{name}**  \n{desc}")
+
+st.subheader("Ringkasan kesimpulan")
+st.caption(
+    "Setelah data dimuat, ketiga halaman ini menjalankan seluruh metode di atas "
+    "sekaligus lalu menuliskan kesimpulannya untuk pembaca yang berbeda. Pilih salah "
+    "satu sesuai kepada siapa hasilnya akan disampaikan."
+)
+kartu = st.columns(3)
+for kolom, (nama, keterangan) in zip(kartu, RINGKASAN):
+    with kolom:
+        st.markdown(f"**{nama}**  \n{keterangan}")
 
 st.divider()
 st.subheader("1. Muat data")

@@ -29,9 +29,13 @@ PAGES = {
         st.Page("views/manova.py", title="MANOVA", icon="⚖️"),
         st.Page("views/korelasi_kanonik.py", title="Korelasi Kanonik", icon="🔀"),
     ],
-    "Pelaporan": [
-        st.Page("views/kesimpulan.py", title="Kesimpulan Analisis", icon="🧾"),
+    "Ringkasan Kesimpulan": [
+        st.Page("views/ringkasan_eksekutif.py", title="Ringkasan Eksekutif", icon="📋"),
+        st.Page("views/ringkasan_akademik.py", title="Ringkasan Akademik", icon="🎓"),
+        st.Page("views/ringkasan_profesional.py", title="Ringkasan Profesional", icon="🛠️"),
     ],
 }
 
-st.navigation(PAGES).run()
+# expanded=True agar seluruh halaman terlihat; tanpa ini Streamlit
+# menyembunyikan halaman ke-11 dan seterusnya di balik "View more".
+st.navigation(PAGES, expanded=True).run()
