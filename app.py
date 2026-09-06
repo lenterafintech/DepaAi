@@ -42,10 +42,11 @@ PAGES = {
         st.Page("views/masuk.py", title="Masuk / Daftar", icon=":material/login:"),
         st.Page("views/akun.py", title="Akun & Langganan", icon=":material/workspace_premium:"),
     ],
-    "Ringkasan Kesimpulan": [
-        st.Page("views/ringkasan_eksekutif.py", title="Ringkasan Eksekutif", icon=":material/summarize:"),
-        st.Page("views/ringkasan_akademik.py", title="Ringkasan Akademik", icon=":material/school:"),
-        st.Page("views/ringkasan_profesional.py", title="Ringkasan Profesional", icon=":material/engineering:"),
+    "Laporan Analisis": [
+        st.Page("views/ringkasan_eksekutif.py", title="Umum", icon=":material/summarize:"),
+        st.Page("views/ringkasan_akademik.py", title="Mahasiswa & Pengajar", icon=":material/school:"),
+        st.Page("views/ringkasan_profesional.py", title="Profesional", icon=":material/engineering:"),
+        st.Page("views/laporan.py", title="Laporan Hasil", icon=":material/inventory_2:"),
     ],
 }
 

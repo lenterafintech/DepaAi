@@ -7,10 +7,11 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from lentera_mva import formatting, langganan, pengguna as pg, preprocessing
+from lentera_mva import formatting, keranjang as kr, langganan, pengguna as pg, preprocessing
 
 DATA_KEY = "dataset"
 NAME_KEY = "dataset_name"
+KERANJANG_KEY = "keranjang_hasil"
 SAMPLE_PATH = Path(__file__).resolve().parents[1] / "data" / "contoh_data_nasabah.csv"
 
 # Palet laporan: netral berbias biru, aksen navy, warna status terpisah dari aksen.
@@ -109,7 +110,7 @@ def set_pengguna(akun: pg.Pengguna) -> None:
 
 def keluar() -> None:
     """Akhiri sesi dan bersihkan data yang sedang dianalisis."""
-    for kunci in (PENGGUNA_KEY, PAKET_KEY, DATA_KEY, NAME_KEY):
+    for kunci in (PENGGUNA_KEY, PAKET_KEY, DATA_KEY, NAME_KEY, KERANJANG_KEY):
         st.session_state.pop(kunci, None)
 
 
@@ -287,6 +288,28 @@ def _warna_keputusan(nilai: object) -> str:
     return ""
 
 
+def keranjang() -> kr.Keranjang:
+    """Keranjang hasil milik sesi ini, dibuat saat pertama kali dipakai."""
+    if KERANJANG_KEY not in st.session_state:
+        st.session_state[KERANJANG_KEY] = kr.Keranjang()
+    return st.session_state[KERANJANG_KEY]
+
+
+def tanda_data() -> str:
+    """Identitas data aktif, dipakai menandai hasil yang datanya sudah berganti."""
+    df = get_dataset()
+    if df is None:
+        return ""
+    nama = st.session_state.get(NAME_KEY, "data")
+    return f"{nama}#{len(df)}x{df.shape[1]}"
+
+
+def _judul_dari_berkas(filename: str) -> str:
+    """Judul cadangan dari nama berkas unduhan, misalnya regresi_koefisien.csv."""
+    dasar = str(filename).rsplit(".", 1)[0]
+    return dasar.replace("_", " ").strip().capitalize() or "Tabel hasil"
+
+
 def styled(df: pd.DataFrame):
     """Format angka, nilai p, dan beri warna pada kolom keputusan.
 
@@ -314,8 +337,20 @@ def styled(df: pd.DataFrame):
     return gaya
 
 
-def show_table(df: pd.DataFrame, filename: str, height: int | None = None) -> None:
-    """Tampilkan tabel beserta tombol unduh CSV."""
+def show_table(
+    df: pd.DataFrame,
+    filename: str,
+    height: int | None = None,
+    bagian: str | None = None,
+    judul: str | None = None,
+    catatan: str = "",
+) -> None:
+    """Tampilkan tabel beserta tombol unduh CSV.
+
+    Bila ``bagian`` diisi, tabel dapat disimpan ke keranjang hasil sehingga ikut
+    terbawa ke berkas ekspor. Argumen itu sengaja opsional agar puluhan pemanggilan
+    yang sudah ada tetap berjalan tanpa diubah.
+    """
     tampilan = styled(df)
     if height is None:
         st.dataframe(tampilan, width="stretch", hide_index=True)
@@ -328,10 +363,52 @@ def show_table(df: pd.DataFrame, filename: str, height: int | None = None) -> No
         mime="text/csv",
         key=f"dl_{filename}_{abs(hash(tuple(df.columns))) % 10**6}",
     )
+    if bagian:
+        simpan_ke_keranjang(bagian, judul or _judul_dari_berkas(filename), df, catatan)
 
 
-def interpretation(text: str) -> None:
+def interpretation(text: str, bagian: str | None = None) -> None:
     st.html(f'<div class="mva-baca"><b>Cara membaca:</b> {text}</div>')
+    if bagian:
+        simpan_ke_keranjang(bagian, "Cara membaca", teks=text, jenis="tafsiran")
+
+
+def simpan_ke_keranjang(
+    bagian: str,
+    judul: str,
+    tabel: pd.DataFrame | None = None,
+    catatan: str = "",
+    teks: str = "",
+    jenis: str = "tabel",
+) -> None:
+    """Tombol simpan satu hasil ke keranjang, beserta penanda bila sudah tersimpan.
+
+    Penyimpanan sengaja atas permintaan pengguna, bukan otomatis: menangkap setiap
+    tabel yang pernah terlihat akan memenuhi laporan dengan keluaran percobaan yang
+    tidak jadi dipakai.
+    """
+    isi = keranjang()
+    calon = kr.Item(
+        bagian=bagian,
+        judul=judul,
+        jenis=jenis,
+        tabel=tabel,
+        teks=teks,
+        catatan=catatan,
+        tanda_data=tanda_data(),
+    )
+    sudah = any(i.sidik == calon.sidik for i in isi.item)
+    kunci = f"simpan_{calon.sidik}"
+    if sudah:
+        st.caption(":material/check: Tersimpan di **Laporan Hasil**.")
+        return
+    if st.button(
+        "Simpan ke laporan",
+        key=kunci,
+        help="Hasil ini akan muncul di halaman Laporan Hasil dan ikut saat diekspor.",
+    ):
+        isi.tambah(calon)
+        st.rerun()
 
 
 def method_note(title: str, body: str) -> None:

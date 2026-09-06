@@ -9,9 +9,10 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 ROOT = Path(__file__).resolve().parents[1]
-# Beranda dan halaman entri sengaja tetap berguna tanpa data aktif: keduanya
-# justru tempat data dibuat, jadi tidak ikut diuji sebagai halaman yang menuntut data.
-MANDIRI = {"beranda", "entri_data", "akun", "masuk"}
+# Halaman yang sengaja tetap berguna tanpa data aktif. Beranda dan entri data
+# justru tempat data dibuat; Laporan Hasil menampilkan hasil yang sudah disimpan,
+# yang tetap sah dibaca sekalipun datanya sudah tidak dimuat lagi.
+MANDIRI = {"beranda", "entri_data", "akun", "masuk", "laporan"}
 PAGES = sorted(p for p in (ROOT / "views").glob("*.py") if p.stem not in MANDIRI)
 SEMUA = sorted((ROOT / "views").glob("*.py"))
 SAMPLE = ROOT / "data" / "contoh_data_nasabah.csv"
@@ -95,3 +96,25 @@ def test_halaman_masuk_menawarkan_pendaftaran():
     app = _run(ROOT / "views" / "masuk.py", None, paket="gratis")
     assert not app.exception
     assert any("Paket yang tersedia" in str(s.value) for s in app.subheader)
+
+
+def test_laporan_hasil_tanpa_keranjang_menjelaskan_caranya():
+    """Halaman Laporan Hasil harus berguna sekalipun belum ada yang disimpan."""
+    app = _run(ROOT / "views" / "laporan.py", None)
+    assert not app.exception
+    pesan = " ".join(i.value for i in app.info)
+    assert "Simpan ke laporan" in pesan
+
+
+def test_laporan_hasil_menampilkan_isi_keranjang(sample):
+    from lentera_mva import keranjang as kr
+
+    isi = kr.Keranjang()
+    isi.tambah_tabel("Regresi linear", "Koefisien regresi", sample.head(3))
+    app = AppTest.from_file(str(ROOT / "views" / "laporan.py"), default_timeout=180)
+    app.session_state["paket_langganan"] = "profesional"
+    app.session_state["keranjang_hasil"] = isi
+    app.run()
+    assert not app.exception
+    tajuk = " ".join(h.value for h in app.subheader)
+    assert "Daftar isi" in tajuk and "Ekspor laporan" in tajuk

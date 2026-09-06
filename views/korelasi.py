@@ -97,7 +97,12 @@ with tab_multicol:
     except ValueError as exc:
         st.error(str(exc))
     else:
-        ui.show_table(table, "vif.csv")
+        ui.show_table(
+            table,
+            "vif.csv",
+            bagian="Multikolinearitas",
+            judul="Nilai VIF",
+        )
         worst = table.loc[table["VIF"].idxmax()]
         if worst["VIF"] >= 10:
             st.warning(

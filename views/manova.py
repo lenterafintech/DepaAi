@@ -48,7 +48,12 @@ tab_main, tab_uni, tab_cov, tab_desc, tab_assum = st.tabs(
 
 with tab_main:
     st.subheader("Statistik uji multivariat")
-    ui.show_table(result.multivariate, "manova_multivariat.csv")
+    ui.show_table(
+            result.multivariate,
+            "manova_multivariat.csv",
+            bagian="MANOVA",
+            judul="Uji multivariat",
+        )
     if result.multivariate["p-value"].min() < 0.05:
         st.success(result.conclusion())
     else:
@@ -101,7 +106,12 @@ with tab_cov:
             st.error(str(exc))
         else:
             st.subheader("Uji multivariat setelah kovariat dikendalikan")
-            ui.show_table(hasil_cov.multivariate, "mancova_multivariat.csv")
+            ui.show_table(
+            hasil_cov.multivariate,
+            "mancova_multivariat.csv",
+            bagian="MANCOVA",
+            judul="Uji multivariat terkoreksi",
+        )
             if hasil_cov.signifikan():
                 st.success(hasil_cov.conclusion(), icon=":material/check_circle:")
             else:

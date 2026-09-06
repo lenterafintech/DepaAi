@@ -63,7 +63,12 @@ with tab_func:
         st.markdown("**Ringkasan fungsi kanonik**")
         ui.show_table(result.eigenvalues, "diskriminan_eigenvalue.csv")
         st.markdown("**Uji signifikansi fungsi (Wilks' lambda)**")
-        ui.show_table(result.wilks, "diskriminan_wilks.csv")
+        ui.show_table(
+            result.wilks,
+            "diskriminan_wilks.csv",
+            bagian="Analisis diskriminan",
+            judul="Wilks' lambda",
+        )
         ui.interpretation(
             "Fungsi dengan p < 0,05 berarti benar-benar membedakan kelompok. Korelasi "
             "kanonik menunjukkan kekuatan hubungan antara fungsi tersebut dan "
@@ -122,7 +127,12 @@ with tab_class:
 
 with tab_group:
     st.markdown("**Rata-rata prediktor tiap kelompok (centroid)**")
-    ui.show_table(result.group_means, "diskriminan_centroid.csv")
+    ui.show_table(
+            result.group_means,
+            "diskriminan_centroid.csv",
+            bagian="Analisis diskriminan",
+            judul="Centroid kelompok",
+        )
     var = st.selectbox("Lihat distribusi variabel", predictors)
     st.plotly_chart(
         plots.box_by_group(df.loc[result.labels.index], var, group), width="stretch"

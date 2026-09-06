@@ -1,4 +1,4 @@
-"""Ringkasan eksekutif: kesimpulan tanpa notasi statistik, langsung ke tindakan."""
+"""Laporan untuk pembaca umum: kesimpulan tanpa notasi statistik, langsung ke tindakan."""
 
 from __future__ import annotations
 
@@ -7,10 +7,12 @@ import streamlit as st
 from lentera_mva import kesimpulan_ui as kui
 from lentera_mva import ui
 
-analisis, laporan = kui.buka_ringkasan(
-    "Ringkasan Eksekutif",
+analisis, laporan, lengkap = kui.buka_ringkasan(
+    "Laporan Umum",
     "Ditulis untuk pimpinan dan pembaca non-statistik: bahasa sehari-hari, fokus pada "
     "apa artinya dan apa yang sebaiknya dilakukan.",
+    "ringkasan_eksekutif",
+    "eksekutif",
 )
 
 if laporan.pendorong:
@@ -33,9 +35,16 @@ if laporan.pendorong:
     )
 
 st.subheader("Apa yang ditemukan")
-for temuan in laporan.temuan:
-    with st.expander(f"**{temuan.judul}** — {temuan.ringkas}"):
+if lengkap:
+    # Laporan lengkap menguraikan tiap temuan apa adanya, tanpa perlu diklik.
+    for temuan in laporan.temuan:
+        st.markdown(f"**{temuan.judul}**")
+        st.caption(f"Metode: {temuan.metode}")
         st.write(temuan.eksekutif)
+else:
+    for temuan in laporan.temuan:
+        with st.expander(f"**{temuan.judul}** — {temuan.ringkas}"):
+            st.write(temuan.eksekutif)
 
 st.subheader("Rekomendasi tindakan")
 kui.daftar_bernomor([(r.judul, r.alasan, r.prioritas) for r in laporan.rekomendasi])
@@ -43,5 +52,19 @@ kui.daftar_bernomor([(r.judul, r.alasan, r.prioritas) for r in laporan.rekomenda
 st.subheader("Batas kesimpulan")
 kui.daftar_bernomor([("", k, None) for k in laporan.keterbatasan])
 
-kui.analisis_yang_dilewati(laporan)
-kui.unduhan(laporan, "eksekutif")
+if lengkap and laporan.tabel:
+    st.subheader("Tabel hasil")
+    st.caption(
+        "Angka rinci di balik kesimpulan di atas. Bagian ini boleh dilewati bila Anda "
+        "hanya memerlukan kesimpulannya."
+    )
+    for nomor, (judul_tabel, tabel, catatan) in laporan.tabel.items():
+        st.markdown(f"**{nomor}.** {judul_tabel}")
+        ui.show_table(tabel, f"{nomor.lower().replace(' ', '_')}_umum.csv")
+        if catatan:
+            st.caption(f"*Catatan.* {catatan}")
+
+if lengkap:
+    kui.analisis_yang_dilewati(laporan)
+
+kui.unduhan(laporan, "eksekutif", lengkap)

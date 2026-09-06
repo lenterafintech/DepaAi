@@ -391,20 +391,45 @@ def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan]:
     return st.session_state["kesimpulan_analisis"], laporan
 
 
+def pilih_kedalaman(pembaca: str) -> bool:
+    """Pilihan Ringkasan atau Laporan Lengkap untuk register halaman ini.
+
+    Keduanya dokumen yang berbeda, bukan sekadar potongan panjang-pendek: ringkasan
+    menyampaikan kesimpulan dan tindakan, sedangkan laporan lengkap menambahkan
+    uraian tiap temuan, seluruh tabel hasil, dan rujukan ambang.
+    """
+    pilihan = st.radio(
+        "Bentuk laporan",
+        [False, True],
+        format_func=lambda v: nr.KEDALAMAN[v],
+        horizontal=True,
+        key=f"kedalaman_{pembaca}",
+    )
+    st.caption(
+        "Kesimpulan utama, status pemeriksaan, peringkat pendorong, dan rekomendasi "
+        "tindakan."
+        if not pilihan
+        else "Seluruh isi ringkasan, ditambah uraian tiap temuan, tabel hasil, "
+        "rujukan ambang, dan catatan analisis yang tidak dapat dijalankan."
+    )
+    return bool(pilihan)
+
+
 def buka_ringkasan(
-    judul: str, pengantar: str, fitur: str = "ringkasan_eksekutif"
-) -> tuple[nr.Analisis, nr.Laporan]:
-    """Rangkaian pembuka yang sama untuk ketiga halaman ringkasan."""
+    judul: str, pengantar: str, fitur: str = "ringkasan_eksekutif", pembaca: str = "eksekutif"
+) -> tuple[nr.Analisis, nr.Laporan, bool]:
+    """Rangkaian pembuka yang sama untuk ketiga halaman laporan."""
     ui.butuh_fitur(fitur)
-    ui.page_setup(judul, "Ringkasan Kesimpulan", pengantar)
+    ui.page_setup(judul, "Laporan Analisis", pengantar)
     df = ui.require_dataset()
     ui.sidebar_info()
     pasang_gaya()
     analisis, laporan = siapkan_laporan(df)
+    lengkap = pilih_kedalaman(pembaca)
     kartu_headline(laporan)
     st.subheader("Status pemeriksaan")
     kartu_lampu(laporan)
-    return analisis, laporan
+    return analisis, laporan, lengkap
 
 
 def analisis_yang_dilewati(laporan: nr.Laporan) -> None:
@@ -414,7 +439,7 @@ def analisis_yang_dilewati(laporan: nr.Laporan) -> None:
                 st.markdown(f"- {catatan}")
 
 
-def unduhan(laporan: nr.Laporan, pembaca: str) -> None:
+def unduhan(laporan: nr.Laporan, pembaca: str, lengkap: bool = False) -> None:
     """Panel ekspor: pilih ragam laporan, pilih format, lalu unduh.
 
     Dua ragam yang ditawarkan sesuai isi yang sudah disusun: **Ringkasan** untuk
@@ -435,28 +460,12 @@ def unduhan(laporan: nr.Laporan, pembaca: str) -> None:
         "PowerPoint, HTML, dan Markdown memuat angka serta kesimpulan yang identik."
     )
 
+    st.caption(
+        f"Yang diekspor mengikuti pilihan di atas: **{nr.KEDALAMAN[lengkap]}** untuk "
+        f"pembaca **{nr.AUDIENCE_LABELS[pembaca]}**."
+    )
     kiri, kanan = st.columns([1, 1])
     with kiri:
-        ragam = st.radio(
-            "Ragam laporan",
-            ["ringkas", "lengkap"],
-            format_func=lambda r: (
-                f"Ringkasan {nr.AUDIENCE_LABELS[pembaca]}"
-                if r == "ringkas"
-                else "Laporan Lengkap (ketiga pembaca)"
-            ),
-            key=f"ekspor_ragam_{pembaca}",
-            horizontal=False,
-        )
-        lengkap = ragam == "lengkap"
-        st.caption(
-            "Seluruh temuan dalam register halaman ini, tabel hasil, rekomendasi, dan "
-            "batas kesimpulan."
-            if not lengkap
-            else "Ketiga register pembaca dalam satu berkas, ditambah seluruh tabel, "
-            "kalimat siap salin, rujukan ambang, dan catatan analisis yang dilewati."
-        )
-    with kanan:
         kode = st.selectbox(
             "Format berkas",
             list(ekspor.FORMAT),
@@ -464,6 +473,12 @@ def unduhan(laporan: nr.Laporan, pembaca: str) -> None:
             key=f"ekspor_format_{pembaca}",
         )
         st.caption(ekspor.FORMAT[kode].keterangan)
+    with kanan:
+        st.markdown(f"**{nr.KEDALAMAN[lengkap]}**")
+        st.caption(
+            "Ubah pilihan *Bentuk laporan* di bagian atas halaman untuk mengekspor "
+            "bentuk yang satunya."
+        )
 
     nama = ekspor.nama_berkas(laporan, kode, pembaca, lengkap)
     try:

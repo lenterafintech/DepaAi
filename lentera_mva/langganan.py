@@ -27,6 +27,7 @@ FITUR = {
     "ringkasan_akademik": "Ringkasan akademik",
     "ringkasan_profesional": "Ringkasan profesional",
     "entri_data": "Membuat dan menyunting data di aplikasi",
+    "keranjang": "Mengumpulkan hasil analisis menjadi satu laporan",
     "unduh_laporan": "Ekspor laporan (Word, PDF, Excel, PPT, HTML, sintaks)",
 }
 
@@ -61,6 +62,7 @@ _DASAR = {
     "regresi",
     "nonparametrik",
     "entri_data",
+    "keranjang",
     "ringkasan_eksekutif",
 }
 _AKADEMIK = _DASAR | {

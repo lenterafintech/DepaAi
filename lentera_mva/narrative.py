@@ -40,36 +40,17 @@ from lentera_mva import (
 
 AUDIENCES = ("eksekutif", "akademik", "profesional")
 AUDIENCE_LABELS = {
-    "eksekutif": "Eksekutif & Pengguna Awam",
-    "akademik": "Akademik (Mahasiswa & Dosen)",
+    "eksekutif": "Umum & Eksekutif",
+    "akademik": "Mahasiswa, Dosen & Pengajar",
     "profesional": "Profesional & Analis",
 }
+# Kedalaman dokumen, terpisah dari registernya. Ringkasan dan laporan lengkap adalah
+# dua dokumen berbeda, bukan potongan panjang-pendek dari naskah yang sama.
+KEDALAMAN = {
+    False: "Ringkasan",
+    True: "Laporan Lengkap",
+}
 STATUS_LABELS = {"baik": "Memadai", "perhatian": "Perlu dicermati", "kritis": "Bermasalah"}
-
-
-def tabel_markdown(df: pd.DataFrame) -> str:
-    """Ubah tabel menjadi Markdown tanpa bergantung pada paket tambahan."""
-    kolom = [str(c) for c in df.columns]
-    baris = ["| " + " | ".join(kolom) + " |", "|" + "|".join("---" for _ in kolom) + "|"]
-    for nilai in df.itertuples(index=False):
-        baris.append("| " + " | ".join(str(v).replace("|", "\\|") for v in nilai) + " |")
-    return "\n".join(baris)
-
-
-def _daftar(items: list[str], maksimal: int = 3) -> str:
-    """Rangkai daftar menjadi frasa: "a", "a dan b", "a, b, dan c"."""
-    semua = [str(i) for i in items]
-    if not semua:
-        return "tidak ada"
-    dipakai = semua if len(semua) == maksimal + 1 else semua[:maksimal]
-    sisa = len(semua) - len(dipakai)
-    if sisa > 0:
-        return ", ".join(dipakai) + f", dan {sisa} variabel lainnya"
-    if len(dipakai) == 1:
-        return dipakai[0]
-    if len(dipakai) == 2:
-        return f"{dipakai[0]} dan {dipakai[1]}"
-    return ", ".join(dipakai[:-1]) + f", dan {dipakai[-1]}"
 
 
 def _efek_r2(r2: float) -> str:

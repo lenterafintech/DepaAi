@@ -62,7 +62,12 @@ tab_sum, tab_load, tab_scores, tab_red = st.tabs(
 with tab_sum:
     ui.show_table(result.summary(), "cca_ringkasan.csv")
     st.markdown("**Uji signifikansi fungsi kanonik (Wilks' lambda)**")
-    ui.show_table(result.significance, "cca_signifikansi.csv")
+    ui.show_table(
+            result.significance,
+            "cca_signifikansi.csv",
+            bagian="Korelasi kanonik",
+            judul="Signifikansi fungsi",
+        )
     ui.interpretation(
         "Baris pertama menguji apakah seluruh fungsi kanonik secara bersama signifikan. "
         "Baris berikutnya menguji sisa fungsi setelah fungsi sebelumnya dikeluarkan. "

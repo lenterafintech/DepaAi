@@ -83,7 +83,12 @@ def tampilkan_hasil(hasil: sem.HasilSEM, kunci: str) -> None:
     m5.metric("Indeks memenuhi", f"{lolos}/{len(fit)}")
 
     st.subheader("Kecocokan model")
-    ui.show_table(fit, f"kecocokan_{kunci}.csv")
+    ui.show_table(
+        fit,
+        f"kecocokan_{kunci}.csv",
+        bagian=f"Model struktural ({kunci})",
+        judul="Indeks kecocokan model",
+    )
     catatan = sem.catatan_chi_square(hasil)
     if catatan:
         st.warning(catatan, icon=":material/edit_note:")
@@ -96,6 +101,8 @@ def tampilkan_hasil(hasil: sem.HasilSEM, kunci: str) -> None:
                 ["Konstruk", "Butir", "Estimasi", "Estimasi baku", "Std. Error", "z", "p-value", "Signifikan"]
             ],
             f"muatan_{kunci}.csv",
+            bagian=f"Model struktural ({kunci})",
+            judul="Muatan model pengukuran",
         )
         st.caption(
             "Butir pertama tiap konstruk difiksasi sebagai acuan skala, sehingga tidak "
@@ -105,7 +112,12 @@ def tampilkan_hasil(hasil: sem.HasilSEM, kunci: str) -> None:
         reliabilitas = sem.reliabilitas_konstruk(hasil)
         if not reliabilitas.empty:
             st.subheader("Reliabilitas konstruk")
-            ui.show_table(reliabilitas, f"reliabilitas_{kunci}.csv")
+            ui.show_table(
+                reliabilitas,
+                f"reliabilitas_{kunci}.csv",
+                bagian=f"Model struktural ({kunci})",
+                judul="Reliabilitas konstruk (CR & AVE)",
+            )
             ui.interpretation(
                 "CR ≥ 0,70 dan AVE ≥ 0,50 menandakan konstruk cukup andal dan lebih "
                 "banyak menjelaskan daripada galat pengukurannya. Kolom 'Butir arah "
@@ -238,7 +250,12 @@ with tab_jalur:
                     except ValueError as exc:
                         st.error(str(exc))
                     else:
-                        ui.show_table(tabel, "mediasi_bootstrap.csv")
+                        ui.show_table(
+            tabel,
+            "mediasi_bootstrap.csv",
+            bagian="Uji mediasi",
+            judul="Efek tidak langsung (bootstrap)",
+        )
                         ui.interpretation(
                             "Efek tidak langsung dinyatakan signifikan bila interval "
                             "kepercayaan tidak memuat nol. VAF adalah bagian efek total "

@@ -78,7 +78,12 @@ tab_koef, tab_slope, tab_jn = st.tabs(
 )
 
 with tab_koef:
-    ui.show_table(hasil.koefisien, "moderasi_koefisien.csv")
+    ui.show_table(
+            hasil.koefisien,
+            "moderasi_koefisien.csv",
+            bagian="Regresi moderasi",
+            judul="Koefisien model moderasi",
+        )
     ui.interpretation(
         f"Baris **{hasil.nama_interaksi}** adalah suku interaksinya. Bila signifikan, "
         f"pengaruh {x} terhadap {y} bergantung pada tingkat {m}. ΔR² menunjukkan "

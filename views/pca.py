@@ -60,7 +60,12 @@ tab_var, tab_load, tab_score, tab_check = st.tabs(
 with tab_var:
     st.plotly_chart(plots.scree_plot(result.eigenvalues), width="stretch")
     st.plotly_chart(plots.variance_plot(result.variance_table()), width="stretch")
-    ui.show_table(result.variance_table(), "pca_varians.csv")
+    ui.show_table(
+            result.variance_table(),
+            "pca_varians.csv",
+            bagian="PCA",
+            judul="Varians terjelaskan",
+        )
     ui.interpretation(
         "Pilih jumlah komponen dari titik siku (elbow) pada scree plot, dari kriteria "
         "eigenvalue > 1, atau dari target varians kumulatif (umumnya 70-80%)."

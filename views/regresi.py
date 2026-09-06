@@ -83,7 +83,12 @@ with tab_linear:
             m4.metric("p-value model", f"{result.model.f_pvalue:.4g}")
 
             st.subheader("Koefisien")
-            ui.show_table(result.coefficients, "regresi_koefisien.csv")
+            ui.show_table(
+            result.coefficients,
+            "regresi_koefisien.csv",
+            bagian="Regresi linear",
+            judul="Koefisien regresi",
+        )
             st.code(result.equation(), language="text")
             ui.interpretation(
                 "Koefisien B menunjukkan perubahan rata-rata Y saat prediktor naik satu "
@@ -100,7 +105,12 @@ with tab_linear:
                 st.dataframe(ui.styled(result.anova), width="stretch", hide_index=True)
 
             st.subheader("Uji asumsi klasik")
-            ui.show_table(result.diagnostics, "regresi_asumsi.csv")
+            ui.show_table(
+            result.diagnostics,
+            "regresi_asumsi.csv",
+            bagian="Regresi linear",
+            judul="Uji asumsi klasik",
+        )
             if not result.vif.empty:
                 st.markdown("**Multikolinearitas (VIF)**")
                 ui.show_table(result.vif, "regresi_vif.csv")

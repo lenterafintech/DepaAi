@@ -19,7 +19,7 @@ interpretasinya dalam bahasa Indonesia.
 | Uji beda & hubungan | Analisis diskriminan linear/kuadratik (fungsi kanonik, Wilks' lambda), MANOVA satu jalur + Hotelling's T², MANCOVA dengan rata-rata terkoreksi dan uji homogenitas kemiringan, korelasi kanonik dengan indeks redundansi |
 | Model struktural | CFA (muatan terstandardisasi, CR/AVE, indeks kecocokan termasuk SRMR), analisis jalur dengan dekomposisi efek langsung/tidak langsung, SEM penuh, uji mediasi bootstrap dengan VAF, pilihan estimator ML / FIML / DWLS / ULS / GLS beserta saran otomatis sesuai ciri data, serta spesifikasi model bebas bergaya lavaan lengkap dengan pemeriksaan sintaks |
 | Ekspor & reproduksi | Laporan Lengkap maupun Ringkasan diekspor ke Word, PDF, Excel, PowerPoint, HTML, Markdown, JSON, atau satu paket ZIP; disertai sintaks Python dan R yang menjalankan ulang analisis yang sama |
-| Ringkasan kesimpulan | Tiga halaman ringkasan terpisah — Eksekutif, Akademik, Profesional — yang menuliskan satu hasil analisis dengan lampu status, peringkat pendorong, matriks prioritas, tabel bergaya APA, paragraf siap salin, rekomendasi, dan keterbatasan |
+| Laporan analisis | Tiga halaman menurut pembaca — Umum, Mahasiswa & Pengajar, Profesional — masing-masing tersedia dalam dua bentuk: **Ringkasan** dan **Laporan Lengkap**. Ditambah **Laporan Hasil**, yang mengumpulkan analisis yang benar-benar dijalankan pengguna |
 
 ## Menjalankan aplikasi
 
@@ -45,32 +45,57 @@ sendiri tanpa mengganggu penerapan.
 Mulai dari halaman **Beranda & Data** untuk mengunggah berkas, atau tekan *Muat contoh
 data nasabah* untuk mencoba seluruh metode dengan data contoh.
 
-## Tiga halaman ringkasan
+## Laporan analisis: pembaca × kedalaman
 
-Kelompok menu **Ringkasan Kesimpulan** berisi tiga halaman terpisah yang dapat dipilih
-pengguna. Ketiganya menjalankan rangkaian metode yang sama pada data aktif, namun
+Kelompok menu **Laporan Analisis** memisahkan dua hal yang sering tertukar:
+
+- **Pembaca** menentukan bahasanya — Umum, Akademik, atau Profesional.
+- **Kedalaman** menentukan bentuk dokumennya — Ringkasan atau Laporan Lengkap.
+
+Keduanya sumbu yang saling bebas, sehingga tersedia enam dokumen. Laporan Lengkap
+**bukan** gabungan ketiga ringkasan: ia dokumen tersendiri yang tetap ditulis dalam
+satu register, hanya lebih dalam. Menggabungkan ketiganya justru memaksa pembaca
+membaca hal yang sama tiga kali.
+
+| | Ringkasan | Laporan Lengkap |
+| --- | --- | --- |
+| Isi | Kesimpulan utama, status pemeriksaan, peringkat pendorong, rekomendasi, batas kesimpulan | Seluruh isi ringkasan, ditambah uraian tiap temuan, seluruh tabel hasil, rujukan ambang, dan catatan analisis yang tidak dapat dijalankan |
+| Akademik | — | Ditambah kalimat siap salin bergaya jurnal |
+
+Ketiga halaman menjalankan rangkaian metode yang sama pada data aktif, namun
 menuliskan hasilnya untuk pembaca yang berbeda:
 
 | Halaman | Untuk siapa | Isinya |
 | --- | --- | --- |
-| **Ringkasan Eksekutif** | Pimpinan dan pembaca non-statistik | Kesimpulan utama, lampu status pemeriksaan, peringkat pendorong beserta matriks prioritas (kepentingan terhadap kinerja), rekomendasi tindakan berprioritas, dan batas kesimpulan — tanpa notasi statistik |
-| **Ringkasan Akademik** | Mahasiswa dan dosen | Pelaporan bergaya jurnal (statistik uji, derajat bebas, p-value, ukuran efek), tabel bergaya APA, paragraf siap salin untuk bab metode/hasil/pembahasan, keterbatasan, dan rujukan ambang |
-| **Ringkasan Profesional** | Analis dan praktisi | Metrik kunci model, kontribusi fitur, temuan teknis, ringkasan pemeriksaan asumsi, tindak lanjut berprioritas, dan risiko pemakaian |
+| **Umum** | Pimpinan dan pembaca non-statistik | Kesimpulan utama, lampu status pemeriksaan, peringkat pendorong beserta matriks prioritas (kepentingan terhadap kinerja), rekomendasi tindakan berprioritas, dan batas kesimpulan — tanpa notasi statistik |
+| **Mahasiswa & Pengajar** | Mahasiswa, dosen, dan pengajar | Pelaporan bergaya jurnal (statistik uji, derajat bebas, p-value, ukuran efek), tabel bergaya APA, paragraf siap salin untuk bab metode/hasil/pembahasan, keterbatasan, dan rujukan ambang |
+| **Profesional** | Analis dan praktisi | Metrik kunci model, kontribusi fitur, temuan teknis, ringkasan pemeriksaan asumsi, tindak lanjut berprioritas, dan risiko pemakaian |
 
 Pengaturan cakupan analisis (variabel, target, prediktor, kelompok) dibuat sekali dan
 berlaku untuk ketiga halaman; hasil perhitungan dipakai ulang sehingga berpindah
 halaman tidak menghitung ulang. Seluruh angka dihitung ulang dari data yang sedang
 aktif — tidak ada nilai contoh yang ditanam.
 
+### Laporan Hasil — analisis yang Anda jalankan sendiri
+
+Ketiga halaman di atas disusun otomatis oleh mesin narasi dari rangkaian metodenya
+sendiri. Halaman **Laporan Hasil** melengkapinya dari arah sebaliknya: setiap tabel
+hasil di halaman metode punya tombol *Simpan ke laporan*, dan yang tersimpan
+dikumpulkan di sini menjadi satu dokumen — persis analisis yang Anda pilih dan
+jalankan, lengkap dengan judul laporan dan nama penyusun.
+
+Penyimpanan sengaja atas permintaan, bukan otomatis: menangkap setiap tabel yang
+pernah terlihat akan memenuhi laporan dengan percobaan yang tidak jadi dipakai. Hasil
+disimpan sebagai salinan, sehingga tetap utuh ketika data aktif berubah — dan hasil
+yang berasal dari data lain ditandai agar tidak tercampur tanpa disadari.
+
 ### Ekspor laporan
 
 Tiap halaman ringkasan memuat panel **Ekspor hasil analisis** dengan dua pilihan ragam
 dan delapan pilihan format:
 
-| Ragam | Isinya |
-| --- | --- |
-| **Ringkasan** | Register halaman yang sedang dibuka saja — ringkas untuk dibagikan |
-| **Laporan Lengkap** | Ketiga register sekaligus, seluruh tabel hasil, kalimat siap salin, rujukan ambang, dan catatan analisis yang tidak dapat dijalankan |
+Yang diekspor mengikuti pilihan *Bentuk laporan* di bagian atas halaman, sehingga
+berkasnya persis sama dengan yang tampil di layar.
 
 | Format | Kegunaan |
 | --- | --- |
@@ -84,8 +109,9 @@ dan delapan pilihan format:
 | Sintaks Python / R | Skrip yang menjalankan ulang analisis yang sama |
 | Paket lengkap (ZIP) | Seluruh format di atas, setiap tabel dalam CSV, dan kedua sintaks |
 
-Isi seluruh format disusun dari satu sumber yang sama (`lentera_mva/ekspor.py`),
-sehingga angka dan kesimpulannya tidak pernah berbeda antar berkas.
+Seluruh penulis format kini melewati satu lapisan dokumen netral (`Dokumen` di
+`lentera_mva/ekspor.py`), sehingga angka dan kesimpulannya tidak pernah berbeda antar
+berkas — dan sumber yang sama dapat berupa laporan naratif maupun Laporan Hasil.
 
 ### Galat baku robust pada regresi
 
@@ -179,7 +205,8 @@ lentera_mva/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   pengguna.py          Basis data akun, autentikasi, dan masa uji coba
   narrative.py         Penyusun kesimpulan naratif tiga register pembaca
   report_html.py       Laporan HTML mandiri yang dapat diunduh
-  kesimpulan_ui.py     Komponen bersama ketiga halaman ringkasan
+  kesimpulan_ui.py     Komponen bersama ketiga halaman laporan
+  keranjang.py         Keranjang hasil: kumpulan analisis yang disimpan pengguna
   plots.py             Visualisasi Plotly
   ui.py                Komponen antarmuka bersama
 data/                  Contoh data

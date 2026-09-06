@@ -92,8 +92,9 @@ def test_xlsx_berisi_lembar_per_bagian(laporan):
     lembar = pd.read_excel(
         io.BytesIO(ekspor.ke_xlsx(laporan, "akademik", lengkap=True)), sheet_name=None
     )
-    assert "Ringkasan" in lembar
-    assert "Temuan" in lembar
+    assert "Keterangan" in lembar
+    # Tiap tabel hasil menjadi lembar tersendiri, sehingga angkanya siap diolah ulang.
+    assert len(lembar) > 3
     # Nama lembar Excel dibatasi 31 karakter dan harus unik.
     assert all(len(n) <= 31 for n in lembar)
     assert len(set(n.lower() for n in lembar)) == len(lembar)
@@ -101,10 +102,13 @@ def test_xlsx_berisi_lembar_per_bagian(laporan):
 
 def test_json_terstruktur(laporan):
     isi = json.loads(ekspor.ke_json(laporan, "profesional", lengkap=True))
-    assert isi["dataset"] == "contoh_data_nasabah.csv"
-    assert len(isi["temuan"]) == len(laporan.temuan)
-    for register in nr.AUDIENCES:
-        assert register in isi["temuan"][0]
+    assert isi["judul"].endswith(nr.AUDIENCE_LABELS["profesional"])
+    assert isi["meta"]
+    jenis = {b["jenis"] for b in isi["blok"]}
+    assert {"judul", "meta", "subjudul", "tabel"} <= jenis
+    # Tabel ikut terbawa sebagai baris terstruktur, bukan sekadar teks.
+    tabel = [b for b in isi["blok"] if b["tabel"]]
+    assert tabel and isinstance(tabel[0]["tabel"], list)
 
 
 def test_html_ringkas_hanya_satu_register(laporan):
@@ -129,7 +133,7 @@ def test_nama_berkas_bersih(laporan):
         "_ringkasan_akademik.docx"
     )
     assert ekspor.nama_berkas(laporan, "pdf", "akademik", True).endswith(
-        "_laporan_lengkap.pdf"
+        "_laporan_lengkap_akademik.pdf"
     )
     # Sintaks tidak bergantung pada register pembaca.
     assert ekspor.nama_berkas(laporan, "py", "eksekutif") == ekspor.nama_berkas(
@@ -146,11 +150,35 @@ def test_nama_lembar_unik_dan_pendek():
     assert ekspor._nama_lembar("a[b]c:d*e?f/g", dipakai) == "abcdefg"
 
 
-def test_blok_lengkap_memuat_ketiga_register(laporan):
-    blok_lengkap = ekspor.susun_blok(laporan, "eksekutif", lengkap=True)
-    judul = [b.teks for b in blok_lengkap if b.jenis == "subjudul"]
-    for label in nr.AUDIENCE_LABELS.values():
-        assert any(label in j for j in judul)
+def test_laporan_lengkap_tetap_satu_register(laporan):
+    """Laporan lengkap adalah dokumen yang lebih dalam, bukan tiga ringkasan digabung."""
+    lengkap = ekspor.susun_blok(laporan, "eksekutif", lengkap=True)
+    teks_gabung = " ".join(b.teks for b in lengkap)
+    # Label register lain tidak boleh muncul sebagai tajuk bagian.
+    for lain in ("akademik", "profesional"):
+        assert nr.AUDIENCE_LABELS[lain] not in teks_gabung
+    assert nr.AUDIENCE_LABELS["eksekutif"] in teks_gabung
+
+    # Uraian tiap temuan memakai register yang diminta, bukan register lain.
+    uraian = {b.teks for b in lengkap if b.jenis == "paragraf"}
+    assert laporan.temuan[0].eksekutif in uraian
+    assert laporan.temuan[0].akademik not in uraian
+
+
+def test_lengkap_lebih_dalam_daripada_ringkasan(laporan):
+    for pembaca in nr.AUDIENCES:
+        ringkas = ekspor.susun_blok(laporan, pembaca, lengkap=False)
+        lengkap = ekspor.susun_blok(laporan, pembaca, lengkap=True)
+        assert len(lengkap) > len(ringkas)
+        # Tabel hasil dan rujukan hanya muncul pada laporan lengkap.
+        assert sum(1 for b in lengkap if b.jenis == "tabel") > sum(
+            1 for b in ringkas if b.jenis == "tabel"
+        )
+
+
+def test_susun_blok_menolak_pembaca_asing(laporan):
+    with pytest.raises(ValueError, match="tidak dikenal"):
+        ekspor.susun_blok(laporan, "manajer")
 
 
 # --------------------------------------------------------------------------- #

@@ -16,12 +16,15 @@ from __future__ import annotations
 import io
 import json
 import zipfile
+from html import escape
+from datetime import date
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import pandas as pd
 
-from lentera_mva.narrative import AUDIENCE_LABELS, AUDIENCES, Laporan
+from lentera_mva.keranjang import Keranjang
+from lentera_mva.narrative import AUDIENCE_LABELS, AUDIENCES, Laporan, tabel_markdown
 from lentera_mva.report_html import laporan_html, laporan_html_semua
 from lentera_mva.sintaks import bangkitkan
 
@@ -64,16 +67,55 @@ class Blok:
     catatan: str = ""
 
 
+@dataclass
+class Dokumen:
+    """Isi laporan yang sudah lepas dari sumbernya.
+
+    Lapisan ini yang memungkinkan satu berkas ekspor dibangun baik dari laporan
+    naratif maupun dari keranjang hasil, tanpa tiap penulis format perlu tahu
+    asal-usulnya.
+    """
+
+    judul: str
+    meta: str = ""
+    blok: list[Blok] = field(default_factory=list)
+    nama_dasar: str = "laporan"
+
+    def tabel(self) -> list[tuple[str, pd.DataFrame]]:
+        """Pasangan (judul, tabel) menurut subjudul terdekat sebelumnya."""
+        hasil: list[tuple[str, pd.DataFrame]] = []
+        tajuk = self.judul
+        for b in self.blok:
+            if b.jenis in ("subjudul", "paragraf") and b.teks:
+                tajuk = b.teks
+            elif b.jenis == "tabel" and b.tabel is not None:
+                hasil.append((tajuk, b.tabel))
+        return hasil
+
+
 # --------------------------------------------------------------------------- #
 # Penyusun isi
 # --------------------------------------------------------------------------- #
 
 
 def susun_blok(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False) -> list[Blok]:
-    """Ubah laporan menjadi rangkaian blok yang siap ditulis ke format apa pun."""
-    pembaca_dipakai = list(AUDIENCES) if lengkap else [pembaca]
+    """Ubah laporan menjadi rangkaian blok yang siap ditulis ke format apa pun.
+
+    Dua sumbu yang saling bebas menentukan isinya:
+
+    - ``pembaca`` menentukan **bahasanya** — eksekutif, akademik, atau profesional.
+      Berapa pun kedalamannya, laporan ditulis dalam satu register saja; menggabung
+      ketiganya justru membuat pembaca membaca hal yang sama tiga kali.
+    - ``lengkap`` menentukan **kedalamannya**. Ringkasan memuat kesimpulan, status
+      pemeriksaan, pendorong, dan rekomendasi. Laporan lengkap menambahkan uraian
+      tiap temuan, seluruh tabel hasil, kalimat siap salin, rujukan ambang, dan
+      catatan analisis yang tidak dapat dijalankan.
+    """
+    if pembaca not in AUDIENCES:
+        raise ValueError(f"Pembaca '{pembaca}' tidak dikenal. Pilih dari {AUDIENCES}.")
+
     judul = (
-        "Laporan Lengkap Analisis Multivariat"
+        f"Laporan Lengkap Analisis Multivariat — {AUDIENCE_LABELS[pembaca]}"
         if lengkap
         else f"Ringkasan {AUDIENCE_LABELS[pembaca]}"
     )
@@ -124,22 +166,24 @@ def susun_blok(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = Fal
             )
         )
 
-    for reg in pembaca_dipakai:
-        tajuk = (
-            f"Temuan — {AUDIENCE_LABELS[reg]}" if lengkap else "Temuan"
-        )
-        blok.append(Blok("subjudul", tajuk))
+    blok.append(Blok("subjudul", "Temuan"))
+    if lengkap:
+        # Laporan lengkap menguraikan tiap temuan beserta metodenya.
         for temuan in laporan.temuan:
             blok.append(Blok("paragraf", f"{temuan.judul} ({temuan.metode})"))
-            blok.append(Blok("paragraf", temuan.teks(reg)))
+            blok.append(Blok("paragraf", temuan.teks(pembaca)))
+    else:
+        # Ringkasan cukup memuat inti tiap temuan dalam satu daftar.
+        blok.append(Blok("poin", poin=[t.ringkas for t in laporan.temuan]))
 
-    if lengkap or pembaca == "akademik":
+    if lengkap:
         for nomor, (judul_tabel, tabel, catatan) in laporan.tabel.items():
             blok.append(Blok("subjudul", f"{nomor}. {judul_tabel}"))
             blok.append(Blok("tabel", tabel=tabel, catatan=catatan))
 
-    if lengkap or pembaca == "akademik":
-        if laporan.paragraf:
+        if laporan.paragraf and pembaca == "akademik":
+            # Kalimat siap salin mengikuti konvensi pelaporan statistik, sehingga
+            # hanya bermakna pada register akademik.
             blok.append(Blok("subjudul", "Kalimat siap salin"))
             for paragraf in laporan.paragraf:
                 blok.append(Blok("paragraf", paragraf.bagian))
@@ -161,12 +205,11 @@ def susun_blok(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = Fal
         blok.append(Blok("subjudul", "Batas kesimpulan"))
         blok.append(Blok("poin", poin=list(laporan.keterbatasan)))
 
-    if lengkap or pembaca == "akademik":
-        if laporan.rujukan:
-            blok.append(Blok("subjudul", "Rujukan ambang yang dipakai"))
-            blok.append(Blok("poin", poin=list(laporan.rujukan)))
+    if lengkap and laporan.rujukan:
+        blok.append(Blok("subjudul", "Rujukan ambang yang dipakai"))
+        blok.append(Blok("poin", poin=list(laporan.rujukan)))
 
-    if laporan.dilewati:
+    if lengkap and laporan.dilewati:
         blok.append(Blok("subjudul", "Analisis yang tidak dapat dijalankan"))
         blok.append(Blok("poin", poin=list(laporan.dilewati)))
 
@@ -183,6 +226,71 @@ def susun_blok(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = Fal
     return blok
 
 
+def dari_laporan(
+    laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False
+) -> Dokumen:
+    """Dokumen dari laporan naratif, memakai penyusun blok yang sudah ada."""
+    blok = susun_blok(laporan, pembaca, lengkap)
+    judul = next((b.teks for b in blok if b.jenis == "judul"), "Laporan")
+    meta = next((b.teks for b in blok if b.jenis == "meta"), "")
+    dasar = "laporan_lengkap" if lengkap else f"ringkasan_{pembaca}"
+    return Dokumen(judul=judul, meta=meta, blok=blok, nama_dasar=dasar)
+
+
+def dari_keranjang(keranjang: Keranjang) -> Dokumen:
+    """Dokumen dari hasil yang dikumpulkan pengguna di halaman-halaman metode."""
+    if keranjang.kosong():
+        raise ValueError(
+            "Keranjang hasil masih kosong. Jalankan analisis lebih dulu, lalu tekan "
+            "'Simpan ke laporan' pada hasil yang ingin dilaporkan."
+        )
+
+    ringkas = keranjang.ringkas()
+    meta = (
+        f"{ringkas['Bagian']} bagian · {ringkas['Tabel']} tabel · "
+        f"{ringkas['Tafsiran']} tafsiran · disusun {date.today().strftime('%d-%m-%Y')}"
+    )
+    if keranjang.peneliti.strip():
+        meta = f"Disusun oleh {keranjang.peneliti.strip()} · {meta}"
+
+    blok: list[Blok] = [
+        Blok("judul", keranjang.judul),
+        Blok("meta", meta),
+        Blok("subjudul", "Daftar isi"),
+        Blok("tabel", tabel=keranjang.daftar_isi()),
+    ]
+
+    for nama, isi in keranjang.per_bagian().items():
+        blok.append(Blok("subjudul", nama))
+        for item in isi:
+            if item.jenis == "tabel" and item.tabel is not None:
+                blok.append(Blok("paragraf", item.judul))
+                blok.append(Blok("tabel", tabel=item.tabel, catatan=item.catatan))
+            else:
+                blok.append(Blok("paragraf", item.teks))
+
+    blok.append(
+        Blok(
+            "catatan",
+            catatan=(
+                "Laporan ini memuat hasil analisis yang Anda jalankan dan simpan "
+                "sendiri. Kesimpulan statistik menunjukkan pola dalam data, bukan "
+                "bukti sebab-akibat."
+            ),
+        )
+    )
+    return Dokumen(judul=keranjang.judul, meta=meta, blok=blok, nama_dasar="laporan_hasil")
+
+
+def _dokumen(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> Dokumen:
+    """Terima Laporan maupun Keranjang, kembalikan dokumen yang siap ditulis."""
+    if isinstance(sumber, Dokumen):
+        return sumber
+    if isinstance(sumber, Keranjang):
+        return dari_keranjang(sumber)
+    return dari_laporan(sumber, pembaca, lengkap)
+
+
 def _aman_pdf(teks: str) -> str:
     """Ganti lambang yang tidak ada pada huruf bawaan PDF dengan padanan ASCII."""
     hasil = str(teks)
@@ -196,16 +304,17 @@ def _aman_pdf(teks: str) -> str:
 # --------------------------------------------------------------------------- #
 
 
-def ke_docx(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
+def ke_docx(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
     from docx import Document
     from docx.shared import Pt, RGBColor
 
+    dokumen = _dokumen(sumber, pembaca, lengkap)
     dok = Document()
     gaya = dok.styles["Normal"]
     gaya.font.name = "Calibri"
     gaya.font.size = Pt(11)
 
-    for blok in susun_blok(laporan, pembaca, lengkap):
+    for blok in dokumen.blok:
         if blok.jenis == "judul":
             dok.add_heading(blok.teks, level=0)
         elif blok.jenis == "subjudul":
@@ -265,99 +374,8 @@ def _nama_lembar(teks: str, dipakai: set[str]) -> str:
     return calon
 
 
-def ke_xlsx(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
-    penampung = io.BytesIO()
-    dipakai: set[str] = set()
-    with pd.ExcelWriter(penampung, engine="openpyxl") as penulis:
-        ringkas = pd.DataFrame(
-            {
-                "Keterangan": [
-                    "Judul",
-                    "Sumber data",
-                    "Ukuran data",
-                    "Metode dijalankan",
-                    "Tanggal analisis",
-                    "Kesimpulan utama",
-                    "Penjelasan",
-                ],
-                "Isi": [
-                    "Laporan lengkap" if lengkap else f"Ringkasan {AUDIENCE_LABELS[pembaca]}",
-                    laporan.dataset,
-                    f"{laporan.n_baris} baris × {laporan.n_kolom} kolom",
-                    ", ".join(laporan.metode_terpakai),
-                    laporan.tanggal,
-                    laporan.headline,
-                    laporan.subheadline,
-                ],
-            }
-        )
-        ringkas.to_excel(penulis, sheet_name=_nama_lembar("Ringkasan", dipakai), index=False)
-
-        if laporan.lampu:
-            pd.DataFrame(
-                {
-                    "Pemeriksaan": [l.label for l in laporan.lampu],
-                    "Nilai": [l.nilai for l in laporan.lampu],
-                    "Status": [l.status_label for l in laporan.lampu],
-                    "Catatan": [l.catatan for l in laporan.lampu],
-                }
-            ).to_excel(penulis, sheet_name=_nama_lembar("Status", dipakai), index=False)
-
-        if laporan.pendorong:
-            pd.DataFrame(
-                {
-                    "Faktor": [p.nama for p in laporan.pendorong],
-                    "Satuan": [p.satuan for p in laporan.pendorong],
-                    "Nilai": [p.nilai for p in laporan.pendorong],
-                    "Kekuatan relatif": [p.kekuatan for p in laporan.pendorong],
-                    "Arah": [p.arah for p in laporan.pendorong],
-                    "p-value": [p.p_value for p in laporan.pendorong],
-                    "Catatan": [p.catatan for p in laporan.pendorong],
-                }
-            ).to_excel(penulis, sheet_name=_nama_lembar("Pendorong", dipakai), index=False)
-
-        register = list(AUDIENCES) if lengkap else [pembaca]
-        temuan = pd.DataFrame(
-            {
-                "Temuan": [t.judul for t in laporan.temuan],
-                "Metode": [t.metode for t in laporan.temuan],
-                "Ringkas": [t.ringkas for t in laporan.temuan],
-                **{
-                    AUDIENCE_LABELS[reg]: [t.teks(reg) for t in laporan.temuan]
-                    for reg in register
-                },
-            }
-        )
-        temuan.to_excel(penulis, sheet_name=_nama_lembar("Temuan", dipakai), index=False)
-
-        if laporan.rekomendasi:
-            pd.DataFrame(
-                {
-                    "Rekomendasi": [r.judul for r in laporan.rekomendasi],
-                    "Prioritas": [r.prioritas for r in laporan.rekomendasi],
-                    "Alasan": [r.alasan for r in laporan.rekomendasi],
-                }
-            ).to_excel(penulis, sheet_name=_nama_lembar("Rekomendasi", dipakai), index=False)
-
-        if laporan.keterbatasan:
-            pd.DataFrame({"Batas kesimpulan": laporan.keterbatasan}).to_excel(
-                penulis, sheet_name=_nama_lembar("Keterbatasan", dipakai), index=False
-            )
-
-        if lengkap or pembaca == "akademik":
-            for nomor, (judul_tabel, tabel, _) in laporan.tabel.items():
-                tabel.to_excel(
-                    penulis, sheet_name=_nama_lembar(nomor, dipakai), index=False
-                )
-            if laporan.paragraf:
-                pd.DataFrame(
-                    {
-                        "Bagian": [p.bagian for p in laporan.paragraf],
-                        "Paragraf": [p.teks for p in laporan.paragraf],
-                    }
-                ).to_excel(penulis, sheet_name=_nama_lembar("Siap salin", dipakai), index=False)
-
-    return penampung.getvalue()
+def ke_xlsx(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
+    return _dok_ke_xlsx(_dokumen(sumber, pembaca, lengkap))
 
 
 # --------------------------------------------------------------------------- #
@@ -385,7 +403,7 @@ def _daftarkan_font() -> str:
     return "Helvetica"
 
 
-def ke_pdf(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
+def ke_pdf(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_LEFT
     from reportlab.lib.pagesizes import A4
@@ -400,6 +418,9 @@ def ke_pdf(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False) 
         TableStyle,
     )
 
+    # Nama 'dokumen' sudah dipakai SimpleDocTemplate di bawah, jadi isi laporan
+    # disimpan dengan nama lain agar tidak tertimpa.
+    konten = _dokumen(sumber, pembaca, lengkap)
     font = _daftarkan_font()
     font_tebal = "DejaVu-Bold" if font == "DejaVu" else "Helvetica-Bold"
     perlu_sanitasi = font == "Helvetica"
@@ -430,11 +451,11 @@ def ke_pdf(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False) 
     dokumen = SimpleDocTemplate(
         penampung, pagesize=A4,
         leftMargin=20 * mm, rightMargin=18 * mm, topMargin=18 * mm, bottomMargin=18 * mm,
-        title=("Laporan Lengkap" if lengkap else f"Ringkasan {AUDIENCE_LABELS[pembaca]}"),
+        title=konten.judul,
         author="Lentera MVA",
     )
     isi: list = []
-    for blok in susun_blok(laporan, pembaca, lengkap):
+    for blok in konten.blok:
         if blok.jenis == "judul":
             isi.append(Paragraph(teks(blok.teks), gaya_judul))
         elif blok.jenis == "subjudul":
@@ -483,91 +504,8 @@ def ke_pdf(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False) 
 # --------------------------------------------------------------------------- #
 
 
-def ke_pptx(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
-    from pptx import Presentation
-    from pptx.dml.color import RGBColor
-    from pptx.util import Inches, Pt
-
-    presentasi = Presentation()
-    presentasi.slide_width = Inches(13.333)
-    presentasi.slide_height = Inches(7.5)
-    tata_judul = presentasi.slide_layouts[0]
-    tata_isi = presentasi.slide_layouts[1]
-    tata_kosong = presentasi.slide_layouts[6]
-
-    navy = RGBColor(0x26, 0x35, 0x6B)
-
-    slide = presentasi.slides.add_slide(tata_judul)
-    slide.shapes.title.text = laporan.headline
-    slide.placeholders[1].text = (
-        f"{laporan.subheadline}\n\n{laporan.dataset} · {laporan.n_baris} baris · "
-        f"{laporan.tanggal}"
-    )
-
-    def slide_poin(judul: str, butir: list[str], maks: int = 6) -> None:
-        """Satu slide berisi daftar poin; daftar panjang dipecah agar tetap terbaca."""
-        for mulai in range(0, len(butir), maks):
-            potongan = butir[mulai : mulai + maks]
-            s = presentasi.slides.add_slide(tata_isi)
-            s.shapes.title.text = judul if mulai == 0 else f"{judul} (lanjutan)"
-            s.shapes.title.text_frame.paragraphs[0].runs[0].font.color.rgb = navy
-            kerangka = s.placeholders[1].text_frame
-            kerangka.clear()
-            kerangka.word_wrap = True
-            for i, isi in enumerate(potongan):
-                paragraf = kerangka.paragraphs[0] if i == 0 else kerangka.add_paragraph()
-                paragraf.text = isi
-                paragraf.font.size = Pt(16)
-
-    if laporan.lampu:
-        slide_poin(
-            "Status pemeriksaan",
-            [f"{l.label}: {l.nilai} — {l.status_label}" for l in laporan.lampu],
-        )
-    if laporan.pendorong:
-        slide_poin(
-            "Peringkat pendorong",
-            [
-                f"{i}. {p.nama} ({p.satuan} {p.nilai:.3f}) — "
-                f"{'signifikan' if p.signifikan else 'belum terbukti'}"
-                for i, p in enumerate(laporan.pendorong[:8], start=1)
-            ],
-        )
-
-    slide_poin("Poin kunci", [t.ringkas for t in laporan.temuan])
-
-    register = pembaca if not lengkap else "eksekutif"
-    for temuan in laporan.temuan:
-        s = presentasi.slides.add_slide(tata_kosong)
-        kotak_judul = s.shapes.add_textbox(Inches(0.7), Inches(0.5), Inches(12), Inches(0.9))
-        p = kotak_judul.text_frame.paragraphs[0]
-        p.text = temuan.judul
-        p.font.size = Pt(26)
-        p.font.bold = True
-        p.font.color.rgb = navy
-
-        kotak_isi = s.shapes.add_textbox(Inches(0.7), Inches(1.6), Inches(12), Inches(5))
-        kerangka = kotak_isi.text_frame
-        kerangka.word_wrap = True
-        kerangka.paragraphs[0].text = temuan.teks(register)
-        kerangka.paragraphs[0].font.size = Pt(15)
-        metode = kerangka.add_paragraph()
-        metode.text = f"Metode: {temuan.metode}"
-        metode.font.size = Pt(11)
-        metode.font.color.rgb = RGBColor(0x6F, 0x7A, 0x91)
-
-    if laporan.rekomendasi:
-        slide_poin(
-            "Rekomendasi tindakan",
-            [f"{r.judul} — {r.alasan}" for r in laporan.rekomendasi],
-            maks=4,
-        )
-    if laporan.keterbatasan:
-        slide_poin("Batas kesimpulan", list(laporan.keterbatasan), maks=4)
-
-    penampung = io.BytesIO()
-    presentasi.save(penampung)
-    return penampung.getvalue()
+def ke_pptx(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
+    return _dok_ke_pptx(_dokumen(sumber, pembaca, lengkap))
 
 
 # --------------------------------------------------------------------------- #
@@ -575,90 +513,263 @@ def ke_pptx(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False)
 # --------------------------------------------------------------------------- #
 
 
-def ke_html(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
-    berkas = laporan_html_semua(laporan) if lengkap else laporan_html(laporan, pembaca)
-    return berkas.encode("utf-8")
+def ke_html(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
+    return _dok_ke_html(_dokumen(sumber, pembaca, lengkap))
 
 
-def ke_markdown(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
-    if not lengkap:
-        return laporan.markdown(pembaca).encode("utf-8")
-    bagian = [laporan.markdown(reg) for reg in AUDIENCES]
-    return ("\n\n---\n\n".join(bagian)).encode("utf-8")
+def ke_markdown(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
+    return _dok_ke_markdown(_dokumen(sumber, pembaca, lengkap))
 
 
-def ke_json(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
+def ke_json(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
     """Isi laporan dalam bentuk terstruktur, untuk diolah kembali oleh sistem lain."""
-    register = list(AUDIENCES) if lengkap else [pembaca]
+    return _dok_ke_json(_dokumen(sumber, pembaca, lengkap))
+
+
+def ke_python(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
+    """Skrip Python yang menjalankan ulang analisis dengan pustaka yang sama."""
+    return bangkitkan(getattr(sumber, "konfig", None), "py").encode("utf-8")
+
+
+def ke_r(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
+    """Skrip R sebagai pemeriksaan silang di luar Python."""
+    return bangkitkan(getattr(sumber, "konfig", None), "r").encode("utf-8")
+
+
+def ke_zip(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
+    """Paket lengkap: laporan dalam beberapa format sekaligus, ditambah tabel CSV.
+
+    Sintaks Python dan R hanya dapat dibangkitkan bila sumbernya membawa konfigurasi
+    analisis; keranjang hasil tidak membawanya, sehingga paketnya berisi berkas
+    laporan dan tabel saja.
+    """
+    dokumen = _dokumen(sumber, pembaca, lengkap)
+    konfig = getattr(sumber, "konfig", None)
+    return _dok_ke_zip(dokumen, konfig)
+
+
+# --------------------------------------------------------------------------- #
+# Penulis berbasis blok
+# --------------------------------------------------------------------------- #
+#
+# Jalur laporan naratif tetap memakai penulis khususnya, karena kekayaan bentuknya
+# — panel tiga register pada HTML, lembar per bagian pada Excel — tidak terwakili
+# oleh blok. Penulis di bawah melayani dokumen mana pun, termasuk keranjang hasil.
+
+
+def _dok_ke_xlsx(dokumen: Dokumen) -> bytes:
+    """Tiap tabel menjadi lembar tersendiri, ditambah lembar keterangan."""
+    penampung = io.BytesIO()
+    dipakai: set[str] = set()
+    with pd.ExcelWriter(penampung, engine="openpyxl") as penulis:
+        pd.DataFrame(
+            {
+                "Keterangan": ["Judul", "Keterangan", "Jumlah tabel"],
+                "Isi": [
+                    dokumen.judul,
+                    dokumen.meta,
+                    str(len(dokumen.tabel())),
+                ],
+            }
+        ).to_excel(penulis, sheet_name=_nama_lembar("Keterangan", dipakai), index=False)
+
+        for judul, tabel in dokumen.tabel():
+            tabel.to_excel(
+                penulis, sheet_name=_nama_lembar(judul, dipakai), index=False
+            )
+
+        teks = [b.teks for b in dokumen.blok if b.jenis == "paragraf" and b.teks]
+        if teks:
+            pd.DataFrame({"Catatan": teks}).to_excel(
+                penulis, sheet_name=_nama_lembar("Catatan", dipakai), index=False
+            )
+    return penampung.getvalue()
+
+
+def _dok_ke_pptx(dokumen: Dokumen) -> bytes:
+    """Satu slide judul, lalu satu slide per bagian."""
+    from pptx import Presentation
+    from pptx.dml.color import RGBColor
+    from pptx.util import Inches, Pt
+
+    presentasi = Presentation()
+    presentasi.slide_width = Inches(13.333)
+    presentasi.slide_height = Inches(7.5)
+    navy = RGBColor(0x26, 0x35, 0x6B)
+
+    slide = presentasi.slides.add_slide(presentasi.slide_layouts[0])
+    slide.shapes.title.text = dokumen.judul
+    slide.placeholders[1].text = dokumen.meta
+
+    def slide_isi(judul: str, butir: list[str], maks: int = 6) -> None:
+        for mulai in range(0, len(butir), maks):
+            s = presentasi.slides.add_slide(presentasi.slide_layouts[1])
+            s.shapes.title.text = judul if mulai == 0 else f"{judul} (lanjutan)"
+            if s.shapes.title.text_frame.paragraphs[0].runs:
+                s.shapes.title.text_frame.paragraphs[0].runs[0].font.color.rgb = navy
+            kerangka = s.placeholders[1].text_frame
+            kerangka.clear()
+            kerangka.word_wrap = True
+            for i, isi in enumerate(butir[mulai : mulai + maks]):
+                paragraf = kerangka.paragraphs[0] if i == 0 else kerangka.add_paragraph()
+                paragraf.text = isi[:400]
+                paragraf.font.size = Pt(15)
+
+    # Blok dikelompokkan menurut subjudul terdekat agar tiap bagian menjadi satu slide.
+    bagian: dict[str, list[str]] = {}
+    tajuk = dokumen.judul
+    for b in dokumen.blok:
+        if b.jenis == "subjudul" and b.teks:
+            tajuk = b.teks
+            bagian.setdefault(tajuk, [])
+        elif b.jenis == "paragraf" and b.teks:
+            bagian.setdefault(tajuk, []).append(b.teks)
+        elif b.jenis == "poin" and b.poin:
+            bagian.setdefault(tajuk, []).extend(b.poin)
+        elif b.jenis == "tabel" and b.tabel is not None:
+            bagian.setdefault(tajuk, []).append(
+                f"[tabel {b.tabel.shape[0]} baris x {b.tabel.shape[1]} kolom - "
+                "lihat berkas Word, Excel, atau PDF]"
+            )
+
+    for judul, butir in bagian.items():
+        if butir:
+            slide_isi(judul, butir)
+
+    penampung = io.BytesIO()
+    presentasi.save(penampung)
+    return penampung.getvalue()
+
+
+def _dok_ke_html(dokumen: Dokumen) -> bytes:
+    """Halaman mandiri sederhana yang mengikuti tema terang/gelap peramban."""
+    bagian: list[str] = []
+    for b in dokumen.blok:
+        if b.jenis == "judul":
+            bagian.append(f"<h1>{escape(b.teks)}</h1>")
+        elif b.jenis == "meta":
+            bagian.append(f'<p class="meta">{escape(b.teks)}</p>')
+        elif b.jenis == "subjudul":
+            bagian.append(f"<h2>{escape(b.teks)}</h2>")
+        elif b.jenis == "paragraf" and b.teks:
+            bagian.append(f"<p>{escape(b.teks)}</p>")
+        elif b.jenis == "poin" and b.poin:
+            butir = "".join(f"<li>{escape(str(p))}</li>" for p in b.poin)
+            bagian.append(f"<ul>{butir}</ul>")
+        elif b.jenis == "catatan" and b.catatan:
+            bagian.append(f'<p class="catatan">{escape(b.catatan)}</p>')
+        elif b.jenis == "tabel" and b.tabel is not None:
+            tabel = b.tabel.fillna("")
+            kepala = "".join(f"<th>{escape(str(k))}</th>" for k in tabel.columns)
+            baris = "".join(
+                "<tr>" + "".join(f"<td>{escape(str(v))}</td>" for v in nilai) + "</tr>"
+                for nilai in tabel.itertuples(index=False)
+            )
+            bagian.append(
+                f'<div class="tabel"><table><thead><tr>{kepala}</tr></thead>'
+                f"<tbody>{baris}</tbody></table></div>"
+            )
+            if b.catatan:
+                bagian.append(f'<p class="catatan">Catatan. {escape(b.catatan)}</p>')
+
+    halaman = f"""<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{escape(dokumen.judul)}</title>
+<style>
+:root{{color-scheme:light dark;--kertas:#fff;--tinta:#131a2b;--tinta2:#3d4860;
+--redup:#6f7a91;--garis:#dde3ee;--aksen:#26356b;--samar:#f4f6fb}}
+@media (prefers-color-scheme:dark){{:root:not([data-theme="light"]){{
+--kertas:#0f1420;--tinta:#e9edf6;--tinta2:#b3bccf;--redup:#8b96ac;
+--garis:#2a344c;--aksen:#93a6ea;--samar:#161d2e}}}}
+*{{box-sizing:border-box}}
+body{{margin:0;padding:32px 20px 64px;background:var(--kertas);color:var(--tinta);
+font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}}
+main{{max-width:76ch;margin:0 auto}}
+h1{{font-size:1.8rem;line-height:1.25;margin:0 0 .4rem;letter-spacing:-.01em}}
+h2{{font-size:1.05rem;margin:2rem 0 .6rem;color:var(--aksen);
+border-bottom:1px solid var(--garis);padding-bottom:.3rem}}
+p{{margin:0 0 .9rem;color:var(--tinta2)}}
+.meta{{font-family:ui-monospace,Menlo,monospace;font-size:.78rem;color:var(--redup);
+margin-bottom:1.6rem}}
+.catatan{{font-size:.84rem;color:var(--redup);font-style:italic}}
+ul{{margin:0 0 1rem;padding-left:1.3rem;color:var(--tinta2)}}
+li{{margin-bottom:.4rem}}
+.tabel{{overflow-x:auto;border:1px solid var(--garis);border-radius:8px;
+margin-bottom:.6rem}}
+table{{border-collapse:collapse;width:100%;font-size:.84rem}}
+th{{background:var(--samar);text-align:left;padding:8px 11px;font-size:.72rem;
+text-transform:uppercase;letter-spacing:.04em;color:var(--redup);
+border-bottom:1px solid var(--garis);white-space:nowrap}}
+td{{padding:7px 11px;border-bottom:1px solid var(--garis);color:var(--tinta2);
+white-space:nowrap}}
+tbody tr:last-child td{{border-bottom:0}}
+</style></head><body><main>
+{"".join(bagian)}
+</main></body></html>"""
+    return halaman.encode("utf-8")
+
+
+def _dok_ke_markdown(dokumen: Dokumen) -> bytes:
+    baris: list[str] = []
+    for b in dokumen.blok:
+        if b.jenis == "judul":
+            baris += [f"# {b.teks}", ""]
+        elif b.jenis == "meta":
+            baris += [f"*{b.teks}*", ""]
+        elif b.jenis == "subjudul":
+            baris += [f"## {b.teks}", ""]
+        elif b.jenis == "paragraf" and b.teks:
+            baris += [b.teks, ""]
+        elif b.jenis == "poin" and b.poin:
+            baris += [f"- {p}" for p in b.poin] + [""]
+        elif b.jenis == "catatan" and b.catatan:
+            baris += [f"> {b.catatan}", ""]
+        elif b.jenis == "tabel" and b.tabel is not None:
+            baris += [tabel_markdown(b.tabel), ""]
+            if b.catatan:
+                baris += [f"*Catatan. {b.catatan}*", ""]
+    return "\\n".join(baris).encode("utf-8")
+
+
+def _dok_ke_json(dokumen: Dokumen) -> bytes:
     isi = {
-        "dataset": laporan.dataset,
-        "n_baris": laporan.n_baris,
-        "n_kolom": laporan.n_kolom,
-        "tanggal": laporan.tanggal,
-        "metode": laporan.metode_terpakai,
-        "headline": laporan.headline,
-        "subheadline": laporan.subheadline,
-        "lampu": [
-            {"label": l.label, "nilai": l.nilai, "status": l.status, "catatan": l.catatan}
-            for l in laporan.lampu
-        ],
-        "pendorong": [
+        "judul": dokumen.judul,
+        "meta": dokumen.meta,
+        "blok": [
             {
-                "nama": p.nama,
-                "satuan": p.satuan,
-                "nilai": p.nilai,
-                "kekuatan": p.kekuatan,
-                "arah": p.arah,
-                "p_value": None if pd.isna(p.p_value) else p.p_value,
-                "signifikan": p.signifikan,
+                "jenis": b.jenis,
+                "teks": b.teks,
+                "poin": b.poin,
+                "catatan": b.catatan,
+                "tabel": (
+                    None if b.tabel is None else b.tabel.fillna("").to_dict(orient="records")
+                ),
             }
-            for p in laporan.pendorong
+            for b in dokumen.blok
         ],
-        "temuan": [
-            {
-                "judul": t.judul,
-                "metode": t.metode,
-                "ringkas": t.ringkas,
-                **{reg: t.teks(reg) for reg in register},
-            }
-            for t in laporan.temuan
-        ],
-        "rekomendasi": [
-            {"judul": r.judul, "prioritas": r.prioritas, "alasan": r.alasan}
-            for r in laporan.rekomendasi
-        ],
-        "keterbatasan": laporan.keterbatasan,
-        "dilewati": laporan.dilewati,
     }
     return json.dumps(isi, ensure_ascii=False, indent=2).encode("utf-8")
 
 
-def ke_python(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
-    """Skrip Python yang menjalankan ulang analisis dengan pustaka yang sama."""
-    return bangkitkan(laporan.konfig, "py").encode("utf-8")
-
-
-def ke_r(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
-    """Skrip R sebagai pemeriksaan silang di luar Python."""
-    return bangkitkan(laporan.konfig, "r").encode("utf-8")
-
-
-def ke_zip(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
-    """Paket lengkap: laporan dalam beberapa format sekaligus, ditambah tabel CSV."""
+def _dok_ke_zip(dokumen: Dokumen, konfig=None) -> bytes:
     penampung = io.BytesIO()
-    dasar = "laporan_lengkap" if lengkap else f"ringkasan_{pembaca}"
+    dasar = dokumen.nama_dasar
     with zipfile.ZipFile(penampung, "w", zipfile.ZIP_DEFLATED) as arsip:
-        arsip.writestr(f"{dasar}.html", ke_html(laporan, pembaca, lengkap))
-        arsip.writestr(f"{dasar}.md", ke_markdown(laporan, pembaca, lengkap))
-        arsip.writestr(f"{dasar}.docx", ke_docx(laporan, pembaca, lengkap))
-        arsip.writestr(f"{dasar}.xlsx", ke_xlsx(laporan, pembaca, lengkap))
-        arsip.writestr(f"{dasar}.pdf", ke_pdf(laporan, pembaca, lengkap))
-        arsip.writestr(f"{dasar}.json", ke_json(laporan, pembaca, lengkap))
-        arsip.writestr("sintaks/analisis.py", ke_python(laporan, pembaca, lengkap))
-        arsip.writestr("sintaks/analisis.R", ke_r(laporan, pembaca, lengkap))
-        for nomor, (judul_tabel, tabel, _) in laporan.tabel.items():
-            nama = nomor.lower().replace(" ", "_")
-            arsip.writestr(f"tabel/{nama}.csv", tabel.to_csv(index=False))
+        arsip.writestr(f"{dasar}.html", _dok_ke_html(dokumen))
+        arsip.writestr(f"{dasar}.md", _dok_ke_markdown(dokumen))
+        arsip.writestr(f"{dasar}.docx", ke_docx(dokumen))
+        arsip.writestr(f"{dasar}.xlsx", _dok_ke_xlsx(dokumen))
+        arsip.writestr(f"{dasar}.pdf", ke_pdf(dokumen))
+        arsip.writestr(f"{dasar}.json", _dok_ke_json(dokumen))
+        if konfig is not None:
+            arsip.writestr("sintaks/analisis.py", bangkitkan(konfig, "py"))
+            arsip.writestr("sintaks/analisis.R", bangkitkan(konfig, "r"))
+        for nomor, (judul, tabel) in enumerate(dokumen.tabel(), start=1):
+            nama = "".join(
+                c if c.isalnum() or c in "-_" else "_" for c in str(judul).lower()
+            )[:40].strip("_")
+            arsip.writestr(f"tabel/{nomor:02d}_{nama or 'tabel'}.csv", tabel.to_csv(index=False))
     return penampung.getvalue()
 
 
@@ -717,25 +828,33 @@ _PEMBUAT = {
 
 
 def bangun(
-    laporan: Laporan, kode_format: str, pembaca: str = "eksekutif", lengkap: bool = False
+    sumber, kode_format: str, pembaca: str = "eksekutif", lengkap: bool = False
 ) -> bytes:
-    """Hasilkan berkas laporan dalam format yang diminta."""
+    """Hasilkan berkas dalam format yang diminta.
+
+    ``sumber`` boleh berupa ``Laporan`` naratif maupun ``Keranjang`` hasil yang
+    dikumpulkan pengguna; keduanya diterjemahkan lebih dulu menjadi ``Dokumen``.
+    """
     if kode_format not in _PEMBUAT:
         raise ValueError(
             f"Format '{kode_format}' tidak dikenal. Pilih dari: {', '.join(FORMAT)}."
         )
     if pembaca not in AUDIENCES:
         raise ValueError(f"Pembaca '{pembaca}' tidak dikenal.")
-    return _PEMBUAT[kode_format](laporan, pembaca, lengkap)
+    return _PEMBUAT[kode_format](sumber, pembaca, lengkap)
 
 
 def nama_berkas(
-    laporan: Laporan, kode_format: str, pembaca: str = "eksekutif", lengkap: bool = False
+    sumber, kode_format: str, pembaca: str = "eksekutif", lengkap: bool = False
 ) -> str:
     if kode_format in {"py", "r"}:
         ragam = "sintaks_analisis"
+    elif isinstance(sumber, Keranjang):
+        ragam = "laporan_hasil"
     else:
-        ragam = "laporan_lengkap" if lengkap else f"ringkasan_{pembaca}"
-    dasar = str(laporan.dataset).rsplit(".", 1)[0]
+        ragam = (
+            f"laporan_lengkap_{pembaca}" if lengkap else f"ringkasan_{pembaca}"
+        )
+    dasar = str(getattr(sumber, "dataset", "lentera")).rsplit(".", 1)[0]
     bersih = "".join(c if c.isalnum() or c in "-_" else "_" for c in dasar)[:40].strip("_")
     return f"{bersih or 'lentera'}_{ragam}.{FORMAT[kode_format].ekstensi}"

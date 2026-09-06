@@ -80,7 +80,12 @@ with tab_load:
     )
     threshold = st.slider("Ambang muatan yang dianggap berarti", 0.3, 0.8, 0.5, 0.05)
     display = result.loadings
-    ui.show_table(display.reset_index(names="Variabel"), "faktor_muatan.csv")
+    ui.show_table(
+            display.reset_index(names="Variabel"),
+            "faktor_muatan.csv",
+            bagian="Analisis faktor",
+            judul="Matriks muatan",
+        )
 
     st.markdown("**Pemetaan variabel ke faktor dominan**")
     ui.show_table(result.dominant_loadings(threshold), "faktor_pemetaan.csv")

@@ -99,7 +99,12 @@ with tab_profile:
     ui.show_table(result.sizes(), "klaster_ukuran.csv")
     st.markdown("**Karakteristik tiap klaster (nilai asli, bukan hasil penskalaan)**")
     profile = clustering.profile_clusters(df.loc[result.labels.index, selected], result.labels)
-    ui.show_table(profile, "klaster_profil.csv")
+    ui.show_table(
+            profile,
+            "klaster_profil.csv",
+            bagian="Analisis klaster",
+            judul="Profil klaster",
+        )
     ui.interpretation(
         "Bandingkan rata-rata tiap klaster terhadap rata-rata total untuk menamai "
         "klaster. Kolom F dan p-value menunjukkan variabel mana yang paling membedakan "

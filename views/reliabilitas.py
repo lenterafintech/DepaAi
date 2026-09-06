@@ -98,7 +98,12 @@ with tab_satu:
                     tabel["Alpha jika dibuang"],
                 )
             ]
-            ui.show_table(tabel, "reliabilitas_butir.csv")
+            ui.show_table(
+            tabel,
+            "reliabilitas_butir.csv",
+            bagian="Reliabilitas",
+            judul="Statistik per butir",
+        )
             ui.interpretation(
                 "Butir yang sehat memiliki korelasi item-total ≥ 0,30 dan muatan ≥ 0,50, "
                 "serta tidak menaikkan alpha bila dibuang. Kolom 'Alpha jika dibuang' "
