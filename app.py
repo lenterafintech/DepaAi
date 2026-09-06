@@ -11,6 +11,9 @@ st.set_page_config(page_title="NalarData", page_icon="📊", layout="wide")
 st.session_state["_page_configured"] = True
 
 PAGES = {
+    "Rencana": [
+        st.Page("views/proyek.py", title="Ruang Proyek", icon=":material/flag:"),
+    ],
     "Data": [
         st.Page("views/beranda.py", title="Beranda & Data", icon=":material/database:", default=True),
         st.Page("views/entri_data.py", title="Buat & Entri Data", icon=":material/edit_note:"),

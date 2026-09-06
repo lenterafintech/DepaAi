@@ -11,6 +11,7 @@ Berkas proyek adalah arsip zip biasa berakhiran ``.nalardata``:
     data.csv             data aktif, selalu ada sebagai cadangan yang bisa dibaca
     data.parquet         salinan yang mempertahankan tipe data (bila engine tersedia)
     kamus.json           skala, peran, dan definisi tiap variabel
+    penelitian.json      rancangan penelitian dan praregistrasi
     konfigurasi.json     pilihan variabel pada halaman laporan
     keranjang.json       daftar hasil yang disimpan pengguna
     keranjang/NN.csv     tabel tiap hasil
@@ -32,6 +33,7 @@ import pandas as pd
 
 from nalardata import kamus as km
 from nalardata import keranjang as kr
+from nalardata import proyek_penelitian as pp
 
 FORMAT = "nalardata-proyek"
 EKSTENSI = "nalardata"
@@ -57,6 +59,7 @@ class Proyek:
     nama_data: str = "data"
     keranjang: kr.Keranjang = field(default_factory=kr.Keranjang)
     kamus: km.Kamus = field(default_factory=km.Kamus)
+    penelitian: pp.ProyekPenelitian = field(default_factory=pp.ProyekPenelitian)
     konfigurasi: dict = field(default_factory=dict)
     dibuat: str = ""
     versi: int = VERSI
@@ -73,6 +76,14 @@ class Proyek:
                 {
                     "Keterangan": "Hasil tersimpan",
                     "Isi": f"{len(self.keranjang.item)} objek",
+                },
+                {
+                    "Keterangan": "Rancangan penelitian",
+                    "Isi": (
+                        self.penelitian.judul or self.penelitian.rancangan.nama
+                        if not self.penelitian.kosong()
+                        else "belum diisi"
+                    ),
                 },
                 {
                     "Keterangan": "Kamus variabel",
@@ -116,6 +127,7 @@ def simpan_proyek(
     keranjang: kr.Keranjang | None = None,
     konfigurasi: dict | None = None,
     kamus: km.Kamus | None = None,
+    penelitian: pp.ProyekPenelitian | None = None,
 ) -> bytes:
     """Susun berkas proyek dari keadaan sesi saat ini."""
     if df is None or df.empty:
@@ -131,6 +143,7 @@ def simpan_proyek(
         "berkas_data": ["data.csv"],
         "punya_keranjang": not isi.kosong(),
         "punya_kamus": bool(kamus is not None and len(kamus)),
+        "punya_penelitian": bool(penelitian is not None and not penelitian.kosong()),
     }
 
     with zipfile.ZipFile(penampung, "w", zipfile.ZIP_DEFLATED) as arsip:
@@ -142,6 +155,15 @@ def simpan_proyek(
         arsip.writestr(
             "konfigurasi.json",
             json.dumps(konfigurasi or {}, ensure_ascii=False, indent=2, default=str),
+        )
+        arsip.writestr(
+            "penelitian.json",
+            json.dumps(
+                penelitian.ke_dict() if penelitian is not None else {},
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            ),
         )
         arsip.writestr(
             "kamus.json",
@@ -336,12 +358,16 @@ def buka_proyek(isi: bytes) -> Proyek:
             kamus = km.Kamus.dari_dict(_baca_json(arsip, nama, "kamus.json"))
             if len(kamus):
                 kamus = kamus.selaraskan(data)
+            penelitian = pp.ProyekPenelitian.dari_dict(
+                _baca_json(arsip, nama, "penelitian.json")
+            )
 
             return Proyek(
                 data=data,
                 nama_data=str(manifest.get("nama_data") or "data"),
                 keranjang=_baca_keranjang(arsip, nama),
                 kamus=kamus,
+                penelitian=penelitian,
                 konfigurasi=konfigurasi,
                 dibuat=str(manifest.get("dibuat") or ""),
                 versi=versi,

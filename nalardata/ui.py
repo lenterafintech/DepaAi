@@ -11,12 +11,14 @@ import streamlit as st
 
 from nalardata import formatting, kamus as km, keranjang as kr, langganan
 from nalardata import pengguna as pg, preprocessing
+from nalardata import proyek_penelitian as pp
 
 DATA_KEY = "dataset"
 NAME_KEY = "dataset_name"
 KERANJANG_KEY = "keranjang_hasil"
 KAMUS_KEY = "kamus_variabel"
 CONTOH_KEY = "data_adalah_contoh"
+PENELITIAN_KEY = "proyek_penelitian"
 SAMPLE_PATH = Path(__file__).resolve().parents[1] / "data" / "contoh_data_nasabah.csv"
 
 # Palet terang. Warna status sengaja terpisah dari aksen agar "berhasil" dan
@@ -379,6 +381,22 @@ def kamus() -> km.Kamus:
 
 def set_kamus(baru: km.Kamus) -> None:
     st.session_state[KAMUS_KEY] = baru
+
+
+def penelitian() -> pp.ProyekPenelitian:
+    """Rancangan penelitian sesi ini, dibuat dengan nilai bawaan bila belum diisi.
+
+    Selalu mengembalikan objek, tidak pernah None: batas kesimpulan harus tetap
+    dapat dicetak sekalipun pengguna melewati Ruang Proyek — dan bawaannya adalah
+    yang paling berhati-hati (potong lintang, sampling purposif).
+    """
+    if PENELITIAN_KEY not in st.session_state:
+        st.session_state[PENELITIAN_KEY] = pp.ProyekPenelitian()
+    return st.session_state[PENELITIAN_KEY]
+
+
+def set_penelitian(baru: pp.ProyekPenelitian) -> None:
+    st.session_state[PENELITIAN_KEY] = baru
 
 
 def get_dataset() -> pd.DataFrame | None:

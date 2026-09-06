@@ -11,8 +11,10 @@ from streamlit.testing.v1 import AppTest
 ROOT = Path(__file__).resolve().parents[1]
 # Halaman yang sengaja tetap berguna tanpa data aktif. Beranda dan entri data
 # justru tempat data dibuat; Laporan Hasil menampilkan hasil yang sudah disimpan,
-# yang tetap sah dibaca sekalipun datanya sudah tidak dimuat lagi.
-MANDIRI = {"beranda", "entri_data", "akun", "masuk", "laporan"}
+# yang tetap sah dibaca sekalipun datanya sudah tidak dimuat lagi. Ruang Proyek
+# adalah tahap sebelum data dikumpulkan, sehingga meminta data di sana justru
+# membalik urutan penelitian.
+MANDIRI = {"beranda", "entri_data", "akun", "masuk", "laporan", "proyek"}
 PAGES = sorted(p for p in (ROOT / "views").glob("*.py") if p.stem not in MANDIRI)
 SEMUA = sorted((ROOT / "views").glob("*.py"))
 SAMPLE = ROOT / "data" / "contoh_data_nasabah.csv"
@@ -196,3 +198,12 @@ def test_tafsiran_mengamankan_tanda_kurung_sudut():
 
     assert ui._markdown_ringkas("nilai <NA> pada kolom") == "nilai &lt;NA&gt; pada kolom"
     assert "<script>" not in ui._markdown_ringkas("<script>alert(1)</script>")
+
+
+def test_ruang_proyek_berguna_sebelum_data_ada():
+    """Tahap 0 mendahului data; halaman ini tidak boleh menuntut unggahan lebih dulu."""
+    app = _run(ROOT / "views" / "proyek.py", None)
+    assert not app.exception
+    assert not any("Belum ada data" in w.value for w in app.warning)
+    teks = " ".join(md.value for md in app.markdown)
+    assert "sebab-akibat" in teks

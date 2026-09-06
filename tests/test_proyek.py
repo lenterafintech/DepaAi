@@ -13,6 +13,7 @@ import pytest
 from nalardata import kamus as km
 from nalardata import keranjang as kr
 from nalardata import proyek as pr
+from nalardata import proyek_penelitian as pp
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -328,3 +329,76 @@ def test_ringkas_menyebut_kamus(data, isi_kamus):
     ringkas = hasil.ringkas().set_index("Keterangan")["Isi"]
     assert ringkas["Kamus variabel"].startswith(f"{len(data.columns)} kolom")
     assert "perlu diperiksa" in ringkas["Kamus variabel"]
+
+
+# --------------------------------------------------------------------------- #
+# Rancangan penelitian di dalam proyek
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture
+def isi_penelitian() -> pp.ProyekPenelitian:
+    return pp.ProyekPenelitian(
+        judul="Kualitas layanan dan kepuasan nasabah",
+        bidang="Manajemen",
+        pertanyaan=["Apakah kualitas layanan berhubungan dengan kepuasan?"],
+        hipotesis=["H1: hubungan positif"],
+        populasi="Nasabah cabang Jakarta",
+        ukuran_populasi=2500,
+        unit_analisis="Nasabah perorangan",
+        desain="eksperimen",
+        penugasan_acak=True,
+        teknik_sampling="berlapis",
+        target_sampel=200,
+        praregistrasi=pp.Praregistrasi(
+            hipotesis=["H1"], uji_direncanakan=["Regresi linear berganda"]
+        ),
+    )
+
+
+def test_rancangan_penelitian_pulih_utuh(data, isi_penelitian):
+    hasil = pr.buka_proyek(pr.simpan_proyek(data, "d.csv", penelitian=isi_penelitian))
+    pulang = hasil.penelitian
+    assert pulang.judul == isi_penelitian.judul
+    assert pulang.desain == "eksperimen"
+    assert pulang.penugasan_acak
+    assert pulang.teknik_sampling == "berlapis"
+    assert pulang.ukuran_populasi == 2500
+    assert pulang.boleh_sebab
+    assert pulang.boleh_generalisasi
+
+
+def test_praregistrasi_pulih_dengan_sidik_yang_sama(data, isi_penelitian):
+    """Sidik yang berubah setelah pulang-pergi akan salah menuduh pengguna mengubah rencana."""
+    hasil = pr.buka_proyek(pr.simpan_proyek(data, "d.csv", penelitian=isi_penelitian))
+    assert hasil.penelitian.praregistrasi is not None
+    assert hasil.penelitian.praregistrasi.sidik == isi_penelitian.praregistrasi.sidik
+
+
+def test_proyek_tanpa_rancangan_tetap_sah(data):
+    hasil = pr.buka_proyek(pr.simpan_proyek(data, "d.csv"))
+    assert hasil.penelitian.kosong()
+    # Bawaannya tetap yang paling berhati-hati.
+    assert not hasil.penelitian.boleh_sebab
+    assert not hasil.penelitian.boleh_generalisasi
+
+
+def test_rancangan_rusak_tidak_menggagalkan_pembukaan(data, isi_penelitian):
+    berkas = pr.simpan_proyek(data, "d.csv", penelitian=isi_penelitian)
+    sumber = zipfile.ZipFile(io.BytesIO(berkas))
+    penampung = io.BytesIO()
+    with zipfile.ZipFile(penampung, "w", zipfile.ZIP_DEFLATED) as arsip:
+        for nama in sumber.namelist():
+            arsip.writestr(
+                nama, b"{bukan json" if nama == "penelitian.json" else sumber.read(nama)
+            )
+
+    hasil = pr.buka_proyek(penampung.getvalue())
+    assert not hasil.data.empty
+    assert hasil.penelitian.kosong()
+
+
+def test_ringkas_menyebut_rancangan(data, isi_penelitian):
+    hasil = pr.buka_proyek(pr.simpan_proyek(data, "d.csv", penelitian=isi_penelitian))
+    ringkas = hasil.ringkas().set_index("Keterangan")["Isi"]
+    assert ringkas["Rancangan penelitian"] == isi_penelitian.judul
