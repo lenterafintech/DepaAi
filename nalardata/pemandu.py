@@ -1220,7 +1220,10 @@ def _mutu_instrumen(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Rek
         ],
         lanjutan=(
             "Laporkan Cronbach alpha bersama McDonald omega. Alpha mengandaikan seluruh "
-            "butir berbobot sama, dan anggapan itu jarang benar."
+            "butir berbobot sama; omega tidak. Namun keunggulan omega tidak berlaku "
+            "di segala keadaan: pada skala berbutir sedikit dengan muatan rendah, "
+            "omega justru dapat kurang tepat daripada alpha, dan pada skala lima butir "
+            "atau lebih keduanya lazimnya berselisih tipis."
         ),
         pembanding="SPSS: Analyze ▸ Scale ▸ Reliability Analysis",
     )

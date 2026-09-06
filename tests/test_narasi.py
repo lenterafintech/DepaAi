@@ -294,3 +294,23 @@ def test_keterbatasan_tidak_terduplikasi(data, konfig_lengkap):
         data, konfig_lengkap, pp.ProyekPenelitian(desain="potong_lintang")
     )
     assert len(lap.keterbatasan) == len(set(lap.keterbatasan))
+
+
+def test_setiap_rujukan_menyebut_apa_yang_dirujuknya():
+    """Rujukan tanpa keterangan tidak dapat ditelusuri pembaca.
+
+    Aplikasi mengutip ambang statistik dari kepustakaan; tiap butir wajib
+    menyebutkan ambang mana yang bersandar padanya, bukan sekadar nama penulis.
+    """
+    for rujukan in nr.RUJUKAN:
+        assert "—" in rujukan, rujukan
+        penulis, keterangan = rujukan.split("—", 1)
+        assert len(keterangan.strip()) > 15
+        assert any(tahun in penulis for tahun in ("19", "20"))
+
+
+def test_rujukan_memuat_dasar_ambang_yang_paling_sering_dipakai():
+    """Ambang yang paling banyak dipakai pengguna kuesioner harus punya dasarnya."""
+    gabungan = " ".join(nr.RUJUKAN)
+    for kata in ("HTMT", "omega", "Fornell-Larcker", "KMO", "efek"):
+        assert kata in gabungan

@@ -2069,6 +2069,22 @@ RUJUKAN = [
     "20, 53–65. — tafsir nilai silhouette.",
     "Tabachnick, B. G., & Fidell, L. S. (2019). Using multivariate statistics (7th ed.). "
     "Pearson. — prosedur pemeriksaan asumsi multivariat.",
+    "Henseler, J., Ringle, C. M., & Sarstedt, M. (2015). A new criterion for assessing "
+    "discriminant validity in variance-based structural equation modeling. Journal of "
+    "the Academy of Marketing Science, 43(1), 115–135. — HTMT, dan bukti simulasi bahwa "
+    "Fornell-Larcker kerap gagal mendeteksi masalah validitas diskriminan.",
+    "Franke, G., & Sarstedt, M. (2019). Heuristics versus statistics in discriminant "
+    "validity testing: a comparison of four procedures. Internet Research, 29(3), "
+    "430–447. — ketangguhan HTMT beserta keadaan yang masih meloloskannya.",
+    "Hayes, A. F., & Coutts, J. J. (2020). Use omega rather than Cronbach's alpha for "
+    "estimating reliability. But… Communication Methods and Measures, 14(1), 1–24. "
+    "— dasar memilih omega, beserta syarat pemakaiannya.",
+    "Orçan, F. (2023). Comparison of Cronbach's alpha and McDonald's omega for ordinal "
+    "data: are they different? International Journal of Assessment Tools in Education, "
+    "10(4), 709–722. — keadaan ketika alpha justru lebih tepat daripada omega.",
+    "Trizano-Hermosilla, I., & Alvarado, J. M. (2016). Best alternatives to Cronbach's "
+    "alpha reliability in realistic conditions. Frontiers in Psychology, 7, 769. "
+    "— unggulnya omega pada butir yang menceng dan tidak tau-ekuivalen.",
 ]
 
 

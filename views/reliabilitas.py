@@ -23,10 +23,16 @@ ui.method_note(
     "**Alpha Cronbach** mengukur konsistensi internal butir; nilai ≥ 0,70 lazim "
     "diterima. **Omega McDonald** dan **composite reliability (CR)** menghitung hal "
     "serupa dari muatan faktor, sehingga tidak mengasumsikan seluruh butir sama "
-    "kuatnya. **AVE** adalah rata-rata ragam butir yang terserap konstruk; ≥ 0,50 "
-    "berarti konstruk menjelaskan lebih banyak daripada galat pengukurannya. "
-    "**Fornell-Larcker** menuntut akar AVE tiap konstruk melampaui korelasinya "
-    "dengan konstruk lain — bila tidak, dua konstruk sebetulnya mengukur hal sama.",
+    "kuatnya. Laporkan keduanya: omega lebih tepat ketika muatan butir berbeda-beda "
+    "atau sebarannya menceng, tetapi pada skala berbutir sedikit dengan muatan rendah "
+    "alpha justru dapat lebih akurat, dan pada lima butir atau lebih keduanya "
+    "biasanya berselisih tipis. **AVE** adalah rata-rata ragam butir yang terserap "
+    "konstruk; ≥ 0,50 berarti konstruk menjelaskan lebih banyak daripada galat "
+    "pengukurannya. **Fornell-Larcker** menuntut akar AVE tiap konstruk melampaui "
+    "korelasinya dengan konstruk lain. Perlu diketahui, simulasi Henseler dkk. (2015) "
+    "menunjukkan Fornell-Larcker kerap gagal mendeteksi masalah validitas diskriminan "
+    "yang sebenarnya ada — karena itu **HTMT** juga dilaporkan di sini dan sebaiknya "
+    "lebih diandalkan.",
 )
 
 numerik = preprocessing.numeric_columns(df)
