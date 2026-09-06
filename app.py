@@ -13,6 +13,7 @@ st.session_state["_page_configured"] = True
 PAGES = {
     "Rencana": [
         st.Page("views/proyek.py", title="Ruang Proyek", icon=":material/flag:"),
+        st.Page("views/pemandu.py", title="Pemandu Uji", icon=":material/explore:"),
     ],
     "Data": [
         st.Page("views/beranda.py", title="Beranda & Data", icon=":material/database:", default=True),

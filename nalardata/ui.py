@@ -690,6 +690,20 @@ def simpan_ke_keranjang(
         st.rerun()
 
 
+def tautan_halaman(jalur: str, label: str, ikon: str = "") -> None:
+    """Tautan ke halaman lain, dengan mundur ke teks biasa bila belum terdaftar.
+
+    ``st.page_link`` hanya sah untuk halaman yang sudah dilewatkan ke
+    ``st.navigation``. Saat sebuah halaman dijalankan sendirian — misalnya pada uji
+    asap — pemanggilan itu melempar galat dan menghentikan halaman, padahal tautannya
+    hanya pelengkap.
+    """
+    try:
+        st.page_link(jalur, label=label, icon=ikon or None)
+    except Exception:  # noqa: BLE001 - halaman belum terdaftar pada navigasi
+        st.caption(f"Buka halaman **{label}** dari menu di sebelah kiri.")
+
+
 def method_note(title: str, body: str) -> None:
     with st.expander(f"Tentang {title}"):
         st.markdown(body)

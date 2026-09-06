@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 FITUR = {
     "dasar": "Eksplorasi, korelasi, dan uji asumsi",
     "kamus": "Kamus variabel: skala, peran, dan definisi operasional",
+    "pemandu": "Pemandu uji: saran metode berdasarkan data Anda",
     "reduksi": "PCA dan analisis faktor eksploratori",
     "klaster": "Analisis klaster",
     "regresi": "Regresi linear dan logistik",
@@ -61,6 +62,7 @@ class Paket:
 _DASAR = {
     "dasar",
     "kamus",
+    "pemandu",
     "reduksi",
     "klaster",
     "regresi",

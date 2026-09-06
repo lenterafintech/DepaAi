@@ -164,16 +164,17 @@ st.html(
     + "</div>"
 )
 
-st.subheader("4. Atau pilih metode tertentu")
-st.caption("Panduan singkat memilih metode, sesuai pertanyaan yang ingin dijawab:")
+st.subheader("4. Belum tahu uji mana yang tepat?")
 st.markdown(
-    "- Meringkas **banyak variabel** menjadi sedikit dimensi → PCA atau Analisis Faktor\n"
-    "- Mengelompokkan **observasi yang mirip** → Analisis Klaster\n"
-    "- Memprediksi **nilai numerik** → Regresi Linear Berganda\n"
-    "- Memprediksi **dua kategori** (mis. gagal bayar) → Regresi Logistik\n"
-    "- Memprediksi **keanggotaan kelompok** dari banyak prediktor → Analisis Diskriminan\n"
-    "- Membandingkan **beberapa variabel dependen** antar kelompok → MANOVA\n"
-    "- Menghubungkan **dua gugus variabel** sekaligus → Korelasi Kanonik"
+    "Buka **Pemandu Uji**. Berbeda dari daftar panduan di buku teks, pemandu memeriksa "
+    "data Anda sendiri — skala tiap variabel, jumlah kelompok, sebaran, dan keseragaman "
+    "ragam — lalu menyarankan metodenya **beserta alasan mengapa alternatifnya tidak "
+    "dipilih**. Bagian terakhir itulah yang berguna ketika penguji bertanya."
+)
+ui.tautan_halaman("views/pemandu.py", "Pemandu Uji", ":material/explore:")
+st.caption(
+    "Daftar tetap di bawah tetap tersedia bila Anda sudah tahu metode yang dicari; "
+    "ia tidak melihat data Anda sama sekali."
 )
 with st.expander("Daftar lengkap metode yang tersedia"):
     st.html(
