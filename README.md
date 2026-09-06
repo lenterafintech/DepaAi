@@ -8,16 +8,16 @@ interpretasinya dalam bahasa Indonesia.
 
 | Kelompok | Metode |
 | --- | --- |
-| Entri data | Membuat tabel baru langsung di aplikasi (definisi kolom, skala Likert, butir kuesioner bernomor), menyunting data aktif, dan memeriksa kelengkapan isian |
-| Instrumen | Alpha Cronbach dengan statistik per butir dan alpha-if-deleted, omega McDonald, composite reliability, AVE, serta validitas diskriminan Fornell-Larcker |
+| Entri data | Membuat tabel baru langsung di aplikasi (definisi kolom, skala Likert, butir kuesioner bernomor), menyunting data aktif, memeriksa kelengkapan isian, serta meringkas beberapa butir menjadi satu variabel konstruk (rata-rata, jumlah, atau skor baku) dengan aturan butir minimal terisi |
+| Instrumen | Alpha Cronbach dengan statistik per butir dan alpha-if-deleted, reliabilitas belah-dua Spearman-Brown, omega McDonald, composite reliability, AVE, serta validitas diskriminan Fornell-Larcker |
 | Eksplorasi | Statistik deskriptif, tabel frekuensi, uji normalitas (Shapiro-Wilk, D'Agostino, KS), normalitas multivariat Mardia, pencilan IQR & jarak Mahalanobis |
 | Korelasi & asumsi | Korelasi Pearson/Spearman/Kendall dengan uji signifikansi, korelasi parsial, KMO, Bartlett's test of sphericity, VIF, Box's M, Levene |
 | Reduksi dimensi | PCA (scree plot, biplot, komunalitas, analisis paralel Horn), analisis faktor eksploratori (principal / principal axis factoring / maximum likelihood) dengan rotasi varimax & promax |
 | Pengelompokan | K-Means (elbow, silhouette, Calinski-Harabasz, Davies-Bouldin), hierarki + dendrogram, DBSCAN, profil klaster dengan uji ANOVA |
-| Pemodelan | Regresi linear berganda (koefisien baku, ANOVA, VIF, uji asumsi klasik, stepwise), regresi logistik biner (odds ratio, ROC/AUC, matriks konfusi), dan regresi moderasi/MRA (suku interaksi, ΔR², simple slopes, Johnson-Neyman) |
+| Pemodelan | Regresi linear berganda (koefisien baku, ANOVA, VIF, uji asumsi klasik termasuk Breusch-Pagan dan White, galat baku robust HC0–HC3 dengan anjuran otomatis, stepwise), regresi logistik biner (odds ratio, ROC/AUC, matriks konfusi), dan regresi moderasi/MRA (suku interaksi, ΔR², simple slopes, Johnson-Neyman) |
 | Uji non-parametrik | Mann-Whitney U, Kolmogorov-Smirnov dua sampel, median Mood, Kruskal-Wallis dengan uji lanjutan Dunn (koreksi Holm/Bonferroni), Wilcoxon peringkat bertanda, uji tanda, Friedman + Kendall's W, chi-square kebebasan + Cramér's V, uji eksak Fisher, korelasi Spearman & Kendall — seluruhnya dilaporkan bersama ukuran efek dan padanan parametriknya |
 | Uji beda & hubungan | Analisis diskriminan linear/kuadratik (fungsi kanonik, Wilks' lambda), MANOVA satu jalur + Hotelling's T², MANCOVA dengan rata-rata terkoreksi dan uji homogenitas kemiringan, korelasi kanonik dengan indeks redundansi |
-| Model struktural | CFA (muatan terstandardisasi, CR/AVE, indeks kecocokan termasuk SRMR), analisis jalur dengan dekomposisi efek langsung/tidak langsung, SEM penuh, uji mediasi bootstrap dengan VAF, serta pilihan estimator ML / FIML / DWLS / ULS / GLS beserta saran otomatis sesuai ciri data |
+| Model struktural | CFA (muatan terstandardisasi, CR/AVE, indeks kecocokan termasuk SRMR), analisis jalur dengan dekomposisi efek langsung/tidak langsung, SEM penuh, uji mediasi bootstrap dengan VAF, pilihan estimator ML / FIML / DWLS / ULS / GLS beserta saran otomatis sesuai ciri data, serta spesifikasi model bebas bergaya lavaan lengkap dengan pemeriksaan sintaks |
 | Ekspor & reproduksi | Laporan Lengkap maupun Ringkasan diekspor ke Word, PDF, Excel, PowerPoint, HTML, Markdown, JSON, atau satu paket ZIP; disertai sintaks Python dan R yang menjalankan ulang analisis yang sama |
 | Ringkasan kesimpulan | Tiga halaman ringkasan terpisah — Eksekutif, Akademik, Profesional — yang menuliskan satu hasil analisis dengan lampu status, peringkat pendorong, matriks prioritas, tabel bergaya APA, paragraf siap salin, rekomendasi, dan keterbatasan |
 
@@ -87,6 +87,29 @@ dan delapan pilihan format:
 Isi seluruh format disusun dari satu sumber yang sama (`lentera_mva/ekspor.py`),
 sehingga angka dan kesimpulannya tidak pernah berbeda antar berkas.
 
+### Galat baku robust pada regresi
+
+Uji asumsi klasik menjalankan **dua** uji homoskedastisitas, bukan satu: Breusch-Pagan
+hanya menangkap ragam yang berubah sebanding prediktor, sementara ragam yang membesar
+simetris (misalnya menurut `|x|`) lolos darinya dan hanya tertangkap uji **White**.
+Bila salah satu menolak, aplikasi menganjurkan galat baku **HC3** beserta alasannya.
+
+Memilih galat baku robust tidak mengubah koefisien B sedikit pun — yang berubah hanya
+galat baku, nilai t, p, dan selang kepercayaannya. Tabel ANOVA tetap memakai uji F
+berbasis jumlah kuadrat agar sebanding lintas pilihan; uji Wald robust dilaporkan
+terpisah. Ketika rancangan tidak memadai untuk uji White (misalnya karena prediktor
+dummy membuatnya rank-deficient), hasilnya dinyatakan *tidak dapat diuji* alih-alih
+menampilkan angka semu.
+
+### Spesifikasi model SEM bebas
+
+Selain menyusun model lewat pilihan, tab **Sintaks sendiri** menerima model yang
+diketik langsung dengan tata tulis gaya lavaan (`=~`, `~`, `~~`) — berguna untuk model
+yang tidak tertampung pilihan, seperti kovarians residual, atau model yang sudah
+ditulis untuk lavaan maupun AMOS. Sintaks diperiksa lebih dulu dan kesalahan yang lazim
+(salah ketik nama variabel, operator keliru, konstruk berbutir tunggal) diterjemahkan
+menjadi pesan yang dapat ditindaklanjuti, bukan kegagalan mesin estimasi yang samar.
+
 ### Sintaks yang dapat dijalankan ulang
 
 `lentera_mva/sintaks.py` menuliskan langkah analisis yang benar-benar dipilih pengguna
@@ -140,12 +163,12 @@ lentera_mva/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   pca_analysis.py      PCA dan analisis paralel Horn
   factor_analysis.py   EFA, rotasi varimax & promax
   clustering.py        K-Means, hierarki, DBSCAN, profil klaster
-  regression.py        Regresi linear & logistik, stepwise, prediksi
+  regression.py        Regresi linear & logistik, galat baku robust, stepwise, prediksi
   discriminant.py      LDA/QDA, fungsi kanonik, Wilks' lambda
   manova.py            MANOVA satu jalur, Hotelling's T²
   cca.py               Korelasi kanonik
-  data_entry.py        Pembuatan dan pembersihan data hasil entri manual
-  reliability.py       Alpha, omega, CR, AVE, dan validitas diskriminan
+  data_entry.py        Pembuatan data, pembersihan, dan variabel gabungan dari butir
+  reliability.py       Alpha, Spearman-Brown, omega, CR, AVE, validitas diskriminan
   moderation.py        Regresi moderasi: interaksi, simple slopes, Johnson-Neyman
   mancova.py           MANCOVA, ANCOVA univariat, rata-rata terkoreksi
   sem_analysis.py      CFA, analisis jalur, SEM, estimator ML/FIML/DWLS, SRMR, mediasi bootstrap

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -17,11 +18,56 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
-from statsmodels.stats.diagnostic import het_breuschpagan
+from statsmodels.stats.diagnostic import het_breuschpagan, het_white
 from statsmodels.stats.stattools import durbin_watson, jarque_bera
 
 from lentera_mva.assumptions import vif
 from lentera_mva.preprocessing import design_matrix
+
+# Jenis galat baku yang disediakan. Pilihan ini tidak mengubah koefisien B sama
+# sekali — yang berubah hanya galat baku, nilai t, p, dan selang kepercayaannya.
+# Keterangannya ditampilkan apa adanya agar pengguna memilih dengan sadar.
+GALAT_BAKU: dict[str, dict[str, str]] = {
+    "nonrobust": {
+        "nama": "Biasa (OLS)",
+        "kapan": "Ragam residual seragam (homoskedastisitas terpenuhi).",
+        "catatan": (
+            "Pilihan baku. Bila ragam residual ternyata tidak seragam, nilai p-nya "
+            "menjadi terlalu optimistis sehingga pengaruh tampak lebih meyakinkan "
+            "daripada yang sebenarnya."
+        ),
+    },
+    "HC3": {
+        "nama": "Robust HC3",
+        "kapan": "Ragam residual tidak seragam, terutama pada sampel kecil-menengah.",
+        "catatan": (
+            "Anjuran umum ketika homoskedastisitas tidak terpenuhi (MacKinnon & White, "
+            "1985). Paling berhati-hati di antara keluarga HC, sehingga aman dipakai "
+            "sebagai pilihan pertama."
+        ),
+    },
+    "HC1": {
+        "nama": "Robust HC1",
+        "kapan": "Sampel besar; padanan bawaan pada Stata.",
+        "catatan": (
+            "Koreksi derajat bebas sederhana. Berguna bila hasil ingin dibandingkan "
+            "dengan keluaran Stata."
+        ),
+    },
+    "HC0": {
+        "nama": "Robust HC0 (White)",
+        "kapan": "Rumusan asli White; sampel besar.",
+        "catatan": (
+            "Tanpa koreksi sampel kecil, sehingga cenderung terlalu longgar pada n kecil."
+        ),
+    },
+    "HC2": {
+        "nama": "Robust HC2",
+        "kapan": "Jalan tengah antara HC1 dan HC3.",
+        "catatan": "Mengoreksi leverage tanpa sekonservatif HC3.",
+    },
+}
+GALAT_BAKU_BAWAAN = "nonrobust"
 
 
 @dataclass
@@ -36,6 +82,16 @@ class LinearRegressionResult:
     fitted: pd.Series
     y_name: str
     predictors: list[str] = field(default_factory=list)
+    cov_type: str = GALAT_BAKU_BAWAAN
+    catatan: list[str] = field(default_factory=list)
+
+    @property
+    def nama_galat_baku(self) -> str:
+        return GALAT_BAKU.get(self.cov_type, {}).get("nama", self.cov_type)
+
+    @property
+    def robust(self) -> bool:
+        return self.cov_type != GALAT_BAKU_BAWAAN
 
     @property
     def r_squared(self) -> float:
@@ -51,9 +107,18 @@ class LinearRegressionResult:
 
 
 def linear_regression(
-    df: pd.DataFrame, y: str, predictors: list[str], alpha: float = 0.05
+    df: pd.DataFrame,
+    y: str,
+    predictors: list[str],
+    alpha: float = 0.05,
+    cov_type: str = GALAT_BAKU_BAWAAN,
 ) -> LinearRegressionResult:
-    """Regresi linear berganda (OLS) lengkap dengan uji asumsi klasik."""
+    """Regresi linear berganda (OLS) lengkap dengan uji asumsi klasik.
+
+    ``cov_type`` memilih cara galat baku dihitung. Koefisien B tidak terpengaruh —
+    estimasi titiknya tetap OLS — yang berubah hanya galat baku beserta nilai t, p,
+    dan selang kepercayaan yang diturunkan darinya. Lihat ``GALAT_BAKU``.
+    """
     if y in predictors:
         raise ValueError("Variabel dependen tidak boleh menjadi prediktor.")
     if not predictors:
@@ -62,9 +127,28 @@ def linear_regression(
     data = df[[y, *predictors]].dropna()
     if not pd.api.types.is_numeric_dtype(data[y]):
         raise ValueError(f"Variabel dependen '{y}' harus numerik.")
+    if cov_type not in GALAT_BAKU:
+        raise ValueError(
+            f"Jenis galat baku '{cov_type}' tidak dikenal. "
+            f"Pilih dari: {', '.join(GALAT_BAKU)}."
+        )
+
     X, _ = design_matrix(data, predictors)
     X = sm.add_constant(X, has_constant="add")
-    model = sm.OLS(data[y].astype(float), X).fit()
+    dasar = sm.OLS(data[y].astype(float), X)
+    # Model klasik selalu dipasang: uji asumsi, jumlah kuadrat, dan uji F berbasis
+    # SS diturunkan darinya sehingga tetap sebanding lintas pilihan galat baku.
+    model_ols = dasar.fit()
+    catatan: list[str] = []
+    if cov_type == GALAT_BAKU_BAWAAN:
+        model = model_ols
+    else:
+        model = dasar.fit(cov_type=cov_type)
+        catatan.append(
+            f"Galat baku dihitung dengan {GALAT_BAKU[cov_type]['nama']}. "
+            "Koefisien B tetap sama dengan OLS biasa; yang berubah hanya galat baku, "
+            "nilai t, p, dan selang kepercayaannya."
+        )
 
     conf = model.conf_int(alpha=alpha)
     std_coef = _standardized_coefficients(model, data[y].astype(float), X)
@@ -104,29 +188,52 @@ def linear_regression(
             {"Metrik": "N", "Nilai": int(model.nobs), "Keterangan": "Jumlah observasi terpakai"},
         ]
     )
+    if cov_type != GALAT_BAKU_BAWAAN:
+        # Dengan galat baku robust, uji kelayakan model berbentuk Wald, bukan rasio
+        # jumlah kuadrat. Keduanya ditampilkan agar perbedaannya tidak menyesatkan.
+        fit = pd.concat(
+            [
+                fit,
+                pd.DataFrame(
+                    [
+                        {
+                            "Metrik": "Uji F (Wald robust)",
+                            "Nilai": float(model.fvalue),
+                            "Keterangan": (
+                                f"p = {float(model.f_pvalue):.4g}; memakai "
+                                f"{GALAT_BAKU[cov_type]['nama']}"
+                            ),
+                        }
+                    ]
+                ),
+            ],
+            ignore_index=True,
+        )
 
     anova = pd.DataFrame(
         [
             {
                 "Sumber": "Regresi",
-                "Sum of Squares": float(model.ess),
-                "df": float(model.df_model),
-                "Mean Square": float(model.ess / model.df_model) if model.df_model else np.nan,
-                "F": float(model.fvalue),
-                "p-value": float(model.f_pvalue),
+                "Sum of Squares": float(model_ols.ess),
+                "df": float(model_ols.df_model),
+                "Mean Square": (
+                    float(model_ols.ess / model_ols.df_model) if model_ols.df_model else np.nan
+                ),
+                "F": float(model_ols.fvalue),
+                "p-value": float(model_ols.f_pvalue),
             },
             {
                 "Sumber": "Residual",
-                "Sum of Squares": float(model.ssr),
-                "df": float(model.df_resid),
-                "Mean Square": float(model.mse_resid),
+                "Sum of Squares": float(model_ols.ssr),
+                "df": float(model_ols.df_resid),
+                "Mean Square": float(model_ols.mse_resid),
                 "F": np.nan,
                 "p-value": np.nan,
             },
             {
                 "Sumber": "Total",
-                "Sum of Squares": float(model.centered_tss),
-                "df": float(model.df_model + model.df_resid),
+                "Sum of Squares": float(model_ols.centered_tss),
+                "df": float(model_ols.df_model + model_ols.df_resid),
                 "Mean Square": np.nan,
                 "F": np.nan,
                 "p-value": np.nan,
@@ -134,8 +241,21 @@ def linear_regression(
         ]
     )
 
-    resid = pd.Series(model.resid, index=data.index, name="Residual")
-    diagnostics = _linear_diagnostics(model, X, resid)
+    resid = pd.Series(model_ols.resid, index=data.index, name="Residual")
+    diagnostics = _linear_diagnostics(model_ols, X, resid)
+    tidak_seragam = bool(
+        (
+            diagnostics.loc[
+                diagnostics["Asumsi"].str.contains("Homoskedastisitas"), "Kesimpulan"
+            ]
+            == "Tidak terpenuhi"
+        ).any()
+    )
+    if tidak_seragam and cov_type == GALAT_BAKU_BAWAAN:
+        catatan.append(
+            "Ragam residual tidak seragam, sehingga galat baku biasa membuat nilai p "
+            "terlalu optimistis. Pilih galat baku robust HC3 untuk memperbaikinya."
+        )
     try:
         vif_table = vif(X.drop(columns=["const"]))
     except ValueError:
@@ -149,9 +269,49 @@ def linear_regression(
         diagnostics=diagnostics,
         vif=vif_table,
         residuals=resid,
-        fitted=pd.Series(model.fittedvalues, index=data.index, name="Prediksi"),
+        fitted=pd.Series(model_ols.fittedvalues, index=data.index, name="Prediksi"),
         y_name=y,
         predictors=list(predictors),
+        cov_type=cov_type,
+        catatan=catatan,
+    )
+
+
+def saran_galat_baku(df: pd.DataFrame, y: str, predictors: list[str]) -> tuple[str, str]:
+    """Jenis galat baku yang sesuai untuk data ini, beserta alasannya.
+
+    Anjuran, bukan keharusan: pengguna tetap memilih sendiri, dan alasannya
+    ditampilkan agar pilihan itu dapat dipertanggungjawabkan saat dilaporkan.
+    """
+    try:
+        awal = linear_regression(df, y, predictors)
+    except Exception:  # noqa: BLE001 - model gagal, biarkan pilihan bawaan
+        return GALAT_BAKU_BAWAAN, "Model belum dapat diperiksa; pilihan baku dipakai."
+
+    baris = awal.diagnostics[awal.diagnostics["Asumsi"].str.contains("Homoskedastisitas")]
+    if baris.empty:
+        return GALAT_BAKU_BAWAAN, "Homoskedastisitas tidak dapat diuji."
+
+    # Cukup satu uji yang menolak untuk menganjurkan galat baku robust: keduanya
+    # peka pada bentuk ketidakseragaman yang berbeda.
+    menolak = [
+        (str(b["Asumsi"]).split("(")[-1].rstrip(")"), float(b["p-value"]))
+        for _, b in baris.iterrows()
+        if np.isfinite(b["p-value"]) and float(b["p-value"]) < 0.05
+    ]
+    if menolak:
+        rincian = "; ".join(f"{nama} p = {p:.4f}" for nama, p in menolak)
+        return "HC3", (
+            f"Homoskedastisitas ditolak ({rincian}), sehingga galat baku biasa "
+            "membuat nilai p terlalu optimistis."
+        )
+    rincian = "; ".join(
+        f"{str(b['Asumsi']).split('(')[-1].rstrip(')')} p = {float(b['p-value']):.4f}"
+        for _, b in baris.iterrows()
+        if np.isfinite(b["p-value"])
+    )
+    return GALAT_BAKU_BAWAAN, (
+        f"Ragam residual cukup seragam ({rincian}); galat baku biasa memadai."
     )
 
 
@@ -171,6 +331,19 @@ def _linear_diagnostics(model, X: pd.DataFrame, resid: pd.Series) -> pd.DataFram
     dw = float(durbin_watson(resid.to_numpy()))
     jb_stat, jb_p, _, _ = jarque_bera(resid.to_numpy())
     bp_stat, bp_p, _, _ = het_breuschpagan(resid.to_numpy(), X.to_numpy(float))
+    # Breusch-Pagan hanya menangkap ragam yang berubah sebanding prediktor. Ragam
+    # yang membesar simetris (misalnya menurut |x|) lolos dari uji itu, sehingga uji
+    # White — yang menyertakan suku kuadrat dan perkalian silang — ikut dijalankan.
+    try:
+        with warnings.catch_warnings():
+            # Rancangan White memuat suku kuadrat dan perkalian silang, yang menjadi
+            # rank-deficient bila ada prediktor dummy. Statistiknya lalu tidak dapat
+            # dipercaya, jadi peringatan itu diperlakukan sebagai kegagalan dan
+            # hasilnya dilaporkan sebagai tidak dapat diuji — bukan angka semu.
+            warnings.simplefilter("error")
+            white_stat, white_p, _, _ = het_white(resid.to_numpy(), X.to_numpy(float))
+    except Exception:  # noqa: BLE001 - rancangan tidak memadai untuk uji White
+        white_stat = white_p = np.nan
     return pd.DataFrame(
         [
             {
@@ -184,6 +357,16 @@ def _linear_diagnostics(model, X: pd.DataFrame, resid: pd.Series) -> pd.DataFram
                 "Statistik": float(bp_stat),
                 "p-value": float(bp_p),
                 "Kesimpulan": "Terpenuhi" if bp_p > 0.05 else "Tidak terpenuhi",
+            },
+            {
+                "Asumsi": "Homoskedastisitas (White)",
+                "Statistik": float(white_stat),
+                "p-value": float(white_p),
+                "Kesimpulan": (
+                    "Tidak dapat diuji"
+                    if not np.isfinite(white_p)
+                    else ("Terpenuhi" if white_p > 0.05 else "Tidak terpenuhi")
+                ),
             },
             {
                 "Asumsi": "Non-autokorelasi (Durbin-Watson)",

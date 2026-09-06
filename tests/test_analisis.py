@@ -339,3 +339,101 @@ def test_cca_memulihkan_hubungan_antar_gugus(data):
 def test_cca_menolak_variabel_bertumpang_tindih(data):
     with pytest.raises(ValueError, match="kedua gugus"):
         cca.run_cca(data, ["x1", "x2"], ["x2", "y1"])
+
+
+# --------------------------------------------------------------------------- #
+# Galat baku robust pada regresi linear
+# --------------------------------------------------------------------------- #
+
+
+def _data_heteroskedastis(n: int = 300) -> pd.DataFrame:
+    """Data dengan ragam residual yang membesar menurut |x1|.
+
+    Bentuk simetris ini sengaja dipilih karena lolos dari Breusch-Pagan namun
+    tertangkap uji White — persis kasus yang membuat galat baku biasa menyesatkan.
+    """
+    acak = np.random.default_rng(4)
+    x1 = acak.normal(0, 1, n)
+    x2 = acak.normal(0, 1, n)
+    y = 1.5 + 0.8 * x1 - 0.4 * x2 + acak.normal(0, 1, n) * (0.5 + 1.5 * np.abs(x1))
+    return pd.DataFrame({"y": y, "x1": x1, "x2": x2})
+
+
+def test_galat_baku_robust_tidak_mengubah_koefisien():
+    df = _data_heteroskedastis()
+    biasa = regression.linear_regression(df, "y", ["x1", "x2"])
+    robust = regression.linear_regression(df, "y", ["x1", "x2"], cov_type="HC3")
+
+    # Estimasi titik tetap OLS; hanya ketidakpastiannya yang dihitung ulang.
+    assert np.allclose(biasa.coefficients["B"], robust.coefficients["B"])
+    assert not np.allclose(
+        biasa.coefficients["Std. Error"], robust.coefficients["Std. Error"]
+    )
+    assert robust.robust and not biasa.robust
+    assert robust.nama_galat_baku == "Robust HC3"
+
+
+def test_galat_baku_robust_melebarkan_selang_saat_ragam_tidak_seragam():
+    df = _data_heteroskedastis()
+    biasa = regression.linear_regression(df, "y", ["x1", "x2"])
+    robust = regression.linear_regression(df, "y", ["x1", "x2"], cov_type="HC3")
+    se_biasa = biasa.coefficients.set_index("Variabel").loc["x1", "Std. Error"]
+    se_robust = robust.coefficients.set_index("Variabel").loc["x1", "Std. Error"]
+    assert se_robust > se_biasa
+
+
+def test_anova_tetap_klasik_apa_pun_galat_bakunya():
+    df = _data_heteroskedastis()
+    biasa = regression.linear_regression(df, "y", ["x1", "x2"])
+    robust = regression.linear_regression(df, "y", ["x1", "x2"], cov_type="HC3")
+    # Jumlah kuadrat dan uji F berbasis SS tidak bergantung pada cara galat baku
+    # dihitung, sehingga tabel ANOVA harus identik.
+    pd.testing.assert_frame_equal(biasa.anova, robust.anova)
+    assert "Uji F (Wald robust)" in set(robust.fit["Metrik"])
+    assert "Uji F (Wald robust)" not in set(biasa.fit["Metrik"])
+
+
+def test_uji_white_menangkap_yang_dilewatkan_breusch_pagan():
+    hasil = regression.linear_regression(_data_heteroskedastis(), "y", ["x1", "x2"])
+    uji = hasil.diagnostics.set_index("Asumsi")["p-value"]
+    bp = float(uji[uji.index.str.contains("Breusch-Pagan")].iloc[0])
+    white = float(uji[uji.index.str.contains("White")].iloc[0])
+    assert bp > 0.05  # bentuk simetris lolos dari Breusch-Pagan
+    assert white < 0.05  # namun tertangkap uji White
+
+
+def test_saran_galat_baku_mengikuti_ragam_residual():
+    kode, alasan = regression.saran_galat_baku(_data_heteroskedastis(), "y", ["x1", "x2"])
+    assert kode == "HC3"
+    assert "White" in alasan
+
+    acak = np.random.default_rng(12)
+    n = 300
+    x1 = acak.normal(size=n)
+    rapi = pd.DataFrame(
+        {"y": 1.5 + 0.8 * x1 + acak.normal(size=n), "x1": x1, "x2": acak.normal(size=n)}
+    )
+    kode_rapi, alasan_rapi = regression.saran_galat_baku(rapi, "y", ["x1", "x2"])
+    assert kode_rapi == regression.GALAT_BAKU_BAWAAN
+    assert "seragam" in alasan_rapi
+
+
+def test_catatan_muncul_saat_ragam_tidak_seragam_dan_galat_baku_biasa():
+    df = _data_heteroskedastis()
+    biasa = regression.linear_regression(df, "y", ["x1", "x2"])
+    assert any("tidak seragam" in c for c in biasa.catatan)
+    robust = regression.linear_regression(df, "y", ["x1", "x2"], cov_type="HC3")
+    assert any("HC3" in c for c in robust.catatan)
+
+
+def test_galat_baku_tak_dikenal_ditolak():
+    with pytest.raises(ValueError, match="tidak dikenal"):
+        regression.linear_regression(
+            _data_heteroskedastis(), "y", ["x1"], cov_type="HC9"
+        )
+
+
+def test_katalog_galat_baku_lengkap():
+    for isi in regression.GALAT_BAKU.values():
+        assert {"nama", "kapan", "catatan"} <= set(isi)
+    assert regression.GALAT_BAKU_BAWAAN in regression.GALAT_BAKU

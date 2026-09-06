@@ -122,3 +122,51 @@ def test_skor_konstruk_rata_rata_butir(kuesioner):
     skor = rb.skor_konstruk(kuesioner, hasil)
     diharapkan = kuesioner[["KUAL1", "KUAL2"]].mean(axis=1)
     assert np.allclose(skor["Kualitas"], diharapkan)
+
+
+# --------------------------------------------------------------------------- #
+# Reliabilitas belah-dua Spearman-Brown
+# --------------------------------------------------------------------------- #
+
+
+def _butir_satu_konstruk(n: int = 300, k: int = 6, muatan: float = 0.8) -> pd.DataFrame:
+    acak = np.random.default_rng(9)
+    faktor = acak.normal(size=n)
+    return pd.DataFrame(
+        {f"x{i}": muatan * faktor + acak.normal(scale=0.6, size=n) for i in range(1, k + 1)}
+    )
+
+
+def test_spearman_brown_mendekati_alpha_pada_butir_setara():
+    hasil = rb.alpha_cronbach(_butir_satu_konstruk())
+    assert np.isfinite(hasil.spearman_brown)
+    # Pada butir yang setara, kedua pendekatan menaksir hal yang sama.
+    assert abs(hasil.spearman_brown - hasil.alpha) < 0.1
+
+
+def test_koreksi_spearman_brown_menaikkan_korelasi_belahan():
+    hasil = rb.alpha_cronbach(_butir_satu_konstruk())
+    # Tiap belahan hanya separuh panjang instrumen, sehingga korelasi mentahnya
+    # meremehkan reliabilitas; koreksi mengembalikannya ke panjang penuh.
+    assert hasil.spearman_brown > hasil.korelasi_belahan
+    sb, r = rb.belah_dua(_butir_satu_konstruk())
+    assert sb == pytest.approx(2 * r / (1 + r))
+
+
+def test_spearman_brown_jatuh_pada_butir_acak():
+    acak = np.random.default_rng(3)
+    acakan = pd.DataFrame({f"z{i}": acak.normal(size=300) for i in range(1, 7)})
+    assert rb.alpha_cronbach(acakan).spearman_brown < 0.3
+
+
+def test_belah_dua_menolak_belahan_tanpa_ragam():
+    df = _butir_satu_konstruk()
+    for kolom in df.columns[0::2]:  # seluruh butir ganjil dibuat konstan
+        df[kolom] = 1.0
+    sb, r = rb.belah_dua(df)
+    assert np.isnan(sb) and np.isnan(r)
+
+
+def test_belah_dua_butuh_minimal_dua_butir():
+    sb, r = rb.belah_dua(_butir_satu_konstruk()[["x1"]])
+    assert np.isnan(sb) and np.isnan(r)

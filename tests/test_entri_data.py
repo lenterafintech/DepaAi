@@ -87,3 +87,81 @@ def test_ringkas_kelengkapan():
     assert list(ringkas["Terisi"]) == [2, 3]
     assert ringkas.loc[0, "% Terisi"] == pytest.approx(66.7)
     assert de.ringkas_kelengkapan(pd.DataFrame()).empty
+
+
+# --------------------------------------------------------------------------- #
+# Variabel gabungan dari beberapa butir
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture
+def butir() -> pd.DataFrame:
+    """Empat responden lengkap, satu responden yang hanya mengisi sebagian."""
+    return pd.DataFrame(
+        {
+            "KUAL1": [1.0, 2.0, 3.0, 4.0, None],
+            "KUAL2": [2.0, 3.0, 4.0, 5.0, 5.0],
+            "KUAL3": [3.0, 3.0, 3.0, 4.0, None],
+            "catatan": ["a", "b", "c", "d", "e"],
+        }
+    )
+
+
+def test_rata_rata_menjaga_satuan_asli(butir):
+    hasil = de.variabel_gabungan(butir, ["KUAL1", "KUAL2", "KUAL3"], "Kualitas")
+    assert hasil.iloc[0] == pytest.approx(2.0)
+    assert hasil.iloc[3] == pytest.approx(13 / 3)
+    assert hasil.name == "kualitas"  # nama dibakukan
+
+
+def test_jumlah_dan_skor_baku(butir):
+    kolom = ["KUAL1", "KUAL2", "KUAL3"]
+    jumlah = de.variabel_gabungan(butir, kolom, "K", "jumlah")
+    assert jumlah.iloc[0] == pytest.approx(6.0)
+    baku = de.variabel_gabungan(butir, kolom, "K", "z")
+    # Skor baku berpusat di nol, sehingga responden terendah bernilai negatif.
+    assert baku.iloc[0] < 0 < baku.iloc[3]
+
+
+def test_responden_yang_kurang_lengkap_dibiarkan_kosong(butir):
+    kolom = ["KUAL1", "KUAL2", "KUAL3"]
+    # Responden kelima hanya mengisi 1 dari 3 butir.
+    ketat = de.variabel_gabungan(butir, kolom, "K", minimal_terisi=3)
+    assert pd.isna(ketat.iloc[4])
+    longgar = de.variabel_gabungan(butir, kolom, "K", minimal_terisi=1)
+    assert longgar.iloc[4] == pytest.approx(5.0)
+
+
+def test_nama_variabel_dibakukan(butir):
+    hasil = de.variabel_gabungan(butir, ["KUAL1", "KUAL2"], "Kualitas Layanan")
+    assert hasil.name == "kualitas_layanan"
+
+
+@pytest.mark.parametrize(
+    "kolom, nama, cara, pesan",
+    [
+        (["KUAL1", "catatan"], "X", "rata", "bukan angka"),
+        (["KUAL1"], "X", "rata", "minimal 2 butir"),
+        (["KUAL1", "KUAL2"], "X", "median", "tidak dikenal"),
+        (["KUAL1", "ZZ"], "X", "rata", "tidak ada dalam data"),
+        (["KUAL1", "KUAL2"], "   ", "rata", "belum diisi"),
+    ],
+)
+def test_masukan_cacat_ditolak_dengan_pesan_jelas(butir, kolom, nama, cara, pesan):
+    with pytest.raises(ValueError, match=pesan):
+        de.variabel_gabungan(butir, kolom, nama, cara)
+
+
+def test_ringkasan_gabungan_melaporkan_kelengkapan(butir):
+    kolom = ["KUAL1", "KUAL2", "KUAL3"]
+    hasil = de.variabel_gabungan(butir, kolom, "Kualitas")
+    ringkas = de.ringkas_gabungan(butir, kolom, hasil).set_index("Keterangan")["Nilai"]
+    assert ringkas["Nama variabel"] == "kualitas"
+    assert ringkas["Butir penyusun"] == "3 butir"
+    assert ringkas["Terisi"] == "4 dari 5"
+
+
+def test_katalog_cara_gabung_lengkap():
+    for isi in de.CARA_GABUNG.values():
+        assert {"nama", "catatan"} <= set(isi)
+    assert de.CARA_GABUNG_BAWAAN in de.CARA_GABUNG

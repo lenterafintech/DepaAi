@@ -33,6 +33,8 @@ class HasilAlpha:
     n_item: int
     n_observasi: int
     item: pd.DataFrame  # per butir: rata-rata, SD, korelasi item-total, alpha jika dibuang
+    spearman_brown: float = float("nan")  # reliabilitas belah-dua terkoreksi
+    korelasi_belahan: float = float("nan")  # korelasi mentah antar kedua belahan
 
     def interpretasi(self) -> str:
         if self.alpha >= 0.9:
@@ -119,12 +121,41 @@ def alpha_cronbach(df: pd.DataFrame) -> HasilAlpha:
                 "Alpha jika dibuang": _alpha(sisa),
             }
         )
+    sb, r_belah = belah_dua(data)
     return HasilAlpha(
         alpha=alpha,
         n_item=k,
         n_observasi=len(data),
         item=pd.DataFrame(baris),
+        spearman_brown=sb,
+        korelasi_belahan=r_belah,
     )
+
+
+def belah_dua(df: pd.DataFrame) -> tuple[float, float]:
+    """Reliabilitas belah-dua Spearman-Brown beserta korelasi mentah antar belahan.
+
+    Butir dibelah ganjil-genap, bukan separuh-awal separuh-akhir, karena urutan
+    butir pada kuesioner kerap membawa efek kelelahan atau urutan tema yang membuat
+    pembelahan berurutan bias.
+
+    Koreksi Spearman-Brown mengembalikan korelasi antar belahan ke panjang tes
+    penuh: r_sb = 2r / (1 + r). Tanpa koreksi itu, angkanya meremehkan reliabilitas
+    karena tiap belahan hanya separuh panjang instrumen.
+    """
+    data = preprocessing.clean_subset(df, list(df.columns))
+    if data.shape[1] < 2:
+        return float("nan"), float("nan")
+
+    ganjil = data.iloc[:, 0::2].sum(axis=1)
+    genap = data.iloc[:, 1::2].sum(axis=1)
+    if ganjil.std(ddof=1) == 0 or genap.std(ddof=1) == 0:
+        return float("nan"), float("nan")
+
+    r = float(ganjil.corr(genap))
+    if not np.isfinite(r) or r <= -1:
+        return float("nan"), r
+    return float(2 * r / (1 + r)), r
 
 
 def muatan_faktor_tunggal(df: pd.DataFrame) -> pd.Series:

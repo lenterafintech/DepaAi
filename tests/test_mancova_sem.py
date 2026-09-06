@@ -310,3 +310,49 @@ def test_katalog_estimator_lengkap():
     for kode, isi in sem.ESTIMATOR.items():
         assert {"obj", "nama", "kapan", "catatan"} <= set(isi)
     assert sem.ESTIMATOR_BAKU in sem.ESTIMATOR
+
+
+# --------------------------------------------------------------------------- #
+# Sintaks model yang diketik sendiri
+# --------------------------------------------------------------------------- #
+
+
+def test_sintaks_benar_lolos_pemeriksaan():
+    data = _data_dua_konstruk()
+    assert sem.periksa_spesifikasi(SPEK_DUA, data) == []
+    # Catatan berawalan '#' diabaikan, bukan dianggap kesalahan.
+    berkomentar = "# model pengukuran\n" + SPEK_DUA
+    assert sem.periksa_spesifikasi(berkomentar, data) == []
+
+
+@pytest.mark.parametrize(
+    "teks, potongan",
+    [
+        ("", "masih kosong"),
+        ("   \n# hanya catatan", "masih kosong"),
+        ("A x1 + x2", "tidak memuat operator"),
+        ("A =~ x1", "hanya punya satu butir"),
+        ("A =~ x1 + zz9", "tidak ada dalam data"),
+        ("konstruk utama =~ x1 + x2", "tanpa spasi"),
+        ("A =~ ", "kosong"),
+    ],
+)
+def test_kesalahan_sintaks_dijelaskan(teks, potongan):
+    masalah = sem.periksa_spesifikasi(teks, _data_dua_konstruk())
+    assert masalah, f"seharusnya ada masalah untuk: {teks!r}"
+    assert any(potongan in m for m in masalah), masalah
+
+
+def test_sintaks_yang_lolos_dapat_dijalankan():
+    data = _data_dua_konstruk()
+    teks = SPEK_DUA + "\nB ~ A"
+    assert sem.periksa_spesifikasi(teks, data) == []
+    hasil = sem.jalankan(data, teks)
+    assert not hasil.jalur().empty  # jalur struktural B ~ A ikut terestimasi
+
+
+def test_katalog_operator_dan_contoh_tersedia():
+    assert set(sem.OPERATOR) == {"=~", "~", "~~"}
+    # Contoh bawaan harus berbentuk benar, sehingga pengguna yang menjalankannya
+    # apa adanya pada data bernama sesuai tidak langsung disambut pesan kesalahan.
+    assert sem.periksa_spesifikasi(sem.CONTOH_SINTAKS, _data_dua_konstruk()) == []

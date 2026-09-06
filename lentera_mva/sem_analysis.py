@@ -169,6 +169,76 @@ def spesifikasi_jalur(jalur: dict[str, list[str]]) -> str:
     return "\n".join(baris)
 
 
+# Operator yang dikenali, mengikuti tata tulis lavaan yang lazim dipakai di naskah.
+OPERATOR = {
+    "=~": "konstruk laten diukur oleh butir-butirnya",
+    "~": "jalur pengaruh (variabel terikat ~ prediktor)",
+    "~~": "kovarians atau korelasi residual",
+}
+
+CONTOH_SINTAKS = """# Model pengukuran: konstruk laten =~ butir-butirnya
+kualitas =~ x1 + x2 + x3
+kepuasan =~ y1 + y2 + y3
+
+# Model struktural: terikat ~ prediktor
+kepuasan ~ kualitas
+
+# Kovarians residual (bila ada alasan teoretisnya)
+# x1 ~~ x2"""
+
+
+def periksa_spesifikasi(teks: str, df: pd.DataFrame) -> list[str]:
+    """Periksa sintaks yang diketik sendiri dan kembalikan daftar masalahnya.
+
+    Mesin estimasi hanya melaporkan kegagalan secara umum, sehingga pemeriksaan ini
+    lebih dulu menerjemahkan kesalahan yang lazim — salah ketik nama variabel,
+    operator keliru, konstruk tanpa butir — menjadi pesan yang dapat ditindaklanjuti.
+    """
+    masalah: list[str] = []
+    isi = [b.strip() for b in str(teks).splitlines()]
+    berisi = [b for b in isi if b and not b.startswith("#")]
+    if not berisi:
+        return ["Spesifikasi masih kosong."]
+
+    for nomor, baris in enumerate(isi, start=1):
+        if not baris or baris.startswith("#"):
+            continue
+        if not any(op in baris for op in OPERATOR):
+            masalah.append(
+                f"Baris {nomor} (`{baris}`) tidak memuat operator. Pakai `=~` untuk "
+                "pengukuran, `~` untuk jalur, atau `~~` untuk kovarians."
+            )
+            continue
+        penanda = "=~" if "=~" in baris else ("~~" if "~~" in baris else "~")
+        kiri, kanan = baris.split(penanda, 1)
+        if not kiri.strip():
+            masalah.append(f"Baris {nomor}: ruas kiri operator `{penanda}` kosong.")
+        if not kanan.strip():
+            masalah.append(f"Baris {nomor}: ruas kanan operator `{penanda}` kosong.")
+        if penanda == "=~" and len([r for r in kanan.split("+") if r.strip()]) < 2:
+            masalah.append(
+                f"Baris {nomor}: konstruk `{kiri.strip()}` hanya punya satu butir. "
+                "Konstruk laten memerlukan minimal 2 butir agar dapat diidentifikasi."
+            )
+
+    teks_gabung = "\n".join(berisi)
+    laten = set(_laten_dalam(teks_gabung))
+    for nama in laten:
+        try:
+            periksa_nama(nama, "Nama konstruk")
+        except ValueError as galat:
+            masalah.append(str(galat))
+
+    hilang = [v for v in _variabel_dalam(teks_gabung) if v not in df.columns]
+    if hilang:
+        tersedia = ", ".join(list(df.columns)[:8])
+        masalah.append(
+            f"Variabel tidak ada dalam data: {', '.join(hilang)}. "
+            f"Kolom yang tersedia antara lain: {tersedia}…"
+        )
+    return masalah
+
+
 def spesifikasi_sem(konstruk: dict[str, list[str]], jalur: dict[str, list[str]]) -> str:
     """Gabungan model pengukuran dan struktural."""
     return spesifikasi_cfa(konstruk) + "\n" + spesifikasi_jalur(jalur)

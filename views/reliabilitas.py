@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import streamlit as st
 
-from lentera_mva import plots, preprocessing, reliability as rb, ui
+from lentera_mva import formatting, plots, preprocessing, reliability as rb, ui
 
 ui.butuh_fitur("instrumen")
 ui.page_setup(
@@ -56,10 +57,26 @@ with tab_satu:
         except ValueError as exc:
             st.error(str(exc))
         else:
-            m1, m2, m3 = st.columns(3)
+            m1, m2, m3, m4 = st.columns(4)
             m1.metric("Alpha Cronbach", f"{hasil.alpha:.3f}".replace(".", ","))
-            m2.metric("Jumlah butir", hasil.n_item)
-            m3.metric("Kesimpulan", hasil.interpretasi())
+            m2.metric(
+                "Spearman-Brown",
+                formatting.num(hasil.spearman_brown, 3),
+                help=(
+                    "Reliabilitas belah-dua: butir dibelah ganjil-genap, korelasi "
+                    "antar belahan dikoreksi ke panjang tes penuh. Nilainya lazim "
+                    "berdekatan dengan alpha."
+                ),
+            )
+            m3.metric("Jumlah butir", hasil.n_item)
+            m4.metric("Kesimpulan", hasil.interpretasi())
+            if np.isfinite(hasil.korelasi_belahan):
+                st.caption(
+                    "Korelasi mentah antar kedua belahan "
+                    f"{formatting.num(hasil.korelasi_belahan, 3)}; setelah koreksi "
+                    f"Spearman-Brown menjadi {formatting.num(hasil.spearman_brown, 3)} "
+                    "karena tiap belahan hanya separuh panjang instrumen."
+                )
 
             muatan = rb.muatan_faktor_tunggal(df[butir])
             cr, ave = rb.cr_ave(muatan)

@@ -156,3 +156,114 @@ def periksa_rentang(df: pd.DataFrame, kolom: list[KolomBaru]) -> list[str]:
                 f"{rentang[0]}–{rentang[1]}."
             )
     return peringatan
+
+
+# --------------------------------------------------------------------------- #
+# Variabel gabungan dari beberapa butir
+# --------------------------------------------------------------------------- #
+
+# Cara meringkas beberapa butir menjadi satu variabel konstruk.
+CARA_GABUNG = {
+    "rata": {
+        "nama": "Rata-rata butir",
+        "catatan": (
+            "Satuannya tetap sama dengan butir aslinya (misalnya tetap pada skala "
+            "1–5), sehingga paling mudah ditafsirkan. Pilihan paling lazim."
+        ),
+    },
+    "jumlah": {
+        "nama": "Jumlah butir",
+        "catatan": (
+            "Skor total seperti pada tes prestasi. Satuannya bergantung pada "
+            "banyaknya butir, jadi tidak sebanding antar konstruk yang butirnya "
+            "berbeda jumlah."
+        ),
+    },
+    "z": {
+        "nama": "Rata-rata skor baku (z)",
+        "catatan": (
+            "Tiap butir dibakukan lebih dulu, sehingga butir bersatuan atau berskala "
+            "berbeda memberi bobot yang setara."
+        ),
+    },
+}
+CARA_GABUNG_BAWAAN = "rata"
+
+
+def variabel_gabungan(
+    df: pd.DataFrame,
+    butir: list[str],
+    nama: str,
+    cara: str = CARA_GABUNG_BAWAAN,
+    minimal_terisi: int | None = None,
+) -> pd.Series:
+    """Ringkas beberapa butir menjadi satu variabel konstruk.
+
+    ``minimal_terisi`` menetapkan berapa butir minimal yang harus terisi agar satu
+    responden tetap diberi skor; responden yang kurang dari itu bernilai kosong,
+    bukan dihitung dari sisa butir yang ada. Tanpa aturan ini, responden yang hanya
+    mengisi satu butir akan tampak setara dengan yang mengisi seluruhnya.
+    """
+    if cara not in CARA_GABUNG:
+        raise ValueError(
+            f"Cara '{cara}' tidak dikenal. Pilih dari: {', '.join(CARA_GABUNG)}."
+        )
+    if len(butir) < 2:
+        raise ValueError("Variabel gabungan memerlukan minimal 2 butir.")
+
+    hilang = [b for b in butir if b not in df.columns]
+    if hilang:
+        raise ValueError(f"Butir tidak ada dalam data: {', '.join(hilang)}.")
+
+    bersih = bakukan_nama(nama)
+    if not bersih:
+        raise ValueError("Nama variabel baru belum diisi.")
+
+    angka = df[butir].apply(pd.to_numeric, errors="coerce")
+    bukan_angka = [b for b in butir if angka[b].isna().all() and df[b].notna().any()]
+    if bukan_angka:
+        raise ValueError(
+            f"Butir berikut bukan angka sehingga tidak dapat digabung: "
+            f"{', '.join(bukan_angka)}."
+        )
+
+    if cara == "z":
+        simpangan = angka.std(ddof=1).replace(0, np.nan)
+        angka = (angka - angka.mean()) / simpangan
+
+    terisi = angka.notna().sum(axis=1)
+    batas = len(butir) if minimal_terisi is None else int(minimal_terisi)
+    batas = max(1, min(batas, len(butir)))
+
+    hasil = angka.sum(axis=1) if cara == "jumlah" else angka.mean(axis=1)
+    hasil = hasil.where(terisi >= batas)
+    return pd.Series(hasil, index=df.index, name=bersih, dtype="float64")
+
+
+def ringkas_gabungan(df: pd.DataFrame, butir: list[str], hasil: pd.Series) -> pd.DataFrame:
+    """Ringkasan singkat variabel gabungan untuk ditampilkan sesudah dibuat."""
+    return pd.DataFrame(
+        [
+            {"Keterangan": "Nama variabel", "Nilai": str(hasil.name)},
+            {"Keterangan": "Butir penyusun", "Nilai": f"{len(butir)} butir"},
+            {"Keterangan": "Terisi", "Nilai": f"{int(hasil.notna().sum())} dari {len(hasil)}"},
+            {
+                "Keterangan": "Rata-rata",
+                "Nilai": ("-" if hasil.dropna().empty else f"{hasil.mean():.4f}"),
+            },
+            {
+                "Keterangan": "Simpangan baku",
+                "Nilai": (
+                    "-" if len(hasil.dropna()) < 2 else f"{hasil.std(ddof=1):.4f}"
+                ),
+            },
+            {
+                "Keterangan": "Rentang",
+                "Nilai": (
+                    "-"
+                    if hasil.dropna().empty
+                    else f"{hasil.min():.4f} sampai {hasil.max():.4f}"
+                ),
+            },
+        ]
+    )

@@ -128,8 +128,8 @@ def tampilkan_hasil(hasil: sem.HasilSEM, kunci: str) -> None:
         )
 
 
-tab_cfa, tab_jalur, tab_sem = st.tabs(
-    ["CFA (model pengukuran)", "Analisis jalur", "SEM penuh"]
+tab_cfa, tab_jalur, tab_sem, tab_sintaks = st.tabs(
+    ["CFA (model pengukuran)", "Analisis jalur", "SEM penuh", "Sintaks sendiri"]
 )
 
 # --------------------------------------------------------------------------- #
@@ -297,3 +297,62 @@ with tab_sem:
                 st.error(f"Model gagal diestimasi: {exc}")
             else:
                 tampilkan_hasil(hasil, "sem")
+
+
+# --------------------------------------------------------------------------- #
+# Sintaks yang diketik sendiri
+# --------------------------------------------------------------------------- #
+
+with tab_sintaks:
+    st.caption(
+        "Tiga tab sebelumnya menyusun model lewat pilihan. Di sini Anda menuliskan "
+        "modelnya langsung — berguna untuk model yang tidak tertampung oleh pilihan "
+        "itu: kovarians residual, konstruk bertingkat, atau model yang sudah Anda "
+        "tulis untuk lavaan maupun AMOS."
+    )
+
+    with st.expander("Tata tulis yang dikenali", expanded=False):
+        for operator, arti in sem.OPERATOR.items():
+            st.markdown(f"- `{operator}` — {arti}")
+        st.caption(
+            "Baris yang diawali `#` diperlakukan sebagai catatan. Nama variabel harus "
+            "sama persis dengan nama kolom pada data, tanpa spasi."
+        )
+        st.markdown("**Kolom yang tersedia pada data ini**")
+        st.code(", ".join(map(str, df.columns)), language=None, wrap_lines=True)
+
+    spesifikasi_bebas = st.text_area(
+        "Spesifikasi model",
+        value=st.session_state.get("sem_sintaks_isi", sem.CONTOH_SINTAKS),
+        height=240,
+        key="sem_sintaks_isi",
+        help="Gunakan tata tulis gaya lavaan; periksa daftar operator di atas.",
+    )
+
+    masalah = sem.periksa_spesifikasi(spesifikasi_bebas, df)
+    if masalah:
+        st.warning(
+            "Spesifikasi belum dapat dijalankan:\n\n"
+            + "\n".join(f"- {m}" for m in masalah),
+            icon=":material/rule:",
+        )
+    else:
+        st.success(
+            "Sintaks terbaca dengan benar.", icon=":material/check_circle:"
+        )
+        if st.button("Jalankan model", type="primary", key="sem_sintaks_jalan"):
+            st.session_state["sem_sintaks_jalankan"] = True
+
+        if st.session_state.get("sem_sintaks_jalankan"):
+            try:
+                hasil = sem.jalankan(df, spesifikasi_bebas, estimator=estimator)
+            except Exception as exc:  # noqa: BLE001 - kegagalan estimasi apa adanya
+                st.error(
+                    f"Model gagal diestimasi: {exc}\n\n"
+                    "Sintaksnya sendiri sudah benar, jadi kegagalan ini biasanya "
+                    "berarti model tidak teridentifikasi — misalnya jalur terlalu "
+                    "banyak untuk jumlah variabel yang ada — atau datanya tidak "
+                    "mencukupi."
+                )
+            else:
+                tampilkan_hasil(hasil, "sintaks")

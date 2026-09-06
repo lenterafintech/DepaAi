@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from lentera_mva import data_entry as de
-from lentera_mva import formatting, ui
+from lentera_mva import formatting, reliability as rb, ui
 
 ui.butuh_fitur("entri_data")
 ui.page_setup(
@@ -49,7 +49,9 @@ def config_kolom(kolom: list[de.KolomBaru]) -> dict:
     return config
 
 
-tab_baru, tab_sunting = st.tabs(["Buat data baru", "Sunting data aktif"])
+tab_baru, tab_sunting, tab_gabung = st.tabs(
+    ["Buat data baru", "Sunting data aktif", "Variabel gabungan"]
+)
 
 # --------------------------------------------------------------------------- #
 # Membuat data baru
@@ -217,3 +219,112 @@ with tab_sunting:
         if st.button("Simpan perubahan ke data aktif", type="primary", key="simpan_sunting"):
             ui.set_dataset(hasil, st.session_state.get(ui.NAME_KEY, "data"))
             st.success("Perubahan disimpan. Halaman analisis akan memakai data terbaru.")
+
+
+# --------------------------------------------------------------------------- #
+# Variabel gabungan dari beberapa butir
+# --------------------------------------------------------------------------- #
+
+with tab_gabung:
+    st.caption(
+        "Penelitian kuesioner biasanya mengukur satu konstruk lewat beberapa butir. "
+        "Sebelum dianalisis, butir-butir itu diringkas menjadi satu variabel — "
+        "misalnya KUAL1 sampai KUAL4 menjadi variabel *Kualitas*."
+    )
+
+    aktif_g = ui.get_dataset()
+    if aktif_g is None or aktif_g.empty:
+        st.info(
+            "Belum ada data aktif. Muat data di halaman *Beranda & Data*, atau buat "
+            "data baru pada tab pertama."
+        )
+    else:
+        angka_g = [
+            k
+            for k in aktif_g.columns
+            if pd.to_numeric(aktif_g[k], errors="coerce").notna().any()
+        ]
+        if len(angka_g) < 2:
+            st.warning("Diperlukan minimal 2 kolom berisi angka.")
+        else:
+            tebakan = rb.tebak_konstruk(angka_g)
+            if tebakan:
+                st.caption(
+                    "Kelompok butir yang terdeteksi dari pola penamaan: "
+                    + ", ".join(f"**{n}** ({len(b)} butir)" for n, b in tebakan.items())
+                )
+
+            pilihan_awal = next(iter(tebakan.values()), angka_g[:2])
+            nama_awal = next(iter(tebakan), "")
+
+            butir = st.multiselect(
+                "Butir penyusun konstruk",
+                angka_g,
+                default=[b for b in pilihan_awal if b in angka_g],
+                key="gabung_butir",
+            )
+            kol1, kol2 = st.columns(2)
+            nama_baru = kol1.text_input(
+                "Nama variabel baru",
+                value=nama_awal,
+                key="gabung_nama",
+                placeholder="misalnya: kualitas",
+            )
+            cara = kol2.selectbox(
+                "Cara meringkas",
+                list(de.CARA_GABUNG),
+                format_func=lambda k: de.CARA_GABUNG[k]["nama"],
+                key="gabung_cara",
+            )
+            st.caption(de.CARA_GABUNG[cara]["catatan"])
+
+            minimal = st.slider(
+                "Butir minimal yang harus terisi agar responden tetap diberi skor",
+                1,
+                max(len(butir), 1),
+                max(len(butir), 1),
+                key="gabung_minimal",
+                help=(
+                    "Responden yang mengisi lebih sedikit dari ini dibiarkan kosong, "
+                    "bukan dihitung dari sisa butir yang ada."
+                ),
+            )
+
+            try:
+                gabungan = de.variabel_gabungan(
+                    aktif_g, butir, nama_baru, cara, minimal_terisi=minimal
+                )
+            except ValueError as galat:
+                st.info(str(galat))
+            else:
+                if str(gabungan.name) in aktif_g.columns:
+                    st.warning(
+                        f"Kolom **{gabungan.name}** sudah ada dan akan ditimpa.",
+                        icon=":material/warning:",
+                    )
+                ui.show_table(
+                    de.ringkas_gabungan(aktif_g, butir, gabungan), "variabel_gabungan.csv"
+                )
+
+                kosong = int(gabungan.isna().sum())
+                if kosong:
+                    st.caption(
+                        f"{formatting.num(kosong)} responden tidak diberi skor karena "
+                        f"butir terisinya kurang dari {minimal}."
+                    )
+
+                if st.button(
+                    f"Tambahkan '{gabungan.name}' ke data aktif",
+                    type="primary",
+                    key="gabung_simpan",
+                ):
+                    diperbarui = aktif_g.copy()
+                    diperbarui[str(gabungan.name)] = gabungan
+                    ui.set_dataset(
+                        diperbarui, st.session_state.get(ui.NAME_KEY, "data")
+                    )
+                    st.success(
+                        f"Variabel **{gabungan.name}** ditambahkan. Seluruh halaman "
+                        "analisis kini dapat memakainya."
+                    )
+                    st.rerun()

@@ -42,11 +42,40 @@ with tab_linear:
     if not predictors:
         st.info("Pilih minimal satu prediktor.")
     else:
+        saran_se, alasan_se = regression.saran_galat_baku(df, y, predictors)
+        kode_se = list(regression.GALAT_BAKU)
+        with st.expander(
+            f"Galat baku — saran untuk data ini: "
+            f"{regression.GALAT_BAKU[saran_se]['nama']}",
+            expanded=saran_se != regression.GALAT_BAKU_BAWAAN,
+        ):
+            st.caption(alasan_se)
+            cov_type = st.radio(
+                "Cara galat baku dihitung",
+                kode_se,
+                index=kode_se.index(saran_se),
+                format_func=lambda k: regression.GALAT_BAKU[k]["nama"]
+                + (" — disarankan" if k == saran_se else ""),
+                key="lin_cov",
+            )
+            st.markdown(f"**Dipakai bila:** {regression.GALAT_BAKU[cov_type]['kapan']}")
+            st.caption(regression.GALAT_BAKU[cov_type]["catatan"])
+            st.caption(
+                "Pilihan ini tidak mengubah koefisien B sedikit pun — yang berubah "
+                "hanya galat baku, nilai t, p, dan selang kepercayaannya. Sebutkan "
+                "jenis galat baku yang dipakai saat melaporkan hasil."
+            )
+
         try:
-            result = regression.linear_regression(df, y, predictors)
+            result = regression.linear_regression(df, y, predictors, cov_type=cov_type)
         except Exception as exc:  # noqa: BLE001 - kesalahan model ditampilkan ke pengguna
             st.error(f"Model gagal diestimasi: {exc}")
         else:
+            for catatan in result.catatan:
+                st.warning(catatan, icon=":material/info:")
+            if result.robust:
+                st.caption(f"Galat baku: **{result.nama_galat_baku}**")
+
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("R²", f"{result.model.rsquared:.4f}")
             m2.metric("Adjusted R²", f"{result.model.rsquared_adj:.4f}")
@@ -82,10 +111,16 @@ with tab_linear:
                 result.diagnostics["Kesimpulan"] != "Terpenuhi", "Asumsi"
             ].tolist()
             if failed:
+                saran = (
+                    " Untuk ragam residual yang tidak seragam, pilih galat baku "
+                    "robust HC3 pada bagian *Galat baku* di atas."
+                    if any("Homoskedastisitas" in a for a in failed)
+                    and not result.robust
+                    else ""
+                )
                 st.warning(
                     "Asumsi yang perlu diperiksa: " + "; ".join(failed) + ". "
-                    "Pertimbangkan transformasi variabel, penanganan pencilan, atau "
-                    "standard error yang robust."
+                    "Pertimbangkan transformasi variabel atau penanganan pencilan." + saran
                 )
             else:
                 st.success("Seluruh asumsi klasik yang diuji terpenuhi.")
