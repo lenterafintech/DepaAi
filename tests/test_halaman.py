@@ -316,3 +316,74 @@ def test_rapor_data_tidak_mengubah_data_saat_hanya_dibuka(sample):
     app = _run(ROOT / "views" / "rapor_data.py", sample)
     assert not app.exception
     assert app.session_state["dataset"].shape == sample.shape
+
+
+# --------------------------------------------------------------------------- #
+# Navigasi
+# --------------------------------------------------------------------------- #
+
+
+def _jalur_terdaftar() -> list[str]:
+    """Jalur halaman yang benar-benar dilewatkan ke st.navigation.
+
+    Dibaca dari pohon sintaksis, bukan dari ekspresi reguler: sebagian
+    ``st.Page`` ditulis berbaris-baris sehingga pencocokan teks meleset justru
+    pada halaman yang paling panjang keterangannya.
+    """
+    import ast
+
+    pohon = ast.parse((ROOT / "app.py").read_text())
+    jalur = []
+    for simpul in ast.walk(pohon):
+        if (
+            isinstance(simpul, ast.Call)
+            and isinstance(simpul.func, ast.Attribute)
+            and simpul.func.attr == "Page"
+            and simpul.args
+            and isinstance(simpul.args[0], ast.Constant)
+        ):
+            jalur.append(str(simpul.args[0].value))
+    return jalur
+
+
+def test_setiap_halaman_terdaftar_pada_navigasi():
+    """Halaman yang tidak terdaftar tidak akan pernah ditemukan pengguna."""
+    terdaftar = {Path(j).name for j in _jalur_terdaftar()}
+    tersedia = {p.name for p in (ROOT / "views").glob("*.py")}
+    assert tersedia - terdaftar == set(), "halaman ada tetapi tidak masuk menu"
+    assert terdaftar - tersedia == set(), "menu menunjuk halaman yang tidak ada"
+
+
+def test_urutan_menu_mengikuti_tahapan_penelitian():
+    """Menu adalah perjalanan, bukan daftar metode.
+
+    Pengguna yang belum menguasai statistik tahu sampai di mana penelitiannya,
+    tetapi belum tentu tahu nama uji yang dicarinya.
+    """
+    import ast
+
+    pohon = ast.parse((ROOT / "app.py").read_text())
+    grup = []
+    for simpul in ast.walk(pohon):
+        if isinstance(simpul, ast.Dict):
+            grup = [k.value for k in simpul.keys if isinstance(k, ast.Constant)]
+            break
+
+    bernomor = [g for g in grup if g[0].isdigit()]
+    assert bernomor == sorted(bernomor), "tahapan harus tampil berurutan"
+    for kata in ("Rencana", "Data", "Pilih Metode", "Analisis", "Laporan"):
+        assert any(kata in g for g in grup), kata
+
+
+def test_halaman_bawaan_hanya_satu():
+    """Dua halaman bawaan membuat Streamlit menolak menjalankan aplikasi."""
+    import ast
+
+    pohon = ast.parse((ROOT / "app.py").read_text())
+    bawaan = 0
+    for simpul in ast.walk(pohon):
+        if isinstance(simpul, ast.Call) and getattr(simpul.func, "attr", "") == "Page":
+            for kata_kunci in simpul.keywords:
+                if kata_kunci.arg == "default" and getattr(kata_kunci.value, "value", False):
+                    bawaan += 1
+    assert bawaan == 1
