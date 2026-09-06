@@ -6,6 +6,7 @@ import streamlit as st
 
 from lentera_mva import descriptive, plots, preprocessing, ui
 
+ui.butuh_fitur("dasar")
 ui.page_setup(
     "Eksplorasi Data",
     "Data",

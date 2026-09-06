@@ -6,6 +6,7 @@ import streamlit as st
 
 from lentera_mva import assumptions, descriptive, manova, plots, preprocessing, ui
 
+ui.butuh_fitur("uji_beda")
 ui.page_setup(
     "MANOVA",
     "Pemodelan & Uji Beda",

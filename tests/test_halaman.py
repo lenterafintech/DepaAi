@@ -11,7 +11,7 @@ from streamlit.testing.v1 import AppTest
 ROOT = Path(__file__).resolve().parents[1]
 # Beranda dan halaman entri sengaja tetap berguna tanpa data aktif: keduanya
 # justru tempat data dibuat, jadi tidak ikut diuji sebagai halaman yang menuntut data.
-MANDIRI = {"beranda", "entri_data"}
+MANDIRI = {"beranda", "entri_data", "akun"}
 PAGES = sorted(p for p in (ROOT / "views").glob("*.py") if p.stem not in MANDIRI)
 SEMUA = sorted((ROOT / "views").glob("*.py"))
 SAMPLE = ROOT / "data" / "contoh_data_nasabah.csv"
@@ -22,8 +22,10 @@ def sample() -> pd.DataFrame:
     return pd.read_csv(SAMPLE)
 
 
-def _run(path: Path, sample: pd.DataFrame | None) -> AppTest:
+def _run(path: Path, sample: pd.DataFrame | None, paket: str = "pro") -> AppTest:
     app = AppTest.from_file(str(path), default_timeout=180)
+    # Halaman diuji pada paket penuh; pembatasan paket diuji terpisah.
+    app.session_state["paket_langganan"] = paket
     if sample is not None:
         app.session_state["dataset"] = sample
         app.session_state["dataset_name"] = "contoh_data_nasabah.csv"
@@ -61,3 +63,29 @@ def test_entri_data_berjalan_tanpa_data():
     assert not app.exception
     assert not app.error
     assert any("Tentukan kolom" in str(sub.value) for sub in app.subheader)
+
+
+def test_halaman_terkunci_pada_paket_gratis(sample):
+    """Metode di luar paket harus berhenti dengan ajakan naik paket, bukan galat."""
+    app = _run(ROOT / "views" / "manova.py", sample, paket="gratis")
+    assert not app.exception
+    assert any("tidak termasuk dalam paket" in w.value for w in app.warning)
+
+
+def test_halaman_terbuka_pada_paket_pro(sample):
+    app = _run(ROOT / "views" / "manova.py", sample, paket="pro")
+    assert not app.exception
+    assert not any("tidak termasuk dalam paket" in w.value for w in app.warning)
+
+
+def test_data_melebihi_batas_paket_ditolak(sample):
+    """Data yang lebih besar dari batas paket dihentikan dengan pesan yang jelas."""
+    app = _run(ROOT / "views" / "eksplorasi.py", sample, paket="gratis")
+    assert not app.exception
+    assert any("membatasi" in w.value for w in app.warning)
+
+
+def test_halaman_akun_menampilkan_paket_aktif():
+    app = _run(ROOT / "views" / "akun.py", None, paket="gratis")
+    assert not app.exception
+    assert any("Mode uji coba" in i.value for i in app.info)

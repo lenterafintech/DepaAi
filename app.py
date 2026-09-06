@@ -17,6 +17,9 @@ PAGES = {
         st.Page("views/eksplorasi.py", title="Eksplorasi Data", icon=":material/search_insights:"),
         st.Page("views/korelasi.py", title="Korelasi & Asumsi", icon=":material/linked_services:"),
     ],
+    "Instrumen": [
+        st.Page("views/reliabilitas.py", title="Reliabilitas & Validitas", icon=":material/fact_check:"),
+    ],
     "Reduksi Dimensi": [
         st.Page("views/pca.py", title="PCA", icon=":material/compress:"),
         st.Page("views/analisis_faktor.py", title="Analisis Faktor", icon=":material/hub:"),
@@ -29,6 +32,9 @@ PAGES = {
         st.Page("views/diskriminan.py", title="Analisis Diskriminan", icon=":material/rule:"),
         st.Page("views/manova.py", title="MANOVA", icon=":material/balance:"),
         st.Page("views/korelasi_kanonik.py", title="Korelasi Kanonik", icon=":material/compare_arrows:"),
+    ],
+    "Akun": [
+        st.Page("views/akun.py", title="Akun & Langganan", icon=":material/workspace_premium:"),
     ],
     "Ringkasan Kesimpulan": [
         st.Page("views/ringkasan_eksekutif.py", title="Ringkasan Eksekutif", icon=":material/summarize:"),

@@ -8,6 +8,7 @@ import streamlit as st
 from lentera_mva import data_entry as de
 from lentera_mva import formatting, ui
 
+ui.butuh_fitur("entri_data")
 ui.page_setup(
     "Buat & Entri Data",
     "Data",

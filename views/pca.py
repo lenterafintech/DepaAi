@@ -6,6 +6,7 @@ import streamlit as st
 
 from lentera_mva import assumptions, pca_analysis, plots, ui
 
+ui.butuh_fitur("reduksi")
 ui.page_setup(
     "Principal Component Analysis",
     "Reduksi Dimensi",

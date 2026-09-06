@@ -12,6 +12,7 @@ analisis, laporan = kui.buka_ringkasan(
     "Ringkasan Profesional",
     "Ditulis untuk analis dan praktisi: kinerja model, keterbatasannya, serta langkah "
     "teknis berikutnya sebelum hasil dipakai untuk keputusan operasional.",
+    "ringkasan_profesional",
 )
 
 st.subheader("Metrik kunci")

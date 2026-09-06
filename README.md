@@ -9,6 +9,7 @@ interpretasinya dalam bahasa Indonesia.
 | Kelompok | Metode |
 | --- | --- |
 | Entri data | Membuat tabel baru langsung di aplikasi (definisi kolom, skala Likert, butir kuesioner bernomor), menyunting data aktif, dan memeriksa kelengkapan isian |
+| Instrumen | Alpha Cronbach dengan statistik per butir dan alpha-if-deleted, omega McDonald, composite reliability, AVE, serta validitas diskriminan Fornell-Larcker |
 | Eksplorasi | Statistik deskriptif, tabel frekuensi, uji normalitas (Shapiro-Wilk, D'Agostino, KS), normalitas multivariat Mardia, pencilan IQR & jarak Mahalanobis |
 | Korelasi & asumsi | Korelasi Pearson/Spearman/Kendall dengan uji signifikansi, korelasi parsial, KMO, Bartlett's test of sphericity, VIF, Box's M, Levene |
 | Reduksi dimensi | PCA (scree plot, biplot, komunalitas, analisis paralel Horn), analisis faktor eksploratori (principal / principal axis factoring / maximum likelihood) dengan rotasi varimax & promax |
@@ -49,6 +50,21 @@ halaman tidak menghitung ulang. Tiap halaman menyediakan unduhan laporan HTML ma
 berisi ketiga ringkasan sekaligus untuk pembaca campuran. Seluruh angka dihitung ulang
 dari data yang sedang aktif — tidak ada nilai contoh yang ditanam.
 
+## Paket langganan
+
+Fitur dibatasi menurut paket yang berlaku (`lentera_mva/langganan.py`):
+
+| Paket | Batas data | Cakupan |
+| --- | --- | --- |
+| Gratis | 300 baris · 10 kolom | Eksplorasi, korelasi, PCA/EFA, klaster, regresi, entri data, ringkasan eksekutif |
+| Pro | 50.000 baris · 100 kolom | Seluruh metode termasuk instrumen dan SEM, ketiga ringkasan, unduhan laporan |
+| Institusi | 500.000 baris · 500 kolom | Sama seperti Pro dengan batas data jauh lebih besar |
+
+**Penagihan belum terpasang.** Halaman *Akun & Langganan* saat ini berjalan dalam
+mode uji coba: paket dapat diganti bebas untuk mencoba batasannya. Status paket
+disimpan pada sesi; ketika basis data pengguna tersedia, hanya fungsi
+`ui.paket_aktif()` yang perlu diubah.
+
 ## Format data yang didukung
 
 - CSV/TSV/TXT — pemisah kolom dideteksi otomatis (koma, titik koma, atau tab)
@@ -76,6 +92,8 @@ lentera_mva/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   manova.py            MANOVA satu jalur, Hotelling's T²
   cca.py               Korelasi kanonik
   data_entry.py        Pembuatan dan pembersihan data hasil entri manual
+  reliability.py       Alpha, omega, CR, AVE, dan validitas diskriminan
+  langganan.py         Paket langganan dan pembatasan fitur
   narrative.py         Penyusun kesimpulan naratif tiga register pembaca
   report_html.py       Laporan HTML mandiri yang dapat diunduh
   kesimpulan_ui.py     Komponen bersama ketiga halaman ringkasan

@@ -12,6 +12,7 @@ analisis, laporan = kui.buka_ringkasan(
     "Ringkasan Akademik",
     "Ditulis untuk mahasiswa dan dosen: statistik uji, derajat bebas, nilai p, ukuran "
     "efek, dan catatan asumsi — lengkap dengan tabel serta paragraf siap salin.",
+    "ringkasan_akademik",
 )
 
 st.subheader("Ikhtisar hasil")

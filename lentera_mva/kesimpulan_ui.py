@@ -392,8 +392,11 @@ def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan]:
     return st.session_state["kesimpulan_analisis"], laporan
 
 
-def buka_ringkasan(judul: str, pengantar: str) -> tuple[nr.Analisis, nr.Laporan]:
+def buka_ringkasan(
+    judul: str, pengantar: str, fitur: str = "ringkasan_eksekutif"
+) -> tuple[nr.Analisis, nr.Laporan]:
     """Rangkaian pembuka yang sama untuk ketiga halaman ringkasan."""
+    ui.butuh_fitur(fitur)
     ui.page_setup(judul, "Ringkasan Kesimpulan", pengantar)
     df = ui.require_dataset()
     ui.sidebar_info()
@@ -415,6 +418,13 @@ def analisis_yang_dilewati(laporan: nr.Laporan) -> None:
 def unduhan(laporan: nr.Laporan, pembaca: str) -> None:
     """Tombol unduh untuk register halaman ini, plus berkas gabungan bila diperlukan."""
     st.subheader("Unduh ringkasan")
+    if not ui.paket_aktif().punya("unduh_laporan"):
+        st.info(
+            "Unduhan laporan tersedia mulai paket Pro. Isi ringkasan di atas tetap "
+            "dapat dibaca dan disalin.",
+            icon=":material/lock:",
+        )
+        return
     st.caption(
         "Laporan HTML dapat dibuka di peramban mana pun dan dicetak menjadi PDF; berkas "
         "Markdown cocok untuk disunting lebih lanjut."

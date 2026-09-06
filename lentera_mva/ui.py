@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from lentera_mva import formatting, preprocessing
+from lentera_mva import formatting, langganan, preprocessing
 
 DATA_KEY = "dataset"
 NAME_KEY = "dataset_name"
@@ -81,6 +81,45 @@ def page_setup(title: str, kicker: str = "Lentera MVA", description: str = "") -
     )
 
 
+PAKET_KEY = "paket_langganan"
+
+
+def paket_aktif() -> langganan.Paket:
+    """Paket yang sedang berlaku bagi pengguna sesi ini.
+
+    Untuk sementara status disimpan pada sesi karena penagihan belum terpasang;
+    ketika basis data pengguna sudah ada, cukup fungsi ini yang diubah.
+    """
+    return langganan.ambil_paket(st.session_state.get(PAKET_KEY, langganan.PAKET_BAWAAN))
+
+
+def set_paket(kode: str) -> None:
+    st.session_state[PAKET_KEY] = langganan.ambil_paket(kode).kode
+
+
+def _ajakan_naik(pelanggaran: langganan.Pelanggaran) -> None:
+    saran = langganan.PAKET.get(pelanggaran.saran_paket or "")
+    st.warning(pelanggaran.pesan)
+    if saran:
+        st.caption(
+            f"Tersedia pada paket **{saran.nama}**. Buka halaman *Akun & Langganan* "
+            "untuk mengubah paket."
+        )
+
+
+def butuh_fitur(kode_fitur: str) -> None:
+    """Hentikan halaman bila fitur tidak termasuk paket yang sedang aktif."""
+    pelanggaran = langganan.periksa_fitur(paket_aktif(), kode_fitur)
+    if pelanggaran is not None:
+        page_setup(
+            langganan.FITUR.get(kode_fitur, "Fitur terkunci"),
+            "Terkunci",
+            "Halaman ini belum termasuk dalam paket Anda.",
+        )
+        _ajakan_naik(pelanggaran)
+        st.stop()
+
+
 def set_dataset(df: pd.DataFrame, name: str) -> None:
     st.session_state[DATA_KEY] = df
     st.session_state[NAME_KEY] = name
@@ -106,6 +145,10 @@ def require_dataset() -> pd.DataFrame:
             set_dataset(load_sample(), "contoh_data_nasabah.csv")
             st.rerun()
         st.stop()
+    pelanggaran = langganan.periksa_ukuran(paket_aktif(), len(df), df.shape[1])
+    if pelanggaran is not None:
+        _ajakan_naik(pelanggaran)
+        st.stop()
     return df
 
 
@@ -117,6 +160,8 @@ def sidebar_info() -> None:
         if df is None:
             st.caption("Belum ada data dimuat.")
             return
+        paket = paket_aktif()
+        st.caption(f"Paket {paket.nama}")
         nama = st.session_state.get(NAME_KEY, "data")
         numerik = len(preprocessing.numeric_columns(df))
         st.html(

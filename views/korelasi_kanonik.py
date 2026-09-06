@@ -6,6 +6,7 @@ import streamlit as st
 
 from lentera_mva import cca, plots, preprocessing, ui
 
+ui.butuh_fitur("uji_beda")
 ui.page_setup(
     "Korelasi Kanonik",
     "Pemodelan & Uji Beda",
