@@ -14,9 +14,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from lentera_mva import narrative as nr
+from lentera_mva import ekspor, narrative as nr
 from lentera_mva import preprocessing, ui
-from lentera_mva.report_html import laporan_html, laporan_html_semua
 
 TANPA = "(tidak ada)"
 
@@ -416,46 +415,92 @@ def analisis_yang_dilewati(laporan: nr.Laporan) -> None:
 
 
 def unduhan(laporan: nr.Laporan, pembaca: str) -> None:
-    """Tombol unduh untuk register halaman ini, plus berkas gabungan bila diperlukan."""
-    st.subheader("Unduh ringkasan")
+    """Panel ekspor: pilih ragam laporan, pilih format, lalu unduh.
+
+    Dua ragam yang ditawarkan sesuai isi yang sudah disusun: **Ringkasan** untuk
+    register halaman ini saja, dan **Laporan Lengkap** yang memuat ketiga register
+    beserta seluruh tabel, kalimat siap salin, dan rujukan ambang.
+    """
+    st.subheader("Ekspor hasil analisis")
     if not ui.paket_aktif().punya("unduh_laporan"):
         st.info(
-            "Unduhan laporan tersedia mulai paket Pro. Isi ringkasan di atas tetap "
-            "dapat dibaca dan disalin.",
+            "Ekspor laporan tersedia mulai paket Mahasiswa & Pengajar. Isi ringkasan di "
+            "atas tetap dapat dibaca dan disalin.",
             icon=":material/lock:",
         )
         return
+
     st.caption(
-        "Laporan HTML dapat dibuka di peramban mana pun dan dicetak menjadi PDF; berkas "
-        "Markdown cocok untuk disunting lebih lanjut."
+        "Isi seluruh format disusun dari sumber yang sama, sehingga Word, PDF, Excel, "
+        "PowerPoint, HTML, dan Markdown memuat angka serta kesimpulan yang identik."
     )
-    kiri, kanan = st.columns(2)
-    kiri.download_button(
-        "Laporan HTML",
-        laporan_html(laporan, pembaca).encode("utf-8"),
-        file_name=f"ringkasan_{pembaca}.html",
-        mime="text/html",
-        width="stretch",
-        type="primary",
-        key=f"unduh_html_{pembaca}",
-    )
-    kanan.download_button(
-        "Ringkasan Markdown",
-        laporan.markdown(pembaca).encode("utf-8"),
-        file_name=f"ringkasan_{pembaca}.md",
-        mime="text/markdown",
-        width="stretch",
-        key=f"unduh_md_{pembaca}",
-    )
-    with st.expander("Butuh ketiga ringkasan dalam satu berkas?"):
+
+    kiri, kanan = st.columns([1, 1])
+    with kiri:
+        ragam = st.radio(
+            "Ragam laporan",
+            ["ringkas", "lengkap"],
+            format_func=lambda r: (
+                f"Ringkasan {nr.AUDIENCE_LABELS[pembaca]}"
+                if r == "ringkas"
+                else "Laporan Lengkap (ketiga pembaca)"
+            ),
+            key=f"ekspor_ragam_{pembaca}",
+            horizontal=False,
+        )
+        lengkap = ragam == "lengkap"
         st.caption(
-            "Berguna saat laporan dikirim ke pembaca campuran: satu berkas HTML berisi "
-            "ketiga ringkasan dengan tombol pengalih di dalamnya."
+            "Seluruh temuan dalam register halaman ini, tabel hasil, rekomendasi, dan "
+            "batas kesimpulan."
+            if not lengkap
+            else "Ketiga register pembaca dalam satu berkas, ditambah seluruh tabel, "
+            "kalimat siap salin, rujukan ambang, dan catatan analisis yang dilewati."
         )
-        st.download_button(
-            "Laporan HTML — ketiga ringkasan",
-            laporan_html_semua(laporan).encode("utf-8"),
-            file_name="ringkasan_lengkap.html",
-            mime="text/html",
-            key=f"unduh_semua_{pembaca}",
+    with kanan:
+        kode = st.selectbox(
+            "Format berkas",
+            list(ekspor.FORMAT),
+            format_func=lambda k: ekspor.FORMAT[k].nama,
+            key=f"ekspor_format_{pembaca}",
         )
+        st.caption(ekspor.FORMAT[kode].keterangan)
+
+    nama = ekspor.nama_berkas(laporan, kode, pembaca, lengkap)
+    try:
+        with st.spinner(f"Menyusun berkas {ekspor.FORMAT[kode].nama}…"):
+            isi = ekspor.bangun(laporan, kode, pembaca, lengkap)
+    except Exception as galat:  # noqa: BLE001 - kegagalan ekspor tidak boleh menghentikan halaman
+        st.error(
+            f"Berkas {ekspor.FORMAT[kode].nama} gagal disusun: {galat}. "
+            "Coba format lain, atau kurangi cakupan analisis.",
+            icon=":material/error:",
+        )
+        return
+
+    st.download_button(
+        f"Unduh {ekspor.FORMAT[kode].nama} · {_ukuran(len(isi))}",
+        isi,
+        file_name=nama,
+        mime=ekspor.FORMAT[kode].mime,
+        type="primary",
+        width="stretch",
+        key=f"unduh_{pembaca}_{kode}_{int(lengkap)}",
+    )
+    st.caption(f"Nama berkas: `{nama}`")
+
+    with st.expander("Format apa yang sebaiknya dipakai?"):
+        for f in ekspor.FORMAT.values():
+            st.markdown(f"- **{f.nama}** — {f.keterangan}")
+        st.caption(
+            "Paket lengkap (ZIP) berisi seluruh format sekaligus ditambah setiap tabel "
+            "hasil dalam bentuk CSV, sehingga angkanya dapat diolah ulang."
+        )
+
+
+def _ukuran(jumlah_byte: int) -> str:
+    """Ukuran berkas dalam satuan yang mudah dibaca."""
+    if jumlah_byte < 1024:
+        return f"{jumlah_byte} B"
+    if jumlah_byte < 1024 * 1024:
+        return f"{jumlah_byte / 1024:.0f} KB".replace(".", ",")
+    return f"{jumlah_byte / 1024 / 1024:.1f} MB".replace(".", ",")

@@ -20,13 +20,14 @@ FITUR = {
     "klaster": "Analisis klaster",
     "regresi": "Regresi linear dan logistik",
     "uji_beda": "MANOVA, diskriminan, korelasi kanonik",
+    "nonparametrik": "Uji non-parametrik dan uji lanjutan",
     "instrumen": "Reliabilitas dan validitas instrumen",
     "sem": "CFA, analisis jalur, dan SEM",
     "ringkasan_eksekutif": "Ringkasan eksekutif",
     "ringkasan_akademik": "Ringkasan akademik",
     "ringkasan_profesional": "Ringkasan profesional",
     "entri_data": "Membuat dan menyunting data di aplikasi",
-    "unduh_laporan": "Mengunduh laporan HTML dan Markdown",
+    "unduh_laporan": "Ekspor laporan (Word, PDF, Excel, PPT, HTML, sintaks)",
 }
 
 
@@ -53,7 +54,15 @@ class Paket:
         return [k for k in FITUR if k not in self.fitur]
 
 
-_DASAR = {"dasar", "reduksi", "klaster", "regresi", "entri_data", "ringkasan_eksekutif"}
+_DASAR = {
+    "dasar",
+    "reduksi",
+    "klaster",
+    "regresi",
+    "nonparametrik",
+    "entri_data",
+    "ringkasan_eksekutif",
+}
 _AKADEMIK = _DASAR | {
     "uji_beda",
     "instrumen",

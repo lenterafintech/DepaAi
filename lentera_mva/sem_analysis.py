@@ -37,7 +37,57 @@ AMBANG_FIT: dict[str, tuple[str, str]] = {
     "GFI": ("> 0,90", "Hair dkk. (2019)"),
     "AGFI": ("> 0,90", "Hair dkk. (2019)"),
     "NFI": ("> 0,90", "Hair dkk. (2019)"),
+    "SRMR": ("< 0,08", "Hu & Bentler (1999)"),
 }
+
+# Fungsi tujuan estimasi yang disediakan. Pilihan ini menentukan asumsi apa yang
+# dituntut dari data; keterangannya ditampilkan apa adanya di antarmuka agar
+# pengguna memilih dengan sadar, bukan menerima bawaan begitu saja.
+ESTIMATOR: dict[str, dict[str, str]] = {
+    "ml": {
+        "obj": "MLW",
+        "nama": "Maximum Likelihood (ML)",
+        "kapan": "Data lengkap dan sebarannya mendekati normal multivariat.",
+        "catatan": (
+            "Pilihan baku pada sebagian besar naskah. Nilai p dan galat bakunya "
+            "menjadi terlalu optimistis bila data menceng atau berekor tebal."
+        ),
+    },
+    "fiml": {
+        "obj": "FIML",
+        "nama": "Full Information ML (FIML)",
+        "kapan": "Ada nilai hilang yang tidak ingin dibuang.",
+        "catatan": (
+            "Memakai seluruh baris tanpa menghapus yang datanya tidak lengkap, "
+            "sehingga lebih hemat data daripada penghapusan listwise."
+        ),
+    },
+    "dwls": {
+        "obj": "DWLS",
+        "nama": "Diagonally Weighted LS (DWLS)",
+        "kapan": "Data ordinal (skala Likert) atau jelas tidak normal.",
+        "catatan": (
+            "Padanan terdekat WLSMV pada perangkat lain: tidak menuntut normalitas "
+            "multivariat, dengan harga sampel yang perlu lebih besar."
+        ),
+    },
+    "uls": {
+        "obj": "ULS",
+        "nama": "Unweighted LS (ULS)",
+        "kapan": "Sampel kecil dan model sederhana.",
+        "catatan": (
+            "Tidak menuntut sebaran tertentu, namun tidak menyediakan uji "
+            "signifikansi seakurat ML."
+        ),
+    },
+    "gls": {
+        "obj": "GLS",
+        "nama": "Generalized LS (GLS)",
+        "kapan": "Alternatif ML pada sampel besar.",
+        "catatan": "Jarang berbeda jauh dari ML ketika asumsinya terpenuhi.",
+    },
+}
+ESTIMATOR_BAKU = "ml"
 
 
 @dataclass
@@ -52,6 +102,11 @@ class HasilSEM:
     teramati: list[str]
     n: int
     catatan: list[str] = field(default_factory=list)
+    estimator: str = ESTIMATOR_BAKU
+
+    @property
+    def nama_estimator(self) -> str:
+        return ESTIMATOR.get(self.estimator, {}).get("nama", self.estimator)
 
     def muatan(self) -> pd.DataFrame:
         """Muatan butir pada konstruk laten (baris berjenis 'pengukuran')."""
@@ -138,27 +193,112 @@ def _jenis_baris(lval: str, op: str, rval: str, laten: set[str]) -> str:
     return "Jalur"
 
 
+def saran_estimator(df: pd.DataFrame, variabel: list[str]) -> tuple[str, str]:
+    """Estimator yang paling sesuai untuk data ini, beserta alasannya.
+
+    Saran ini bersifat anjuran, bukan keharusan: pengguna tetap memilih sendiri,
+    dan alasan di bawah ditampilkan agar pilihannya dapat dipertanggungjawabkan.
+    """
+    ada = [v for v in variabel if v in df.columns]
+    if not ada:
+        return ESTIMATOR_BAKU, "Variabel belum lengkap; estimator baku dipakai."
+
+    bagian = df[ada]
+    rasio_hilang = float(bagian.isna().any(axis=1).mean())
+    if rasio_hilang > 0.05:
+        return "fiml", (
+            f"{rasio_hilang * 100:.0f}% baris memuat nilai hilang. FIML memakai "
+            "seluruh baris tanpa membuangnya."
+        )
+
+    angka = bagian.select_dtypes(include="number").dropna()
+    if len(angka) >= 20 and not angka.empty:
+        # Data ordinal: nilai unik sedikit dan bulat, ciri khas skala Likert.
+        ordinal = all(
+            angka[k].nunique() <= 7 and float(np.nanmax(np.abs(angka[k] % 1))) == 0.0
+            for k in angka.columns
+        )
+        if ordinal:
+            return "dwls", (
+                "Seluruh variabel berupa skala bertingkat dengan sedikit nilai unik "
+                "(ciri data ordinal). DWLS tidak menuntut normalitas."
+            )
+        kurtosis = float(angka.kurtosis().abs().max())
+        kemencengan = float(angka.skew().abs().max())
+        if kurtosis > 7 or kemencengan > 2:
+            return "dwls", (
+                f"Sebaran jauh dari normal (kemencengan maksimum {kemencengan:.2f}, "
+                f"kurtosis maksimum {kurtosis:.2f}). DWLS lebih tahan terhadap hal ini."
+            )
+    return ESTIMATOR_BAKU, "Data lengkap dan sebarannya wajar; ML memadai."
+
+
+def srmr(model: semopy.Model) -> float:
+    """Standardized Root Mean Square Residual dari selisih korelasi.
+
+    semopy tidak melaporkan SRMR padahal indeks ini hampir selalu diminta penelaah.
+    Perhitungannya membandingkan korelasi teramati dengan korelasi yang tersirat
+    dari model, lalu merata-ratakan selisih kuadrat pada segitiga bawah beserta
+    diagonalnya.
+    """
+    try:
+        tersirat = np.asarray(model.calc_sigma()[0], dtype=float)
+        teramati = np.asarray(model.mx_cov, dtype=float)
+    except Exception:  # noqa: BLE001 - model tanpa matriks kovarians
+        return float("nan")
+    if tersirat.shape != teramati.shape or tersirat.size == 0:
+        return float("nan")
+
+    def _korelasi(matriks: np.ndarray) -> np.ndarray:
+        d = np.sqrt(np.abs(np.diag(matriks)))
+        d[d == 0] = np.nan
+        return matriks / np.outer(d, d)
+
+    selisih = _korelasi(teramati) - _korelasi(tersirat)
+    bawah = np.tril_indices_from(selisih)
+    nilai = selisih[bawah]
+    nilai = nilai[np.isfinite(nilai)]
+    if nilai.size == 0:
+        return float("nan")
+    return float(np.sqrt(np.mean(np.square(nilai))))
+
+
 def jalankan(
     df: pd.DataFrame,
     spesifikasi: str,
     standardisasi: bool = True,
+    estimator: str = ESTIMATOR_BAKU,
 ) -> HasilSEM:
-    """Estimasi model dengan maximum likelihood.
+    """Estimasi model dengan fungsi tujuan yang dipilih.
 
     Data distandardisasi secara bawaan karena variabel bersatuan sangat berbeda
     (rupiah berdampingan dengan skala 1–5) membuat optimasi sulit konvergen dan
     koefisiennya tidak sebanding satu sama lain.
+
+    ``estimator`` menentukan asumsi yang dituntut dari data; lihat ``ESTIMATOR``.
+    FIML sengaja memakai data yang belum dibersihkan, karena justru kemampuannya
+    menangani nilai hilang yang membuatnya dipilih.
     """
     teks = spesifikasi.strip()
     if not teks:
         raise ValueError("Spesifikasi model masih kosong.")
+    if estimator not in ESTIMATOR:
+        raise ValueError(
+            f"Estimator '{estimator}' tidak dikenal. Pilih dari: {', '.join(ESTIMATOR)}."
+        )
 
     variabel = _variabel_dalam(teks)
     hilang = [v for v in variabel if v not in df.columns]
     if hilang:
         raise ValueError(f"Variabel tidak ada dalam data: {', '.join(hilang)}.")
 
-    data = preprocessing.clean_subset(df, variabel)
+    if estimator == "fiml":
+        # Nilai hilang justru menjadi alasan memilih FIML, jadi barisnya dipertahankan;
+        # yang dibuang hanya baris yang seluruhnya kosong.
+        data = df[variabel].apply(pd.to_numeric, errors="coerce").dropna(how="all")
+    else:
+        data = preprocessing.clean_subset(df, variabel)
+    catatan_awal: list[str] = []
     if len(data) < len(variabel) * 5:
         catatan_sampel = (
             f"Ukuran sampel {len(data)} tergolong kecil untuk {len(variabel)} variabel; "
@@ -169,7 +309,19 @@ def jalankan(
 
     kerja = preprocessing.scale(data, "z-score") if standardisasi else data
     model = semopy.Model(teks)
-    model.fit(kerja)
+    tujuan = ESTIMATOR[estimator]["obj"]
+    try:
+        model.fit(kerja, obj=tujuan)
+    except Exception as galat:  # noqa: BLE001 - estimator alternatif dapat gagal konvergen
+        if estimator == ESTIMATOR_BAKU:
+            raise
+        catatan_awal.append(
+            f"Estimator {ESTIMATOR[estimator]['nama']} gagal dijalankan ({galat}); "
+            f"hasil di bawah memakai {ESTIMATOR[ESTIMATOR_BAKU]['nama']}."
+        )
+        estimator = ESTIMATOR_BAKU
+        model = semopy.Model(teks)
+        model.fit(kerja, obj=ESTIMATOR[ESTIMATOR_BAKU]["obj"])
 
     mentah = model.inspect(std_est=True)
     laten = set(_laten_dalam(teks))
@@ -194,7 +346,50 @@ def jalankan(
     )
 
     statistik = semopy.calc_stats(model).iloc[0]
-    catatan = [catatan_sampel] if catatan_sampel else []
+    statistik["SRMR"] = srmr(model)
+    catatan = list(catatan_awal)
+
+    if estimator == "fiml":
+        # Mesin estimasi menghitung chi-square FIML pada skala yang berbeda, sehingga
+        # CFI, TLI, dan NFI-nya tidak sebanding dengan angka yang lazim dilaporkan.
+        # Taksiran parameter tetap dari FIML — itulah alasan estimator ini dipilih —
+        # sementara indeks kecocokan diambil dari model yang sama pada baris lengkap.
+        lengkap = preprocessing.clean_subset(df, variabel)
+        if len(lengkap) > len(variabel):
+            kerja_lengkap = (
+                preprocessing.scale(lengkap, "z-score") if standardisasi else lengkap
+            )
+            try:
+                pembanding = semopy.Model(teks)
+                pembanding.fit(kerja_lengkap, obj=ESTIMATOR[ESTIMATOR_BAKU]["obj"])
+                statistik = semopy.calc_stats(pembanding).iloc[0]
+                statistik["SRMR"] = srmr(pembanding)
+                catatan.append(
+                    f"Taksiran parameter berasal dari FIML atas {len(data)} baris. "
+                    f"Indeks kecocokan dihitung dengan ML atas {len(lengkap)} baris "
+                    "yang datanya lengkap, karena chi-square FIML tidak sebanding "
+                    "dengan ambang yang lazim dikutip."
+                )
+            except Exception as galat:  # noqa: BLE001 - pembanding gagal, indeks apa adanya
+                catatan.append(
+                    "Indeks kecocokan pembanding gagal dihitung "
+                    f"({galat}); angka di bawah berasal langsung dari FIML dan "
+                    "sebaiknya tidak dibandingkan dengan ambang baku."
+                )
+        else:
+            catatan.append(
+                "Baris berdata lengkap terlalu sedikit untuk menghitung indeks "
+                "kecocokan pembanding; CFI, TLI, dan NFI di bawah berasal dari FIML "
+                "dan tidak sebanding dengan ambang baku."
+            )
+
+    if catatan_sampel:
+        catatan.append(catatan_sampel)
+    if estimator != ESTIMATOR_BAKU:
+        catatan.append(
+            f"Estimasi memakai {ESTIMATOR[estimator]['nama']}. "
+            f"{ESTIMATOR[estimator]['catatan']}"
+        )
 
     return HasilSEM(
         model=model,
@@ -205,6 +400,7 @@ def jalankan(
         teramati=[v for v in variabel],
         n=len(data),
         catatan=catatan,
+        estimator=estimator,
     )
 
 
@@ -258,6 +454,7 @@ def tabel_kecocokan(hasil: HasilSEM) -> pd.DataFrame:
         "GFI": float(s["GFI"]),
         "AGFI": float(s["AGFI"]),
         "NFI": float(s["NFI"]),
+        "SRMR": float(s.get("SRMR", float("nan"))),
     }
     baris = [
         {
@@ -271,7 +468,7 @@ def tabel_kecocokan(hasil: HasilSEM) -> pd.DataFrame:
     ]
     for indeks, angka in nilai.items():
         kriteria, rujukan = AMBANG_FIT[indeks]
-        if indeks in ("chi2/df", "RMSEA"):
+        if indeks in ("chi2/df", "RMSEA", "SRMR"):
             batas = 3.0 if indeks == "chi2/df" else 0.08
             memenuhi = np.isfinite(angka) and angka < batas
         else:

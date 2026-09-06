@@ -7,3 +7,7 @@ statsmodels>=0.14
 plotly>=5.20
 openpyxl>=3.1
 semopy>=2.3
+python-docx>=1.1
+python-pptx>=1.0
+reportlab>=4.1
+XlsxWriter>=3.2

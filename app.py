@@ -33,6 +33,7 @@ PAGES = {
         st.Page("views/diskriminan.py", title="Analisis Diskriminan", icon=":material/rule:"),
         st.Page("views/manova.py", title="MANOVA", icon=":material/balance:"),
         st.Page("views/korelasi_kanonik.py", title="Korelasi Kanonik", icon=":material/compare_arrows:"),
+        st.Page("views/nonparametrik.py", title="Uji Non-parametrik", icon=":material/stacked_line_chart:"),
     ],
     "Model Struktural": [
         st.Page("views/sem.py", title="CFA, Jalur & SEM", icon=":material/account_tree:"),

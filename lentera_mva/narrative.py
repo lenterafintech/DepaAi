@@ -243,6 +243,9 @@ class Laporan:
     paragraf: list[Paragraf] = field(default_factory=list)
     rujukan: list[str] = field(default_factory=list)
     dilewati: list[str] = field(default_factory=list)
+    # Konfigurasi disimpan bersama laporan agar sintaks Python/R yang dapat
+    # dijalankan ulang bisa dibangkitkan tanpa membawa datanya.
+    konfig: "Konfigurasi | None" = None
 
     def poin_kunci(self) -> list[str]:
         return [t.ringkas for t in self.temuan]
@@ -2146,6 +2149,7 @@ def susun_laporan(a: Analisis) -> Laporan:
         n_baris=len(a.df),
         n_kolom=a.df.shape[1],
         tanggal=date.today().strftime("%d-%m-%Y"),
+        konfig=a.konfig,
     )
 
     pembangun = [

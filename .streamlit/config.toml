@@ -1,7 +1,10 @@
-# Konfigurasi server aplikasi. Port 8501 dan 8502 kerap sudah dipakai aplikasi
-# Streamlit lain, jadi Lentera MVA memakai 8503 secara bawaan.
-[server]
-port = 8503
+# Port sengaja TIDAK dikunci di berkas ini. Layanan hosting (Streamlit Community
+# Cloud, Hostinger VPS di balik proksi) memeriksa kesehatan aplikasi pada port
+# bawaannya sendiri; mengunci port di sini membuat aplikasi berjalan di port lain
+# daripada yang diperiksa, sehingga penerapan dinyatakan gagal.
+#
+# Untuk menjalankan di komputer sendiri pada port 8503 tanpa mengetik apa pun,
+# pakai skrip jalankan.cmd (Windows) atau jalankan.sh (Linux/macOS) di akar proyek.
 
 [browser]
 gatherUsageStats = false

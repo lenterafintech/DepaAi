@@ -1,0 +1,196 @@
+"""Uji ekspor laporan ke berbagai format berkas dan sintaks yang dapat dijalankan ulang."""
+
+from __future__ import annotations
+
+import io
+import json
+import zipfile
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+from lentera_mva import ekspor, sintaks
+from lentera_mva import narrative as nr
+
+ROOT = Path(__file__).resolve().parents[1]
+NUMERIK = [
+    "usia",
+    "lama_usaha_tahun",
+    "pendapatan_bulanan",
+    "saldo_tabungan",
+    "rasio_utang_pendapatan",
+    "skor_kredit",
+    "jumlah_keterlambatan",
+]
+
+
+@pytest.fixture(scope="module")
+def laporan() -> nr.Laporan:
+    df = pd.read_csv(ROOT / "data" / "contoh_data_nasabah.csv")
+    konfig = nr.Konfigurasi(
+        variabel=NUMERIK,
+        nama_data="contoh_data_nasabah.csv",
+        target_numerik="skor_kredit",
+        prediktor=["rasio_utang_pendapatan", "jumlah_keterlambatan", "pendapatan_bulanan"],
+        target_biner="gagal_bayar",
+        prediktor_biner=["rasio_utang_pendapatan", "skor_kredit"],
+        kelompok="segmen_usaha",
+        gugus_x=["pendapatan_bulanan", "saldo_tabungan"],
+        gugus_y=["skor_kredit", "jumlah_keterlambatan"],
+    )
+    _, lap = nr.analisis_dan_laporan(df, konfig)
+    return lap
+
+
+def test_konfigurasi_ikut_tersimpan(laporan):
+    assert laporan.konfig is not None
+    assert laporan.konfig.target_numerik == "skor_kredit"
+
+
+@pytest.mark.parametrize("kode", sorted(ekspor.FORMAT))
+@pytest.mark.parametrize("lengkap", [False, True])
+def test_setiap_format_menghasilkan_berkas(laporan, kode, lengkap):
+    isi = ekspor.bangun(laporan, kode, "akademik", lengkap)
+    assert isinstance(isi, bytes)
+    assert len(isi) > 500
+
+
+def test_format_ditolak_bila_tak_dikenal(laporan):
+    with pytest.raises(ValueError, match="tidak dikenal"):
+        ekspor.bangun(laporan, "xls", "akademik")
+    with pytest.raises(ValueError, match="Pembaca"):
+        ekspor.bangun(laporan, "html", "manajer")
+
+
+def test_docx_terbaca_kembali(laporan):
+    from docx import Document
+
+    dok = Document(io.BytesIO(ekspor.ke_docx(laporan, "akademik", lengkap=True)))
+    teks = "\n".join(p.text for p in dok.paragraphs)
+    assert "Laporan Lengkap Analisis Multivariat" in teks
+    assert laporan.headline in teks
+    assert dok.tables, "laporan lengkap harus memuat tabel"
+
+
+def test_pptx_terbaca_kembali(laporan):
+    from pptx import Presentation
+
+    presentasi = Presentation(io.BytesIO(ekspor.ke_pptx(laporan, "eksekutif")))
+    assert len(presentasi.slides) >= 3
+
+
+def test_pdf_terbaca_kembali(laporan):
+    from pypdf import PdfReader
+
+    baca = PdfReader(io.BytesIO(ekspor.ke_pdf(laporan, "akademik", lengkap=True)))
+    assert len(baca.pages) >= 2
+    assert "Laporan Lengkap" in baca.pages[0].extract_text()
+
+
+def test_xlsx_berisi_lembar_per_bagian(laporan):
+    lembar = pd.read_excel(
+        io.BytesIO(ekspor.ke_xlsx(laporan, "akademik", lengkap=True)), sheet_name=None
+    )
+    assert "Ringkasan" in lembar
+    assert "Temuan" in lembar
+    # Nama lembar Excel dibatasi 31 karakter dan harus unik.
+    assert all(len(n) <= 31 for n in lembar)
+    assert len(set(n.lower() for n in lembar)) == len(lembar)
+
+
+def test_json_terstruktur(laporan):
+    isi = json.loads(ekspor.ke_json(laporan, "profesional", lengkap=True))
+    assert isi["dataset"] == "contoh_data_nasabah.csv"
+    assert len(isi["temuan"]) == len(laporan.temuan)
+    for register in nr.AUDIENCES:
+        assert register in isi["temuan"][0]
+
+
+def test_html_ringkas_hanya_satu_register(laporan):
+    satu = ekspor.ke_html(laporan, "eksekutif").decode("utf-8")
+    semua = ekspor.ke_html(laporan, "eksekutif", lengkap=True).decode("utf-8")
+    assert len(semua) > len(satu)
+    assert "<html" in satu.lower() or "<!doctype" in satu.lower()
+
+
+def test_zip_memuat_seluruh_format_dan_sintaks(laporan):
+    arsip = zipfile.ZipFile(io.BytesIO(ekspor.ke_zip(laporan, "akademik", lengkap=True)))
+    nama = arsip.namelist()
+    for akhiran in (".html", ".md", ".docx", ".xlsx", ".pdf", ".json"):
+        assert any(n.endswith(akhiran) for n in nama), akhiran
+    assert "sintaks/analisis.py" in nama
+    assert "sintaks/analisis.R" in nama
+    assert any(n.startswith("tabel/") and n.endswith(".csv") for n in nama)
+
+
+def test_nama_berkas_bersih(laporan):
+    assert ekspor.nama_berkas(laporan, "docx", "akademik").endswith(
+        "_ringkasan_akademik.docx"
+    )
+    assert ekspor.nama_berkas(laporan, "pdf", "akademik", True).endswith(
+        "_laporan_lengkap.pdf"
+    )
+    # Sintaks tidak bergantung pada register pembaca.
+    assert ekspor.nama_berkas(laporan, "py", "eksekutif") == ekspor.nama_berkas(
+        laporan, "py", "akademik", True
+    )
+
+
+def test_nama_lembar_unik_dan_pendek():
+    dipakai: set[str] = set()
+    a = ekspor._nama_lembar("Tabel yang judulnya sangat panjang sekali", dipakai)
+    b = ekspor._nama_lembar("Tabel yang judulnya sangat panjang sekali", dipakai)
+    assert len(a) <= 31 and len(b) <= 31
+    assert a != b
+    assert ekspor._nama_lembar("a[b]c:d*e?f/g", dipakai) == "abcdefg"
+
+
+def test_blok_lengkap_memuat_ketiga_register(laporan):
+    blok_lengkap = ekspor.susun_blok(laporan, "eksekutif", lengkap=True)
+    judul = [b.teks for b in blok_lengkap if b.jenis == "subjudul"]
+    for label in nr.AUDIENCE_LABELS.values():
+        assert any(label in j for j in judul)
+
+
+# --------------------------------------------------------------------------- #
+# Sintaks yang dapat dijalankan ulang
+# --------------------------------------------------------------------------- #
+
+
+def test_sintaks_python_valid_secara_sintaksis(laporan):
+    skrip = sintaks.sintaks_python(laporan.konfig)
+    compile(skrip, "sintaks_analisis.py", "exec")
+    assert "sm.OLS" in skrip
+    assert "sm.Logit" in skrip
+    assert "MANOVA" in skrip
+    assert laporan.konfig.target_numerik in skrip
+
+
+def test_sintaks_r_memuat_langkah_yang_dipilih(laporan):
+    skrip = sintaks.sintaks_r(laporan.konfig)
+    assert "lm(" in skrip
+    assert "glm(" in skrip
+    assert "manova(" in skrip
+    assert laporan.konfig.kelompok in skrip
+
+
+def test_sintaks_menyesuaikan_konfigurasi_minimal():
+    konfig = nr.Konfigurasi(variabel=["a", "b"], nama_data="d.csv")
+    py = sintaks.sintaks_python(konfig)
+    compile(py, "d.py", "exec")
+    assert "sm.OLS" not in py
+    assert "MANOVA" not in py
+    assert "lm(" not in sintaks.sintaks_r(konfig)
+
+
+def test_sintaks_tanpa_konfigurasi_menjelaskan_sebabnya():
+    teks = sintaks.bangkitkan(None, "py")
+    assert "tidak dapat dibangkitkan" in teks
+    with pytest.raises(ValueError):
+        sintaks.bangkitkan(nr.Konfigurasi(variabel=["a"]), "sas")
+
+
+def test_nama_variabel_dikutip_dengan_aman():
+    konfig = nr.Konfigurasi(variabel=['aneh"nama'], nama_data='data"ku.csv')
+    compile(sintaks.sintaks_python(konfig), "d.py", "exec")

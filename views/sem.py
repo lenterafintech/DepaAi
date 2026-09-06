@@ -22,7 +22,8 @@ ui.sidebar_info()
 
 ui.method_note(
     "CFA, analisis jalur, dan SEM",
-    "Ketiganya diestimasi dengan maximum likelihood pada data yang distandardisasi. "
+    "Ketiganya diestimasi pada data yang distandardisasi, dengan fungsi tujuan yang "
+    "dapat Anda pilih sendiri. "
     "**CFA** menguji model pengukuran: apakah butir-butir benar memuat pada konstruk "
     "yang diniatkan. **Analisis jalur** menguji hubungan antar variabel teramati, "
     "termasuk efek tidak langsung lewat variabel perantara. **SEM** menggabungkan "
@@ -36,6 +37,33 @@ if len(numerik) < 3:
     st.error("Halaman ini memerlukan minimal 3 kolom numerik.")
     st.stop()
 
+# --------------------------------------------------------------------------- #
+# Pilihan estimator
+# --------------------------------------------------------------------------- #
+
+saran, alasan = sem.saran_estimator(df, numerik)
+with st.expander(
+    f"Metode estimasi — saran untuk data ini: {sem.ESTIMATOR[saran]['nama']}",
+    expanded=False,
+):
+    st.caption(alasan)
+    kode_est = list(sem.ESTIMATOR)
+    estimator = st.radio(
+        "Fungsi tujuan estimasi",
+        kode_est,
+        index=kode_est.index(saran),
+        format_func=lambda k: sem.ESTIMATOR[k]["nama"]
+        + (" — disarankan" if k == saran else ""),
+        key="sem_estimator",
+    )
+    st.markdown(f"**Dipakai bila:** {sem.ESTIMATOR[estimator]['kapan']}")
+    st.caption(sem.ESTIMATOR[estimator]["catatan"])
+    st.caption(
+        "Estimator menentukan asumsi yang dituntut dari data, bukan model yang diuji. "
+        "Sebutkan estimator yang dipakai saat melaporkan hasil, karena penelaah "
+        "menanyakannya."
+    )
+
 
 def tampilkan_hasil(hasil: sem.HasilSEM, kunci: str) -> None:
     """Bagian pelaporan yang sama untuk CFA, jalur, maupun SEM."""
@@ -44,11 +72,15 @@ def tampilkan_hasil(hasil: sem.HasilSEM, kunci: str) -> None:
 
     fit = sem.tabel_kecocokan(hasil)
     lolos = int((fit["Keputusan"] == "Memenuhi").sum())
-    m1, m2, m3, m4 = st.columns(4)
+    st.caption(
+        f"Estimator: **{hasil.nama_estimator}** · {hasil.n} observasi dipakai"
+    )
+    m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("Chi-square/df", formatting.num(float(hasil.statistik["chi2"]) / max(float(hasil.statistik["DoF"]), 1), 3))
     m2.metric("CFI", formatting.num(float(hasil.statistik["CFI"]), 3))
     m3.metric("RMSEA", formatting.num(float(hasil.statistik["RMSEA"]), 3))
-    m4.metric("Indeks memenuhi", f"{lolos}/{len(fit)}")
+    m4.metric("SRMR", formatting.num(float(hasil.statistik.get("SRMR", float("nan"))), 3))
+    m5.metric("Indeks memenuhi", f"{lolos}/{len(fit)}")
 
     st.subheader("Kecocokan model")
     ui.show_table(fit, f"kecocokan_{kunci}.csv")
@@ -134,7 +166,7 @@ with tab_cfa:
         with st.expander("Spesifikasi model"):
             st.code(spesifikasi, language="text")
         try:
-            hasil = sem.jalankan(df, spesifikasi)
+            hasil = sem.jalankan(df, spesifikasi, estimator=estimator)
         except Exception as exc:  # noqa: BLE001 - kegagalan estimasi ditampilkan apa adanya
             st.error(f"Model gagal diestimasi: {exc}")
         else:
@@ -174,7 +206,7 @@ with tab_jalur:
         with st.expander("Spesifikasi model"):
             st.code(spesifikasi, language="text")
         try:
-            hasil = sem.jalankan(df, spesifikasi)
+            hasil = sem.jalankan(df, spesifikasi, estimator=estimator)
         except Exception as exc:  # noqa: BLE001
             st.error(f"Model gagal diestimasi: {exc}")
         else:
@@ -260,7 +292,7 @@ with tab_sem:
             with st.expander("Spesifikasi model"):
                 st.code(spesifikasi, language="text")
             try:
-                hasil = sem.jalankan(df, spesifikasi)
+                hasil = sem.jalankan(df, spesifikasi, estimator=estimator)
             except Exception as exc:  # noqa: BLE001
                 st.error(f"Model gagal diestimasi: {exc}")
             else:

@@ -15,8 +15,10 @@ interpretasinya dalam bahasa Indonesia.
 | Reduksi dimensi | PCA (scree plot, biplot, komunalitas, analisis paralel Horn), analisis faktor eksploratori (principal / principal axis factoring / maximum likelihood) dengan rotasi varimax & promax |
 | Pengelompokan | K-Means (elbow, silhouette, Calinski-Harabasz, Davies-Bouldin), hierarki + dendrogram, DBSCAN, profil klaster dengan uji ANOVA |
 | Pemodelan | Regresi linear berganda (koefisien baku, ANOVA, VIF, uji asumsi klasik, stepwise), regresi logistik biner (odds ratio, ROC/AUC, matriks konfusi), dan regresi moderasi/MRA (suku interaksi, ΔR², simple slopes, Johnson-Neyman) |
+| Uji non-parametrik | Mann-Whitney U, Kolmogorov-Smirnov dua sampel, median Mood, Kruskal-Wallis dengan uji lanjutan Dunn (koreksi Holm/Bonferroni), Wilcoxon peringkat bertanda, uji tanda, Friedman + Kendall's W, chi-square kebebasan + Cramér's V, uji eksak Fisher, korelasi Spearman & Kendall — seluruhnya dilaporkan bersama ukuran efek dan padanan parametriknya |
 | Uji beda & hubungan | Analisis diskriminan linear/kuadratik (fungsi kanonik, Wilks' lambda), MANOVA satu jalur + Hotelling's T², MANCOVA dengan rata-rata terkoreksi dan uji homogenitas kemiringan, korelasi kanonik dengan indeks redundansi |
-| Model struktural | CFA (muatan terstandardisasi, CR/AVE, indeks kecocokan), analisis jalur dengan dekomposisi efek langsung/tidak langsung, SEM penuh, serta uji mediasi bootstrap dengan VAF |
+| Model struktural | CFA (muatan terstandardisasi, CR/AVE, indeks kecocokan termasuk SRMR), analisis jalur dengan dekomposisi efek langsung/tidak langsung, SEM penuh, uji mediasi bootstrap dengan VAF, serta pilihan estimator ML / FIML / DWLS / ULS / GLS beserta saran otomatis sesuai ciri data |
+| Ekspor & reproduksi | Laporan Lengkap maupun Ringkasan diekspor ke Word, PDF, Excel, PowerPoint, HTML, Markdown, JSON, atau satu paket ZIP; disertai sintaks Python dan R yang menjalankan ulang analisis yang sama |
 | Ringkasan kesimpulan | Tiga halaman ringkasan terpisah — Eksekutif, Akademik, Profesional — yang menuliskan satu hasil analisis dengan lampu status, peringkat pendorong, matriks prioritas, tabel bergaya APA, paragraf siap salin, rekomendasi, dan keterbatasan |
 
 ## Menjalankan aplikasi
@@ -28,9 +30,19 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Aplikasi terbuka di <http://localhost:8503> (port diatur pada `.streamlit/config.toml`; bila port itu sedang dipakai, jalankan dengan `--server.port 8504`). Mulai dari halaman **Beranda & Data**
-untuk mengunggah berkas, atau tekan *Muat contoh data nasabah* untuk mencoba
-seluruh metode dengan data contoh.
+Sesudah pemasangan sekali itu, aplikasi cukup dijalankan lewat skrip di akar proyek —
+`jalankan.cmd` (Windows, dapat diklik dua kali) atau `./jalankan.sh` (Linux/macOS) —
+yang selalu membuka <http://localhost:8503> tanpa perlu diatur ulang.
+
+Port sengaja **tidak** dikunci di `.streamlit/config.toml`. Layanan hosting seperti
+Streamlit Community Cloud memeriksa kesehatan aplikasi pada port bawaannya sendiri
+(8501); mengunci 8503 di berkas konfigurasi membuat aplikasi berjalan di port yang
+tidak diperiksa, sehingga penerapan gagal dengan pesan
+`dial tcp 127.0.0.1:8501: connect: connection refused`. Karena itu 8503 ditetapkan
+oleh skrip peluncur, yang hanya berlaku di komputer sendiri.
+
+Mulai dari halaman **Beranda & Data** untuk mengunggah berkas, atau tekan *Muat contoh
+data nasabah* untuk mencoba seluruh metode dengan data contoh.
 
 ## Tiga halaman ringkasan
 
@@ -46,10 +58,41 @@ menuliskan hasilnya untuk pembaca yang berbeda:
 
 Pengaturan cakupan analisis (variabel, target, prediktor, kelompok) dibuat sekali dan
 berlaku untuk ketiga halaman; hasil perhitungan dipakai ulang sehingga berpindah
-halaman tidak menghitung ulang. Tiap halaman menyediakan unduhan laporan HTML mandiri
-(siap dicetak menjadi PDF) dan Markdown untuk registernya, serta satu berkas HTML
-berisi ketiga ringkasan sekaligus untuk pembaca campuran. Seluruh angka dihitung ulang
-dari data yang sedang aktif — tidak ada nilai contoh yang ditanam.
+halaman tidak menghitung ulang. Seluruh angka dihitung ulang dari data yang sedang
+aktif — tidak ada nilai contoh yang ditanam.
+
+### Ekspor laporan
+
+Tiap halaman ringkasan memuat panel **Ekspor hasil analisis** dengan dua pilihan ragam
+dan delapan pilihan format:
+
+| Ragam | Isinya |
+| --- | --- |
+| **Ringkasan** | Register halaman yang sedang dibuka saja — ringkas untuk dibagikan |
+| **Laporan Lengkap** | Ketiga register sekaligus, seluruh tabel hasil, kalimat siap salin, rujukan ambang, dan catatan analisis yang tidak dapat dijalankan |
+
+| Format | Kegunaan |
+| --- | --- |
+| Word (`.docx`) | Dokumen siap disunting dan dicetak |
+| PDF | Tata letak tetap untuk lampiran resmi |
+| Excel (`.xlsx`) | Tiap bagian menjadi lembar tersendiri; angkanya siap diolah ulang |
+| PowerPoint (`.pptx`) | Slide siap dipresentasikan |
+| HTML | Dibuka di peramban mana pun, dapat dicetak menjadi PDF |
+| Markdown | Teks polos untuk disunting lebih lanjut |
+| JSON | Data terstruktur untuk diolah sistem lain |
+| Sintaks Python / R | Skrip yang menjalankan ulang analisis yang sama |
+| Paket lengkap (ZIP) | Seluruh format di atas, setiap tabel dalam CSV, dan kedua sintaks |
+
+Isi seluruh format disusun dari satu sumber yang sama (`lentera_mva/ekspor.py`),
+sehingga angka dan kesimpulannya tidak pernah berbeda antar berkas.
+
+### Sintaks yang dapat dijalankan ulang
+
+`lentera_mva/sintaks.py` menuliskan langkah analisis yang benar-benar dipilih pengguna
+menjadi skrip. Versi Python memakai pustaka yang persis sama dengan aplikasi
+(pandas, scipy, scikit-learn, statsmodels), sehingga angkanya identik; versi R memakai
+padanan terdekat (`psych`, `car`, `MASS`, `CCA`, `lmtest`) sebagai pemeriksaan silang.
+Skrip hanya memuat jalur berkas, bukan datanya.
 
 ## Akun dan paket langganan
 
@@ -104,7 +147,10 @@ lentera_mva/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   reliability.py       Alpha, omega, CR, AVE, dan validitas diskriminan
   moderation.py        Regresi moderasi: interaksi, simple slopes, Johnson-Neyman
   mancova.py           MANCOVA, ANCOVA univariat, rata-rata terkoreksi
-  sem_analysis.py      CFA, analisis jalur, SEM, dan mediasi bootstrap (semopy)
+  sem_analysis.py      CFA, analisis jalur, SEM, estimator ML/FIML/DWLS, SRMR, mediasi bootstrap
+  nonparametrik.py     Uji non-parametrik, uji lanjutan Dunn, dan koreksi ganda
+  ekspor.py            Ekspor laporan ke Word, PDF, Excel, PPT, HTML, MD, JSON, ZIP
+  sintaks.py           Pembangkit sintaks Python dan R yang dapat dijalankan ulang
   langganan.py         Paket langganan dan pembatasan fitur
   pengguna.py          Basis data akun, autentikasi, dan masa uji coba
   narrative.py         Penyusun kesimpulan naratif tiga register pembaca
@@ -114,6 +160,8 @@ lentera_mva/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   ui.py                Komponen antarmuka bersama
 data/                  Contoh data
 scripts/               Pembuat contoh data sintetis
+jalankan.cmd           Peluncur Windows pada port 8503
+jalankan.sh            Peluncur Linux/macOS pada port 8503
 tests/                 Uji perhitungan dan uji asap halaman
 ```
 
@@ -139,6 +187,12 @@ dipulihkan dari data simulasi, klaster yang ditanam berhasil ditemukan, Hotellin
 T² konsisten dengan MANOVA), penyusunan narasi kesimpulan (ketiga register benar-benar
 berbeda, register awam bebas notasi statistik, metode yang gagal dicatat alih-alih
 menggagalkan laporan), dan uji asap yang merender setiap halaman Streamlit.
+
+Uji non-parametrik dibandingkan langsung dengan `scipy.stats` sebagai acuan, dan
+ekspor diperiksa dengan membuka kembali berkas hasilnya (docx, xlsx, pptx, dan pdf
+dibaca ulang oleh pustakanya masing-masing) — bukan sekadar memeriksa ukuran berkas.
+Sintaks Python yang dibangkitkan ikut diuji dengan `compile()` agar tidak pernah
+menghasilkan skrip yang cacat.
 
 ## Contoh data
 
