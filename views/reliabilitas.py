@@ -195,6 +195,43 @@ with tab_banyak:
                     "pertimbangkan menggabungkannya atau merevisi butirnya."
                 )
 
+            st.subheader("Validitas diskriminan (HTMT)")
+            st.caption(
+                "Rasio Heterotrait-Monotrait membandingkan korelasi antar butir dari "
+                "konstruk berbeda dengan korelasi antar butir di dalam konstruk yang "
+                "sama. Henseler dkk. (2015) melaporkannya lebih peka daripada "
+                "Fornell-Larcker; keduanya disediakan karena penelaah berbeda meminta "
+                "yang berbeda."
+            )
+            try:
+                tabel_htmt = rb.htmt(df, konstruk)
+            except ValueError as galat_htmt:
+                st.info(str(galat_htmt))
+            else:
+                ui.show_table(
+                    tabel_htmt,
+                    "htmt.csv",
+                    bagian="Reliabilitas",
+                    judul="Validitas diskriminan (HTMT)",
+                )
+                lewat = tabel_htmt[tabel_htmt["Keputusan (0,85)"] == "Tidak terpenuhi"]
+                if lewat.empty:
+                    st.success(
+                        "Seluruh pasangan konstruk berada di bawah 0,85.",
+                        icon=":material/check_circle:",
+                    )
+                else:
+                    longgar = lewat[lewat["Keputusan (0,90)"] == "Terpenuhi"]
+                    pesan = "Pasangan melewati ambang ketat 0,85: " + ", ".join(
+                        f"{b['Konstruk A']}–{b['Konstruk B']}" for _, b in lewat.iterrows()
+                    )
+                    if not longgar.empty:
+                        pesan += (
+                            ". Sebagian masih di bawah ambang longgar 0,90, yang dapat "
+                            "diterima bila kedua konstruk memang berdekatan maknanya."
+                        )
+                    st.warning(pesan, icon=":material/warning:")
+
             st.subheader("Skor konstruk")
             skor = rb.skor_konstruk(df, hasil)
             st.caption(

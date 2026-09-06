@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from lentera_mva import audit as ad
 from lentera_mva import descriptive, plots, preprocessing, ui
 
 ui.butuh_fitur("dasar")
@@ -16,9 +17,53 @@ ui.page_setup(
 df = ui.require_dataset()
 ui.sidebar_info()
 
-tab_desc, tab_dist, tab_norm, tab_out = st.tabs(
-    ["Statistik Deskriptif", "Distribusi & Hubungan", "Uji Normalitas", "Deteksi Pencilan"]
+tab_audit, tab_desc, tab_dist, tab_norm, tab_out = st.tabs(
+    [
+        "Audit Kualitas",
+        "Statistik Deskriptif",
+        "Distribusi & Hubungan",
+        "Uji Normalitas",
+        "Deteksi Pencilan",
+    ]
 )
+
+with tab_audit:
+    st.caption(
+        "Menjalankan seluruh pemeriksaan kualitas sekaligus lalu menjawab satu "
+        "pertanyaan: apakah data ini siap dianalisis, dan bila belum, apa yang harus "
+        "diperbaiki lebih dulu. **Audit ini tidak mengubah data sama sekali** — setiap "
+        "perbaikan tetap keputusan Anda."
+    )
+
+    hasil_audit = ad.jalankan_audit(df)
+    ringkas_audit = hasil_audit.ringkas()
+    kolom_audit = st.columns(4)
+    for slot, (label, nilai) in zip(kolom_audit, ringkas_audit.items()):
+        slot.metric(label, nilai)
+
+    status = hasil_audit.status()
+    if status == ad.KRITIS:
+        st.error(hasil_audit.kesimpulan(), icon=":material/error:")
+    elif status == ad.PERINGATAN:
+        st.warning(hasil_audit.kesimpulan(), icon=":material/warning:")
+    else:
+        st.success(hasil_audit.kesimpulan(), icon=":material/check_circle:")
+
+    tabel_audit = hasil_audit.tabel()
+    if tabel_audit.empty:
+        st.caption("Tidak ada temuan yang perlu dilaporkan.")
+    else:
+        ui.show_table(
+            tabel_audit,
+            "audit_kualitas_data.csv",
+            bagian="Audit kualitas data",
+            judul="Temuan audit kualitas",
+        )
+        st.caption(
+            "Kolom **Dampak** menjelaskan akibatnya pada kesimpulan, dan **Saran** "
+            "menyebutkan langkah yang dapat diambil. Temuan yang tidak Anda perbaiki "
+            "sebaiknya disebutkan pada bagian keterbatasan laporan."
+        )
 
 with tab_desc:
     st.subheader("Statistik deskriptif variabel numerik")

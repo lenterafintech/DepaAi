@@ -251,6 +251,65 @@ def fornell_larcker(df: pd.DataFrame, hasil: list[HasilKonstruk]) -> pd.DataFram
     return matriks
 
 
+def htmt(df: pd.DataFrame, konstruk: dict[str, list[str]]) -> pd.DataFrame:
+    """Rasio Heterotrait-Monotrait (Henseler dkk., 2015) untuk validitas diskriminan.
+
+    Membandingkan rata-rata korelasi antar butir dari konstruk berbeda (heterotrait)
+    dengan rata-rata korelasi antar butir di dalam konstruk yang sama (monotrait).
+    Pada model kongenerik bermuatan seragam, hasilnya menaksir korelasi antar konstruk
+    itu sendiri; ketika muatannya beragam, taksirannya sedikit lebih tinggi.
+
+    Henseler dkk. melaporkan bahwa kriteria ini lebih peka daripada Fornell-Larcker
+    dalam mengenali konstruk yang sebenarnya tumpang tindih. Keduanya disediakan
+    berdampingan, bukan saling menggantikan, karena penelaah berbeda meminta yang
+    berbeda.
+
+    Ambang 0,85 dipakai untuk konstruk yang secara konsep berbeda tegas, sedangkan
+    0,90 untuk konstruk yang memang berdekatan maknanya.
+    """
+    nama = [k for k, butir in konstruk.items() if len(butir) >= 2]
+    if len(nama) < 2:
+        raise ValueError("HTMT memerlukan minimal 2 konstruk dengan masing-masing 2 butir.")
+
+    semua = [b for k in nama for b in konstruk[k]]
+    hilang = [b for b in semua if b not in df.columns]
+    if hilang:
+        raise ValueError(f"Butir tidak ada dalam data: {', '.join(hilang)}.")
+
+    korelasi = preprocessing.clean_subset(df, semua).corr().abs()
+
+    def _rata_monotrait(butir: list[str]) -> float:
+        """Rata-rata korelasi antar butir di dalam satu konstruk."""
+        nilai = [
+            korelasi.loc[a, b]
+            for i, a in enumerate(butir)
+            for b in butir[i + 1 :]
+        ]
+        return float(np.mean(nilai)) if nilai else float("nan")
+
+    baris = []
+    for i, a in enumerate(nama):
+        for b in nama[i + 1 :]:
+            hetero = [korelasi.loc[x, y] for x in konstruk[a] for y in konstruk[b]]
+            rata_hetero = float(np.mean(hetero)) if hetero else float("nan")
+            mono = np.sqrt(_rata_monotrait(konstruk[a]) * _rata_monotrait(konstruk[b]))
+            nilai = rata_hetero / mono if mono and np.isfinite(mono) and mono > 0 else float("nan")
+            baris.append(
+                {
+                    "Konstruk A": a,
+                    "Konstruk B": b,
+                    "HTMT": nilai,
+                    "Keputusan (0,85)": (
+                        "Terpenuhi" if np.isfinite(nilai) and nilai < 0.85 else "Tidak terpenuhi"
+                    ),
+                    "Keputusan (0,90)": (
+                        "Terpenuhi" if np.isfinite(nilai) and nilai < 0.90 else "Tidak terpenuhi"
+                    ),
+                }
+            )
+    return pd.DataFrame(baris).sort_values("HTMT", ascending=False).reset_index(drop=True)
+
+
 def periksa_diskriminan(df: pd.DataFrame, hasil: list[HasilKonstruk]) -> pd.DataFrame:
     """Pasangan konstruk yang melanggar kriteria Fornell-Larcker."""
     skor = skor_konstruk(df, hasil).dropna()

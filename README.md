@@ -10,7 +10,8 @@ interpretasinya dalam bahasa Indonesia.
 | --- | --- |
 | Proyek | Menyimpan data aktif, hasil pada Laporan Hasil, dan pengaturan cakupan analisis ke satu berkas `.lentera`, lalu membukanya kembali pada sesi berikutnya |
 | Entri data | Membuat tabel baru langsung di aplikasi (definisi kolom, skala Likert, butir kuesioner bernomor), menyunting data aktif, memeriksa kelengkapan isian, serta meringkas beberapa butir menjadi satu variabel konstruk (rata-rata, jumlah, atau skor baku) dengan aturan butir minimal terisi |
-| Instrumen | Alpha Cronbach dengan statistik per butir dan alpha-if-deleted, reliabilitas belah-dua Spearman-Brown, omega McDonald, composite reliability, AVE, serta validitas diskriminan Fornell-Larcker |
+| Instrumen | Alpha Cronbach dengan statistik per butir dan alpha-if-deleted, reliabilitas belah-dua Spearman-Brown, omega McDonald, composite reliability, AVE, serta validitas diskriminan Fornell-Larcker dan HTMT |
+| Audit kualitas data | Satu keputusan tentang kesiapan data: nilai hilang bertingkat, baris kembar, kolom kosong dan tidak beragam, angka yang tersimpan sebagai teks, nilai tak hingga, pencilan, kemencengan, dan kategori yang tidak seragam — masing-masing disertai dampak dan saran, tanpa mengubah data |
 | Eksplorasi | Statistik deskriptif, tabel frekuensi, uji normalitas (Shapiro-Wilk, D'Agostino, KS), normalitas multivariat Mardia, pencilan IQR & jarak Mahalanobis |
 | Korelasi & asumsi | Korelasi Pearson/Spearman/Kendall dengan uji signifikansi, korelasi parsial, KMO, Bartlett's test of sphericity, VIF, Box's M, Levene |
 | Reduksi dimensi | PCA (scree plot, biplot, komunalitas, analisis paralel Horn), analisis faktor eksploratori (principal / principal axis factoring / maximum likelihood) dengan rotasi varimax & promax |
@@ -221,7 +222,8 @@ lentera_mva/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   manova.py            MANOVA satu jalur, Hotelling's T²
   cca.py               Korelasi kanonik
   data_entry.py        Pembuatan data, pembersihan, dan variabel gabungan dari butir
-  reliability.py       Alpha, Spearman-Brown, omega, CR, AVE, validitas diskriminan
+  reliability.py       Alpha, Spearman-Brown, omega, CR, AVE, Fornell-Larcker, HTMT
+  audit.py             Audit kualitas data: temuan bertingkat beserta dampak dan sarannya
   moderation.py        Regresi moderasi: interaksi, simple slopes, Johnson-Neyman
   mancova.py           MANCOVA, ANCOVA univariat, rata-rata terkoreksi
   sem_analysis.py      CFA, analisis jalur, SEM, estimator ML/FIML/DWLS, SRMR, mediasi bootstrap
