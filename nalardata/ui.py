@@ -20,6 +20,7 @@ KAMUS_KEY = "kamus_variabel"
 CONTOH_KEY = "data_adalah_contoh"
 PENELITIAN_KEY = "proyek_penelitian"
 JEJAK_KEY = "jejak_langkah"
+PEMANDU_KEY = "pemandu_konfigurasi"
 SAMPLE_PATH = Path(__file__).resolve().parents[1] / "data" / "contoh_data_nasabah.csv"
 
 # Palet terang. Warna status sengaja terpisah dari aksen agar "berhasil" dan
@@ -416,6 +417,35 @@ def jejak() -> jj.Jejak:
 
 def set_jejak(baru: jj.Jejak) -> None:
     st.session_state[JEJAK_KEY] = baru
+
+
+def set_konfigurasi_pemandu(konfig: dict) -> None:
+    """Simpan penetapan variabel dari Pemandu Uji agar halaman metode terisi sendiri."""
+    st.session_state[PEMANDU_KEY] = dict(konfig)
+
+
+def konfigurasi_pemandu(metode: str | None = None) -> dict:
+    """Penetapan variabel dari Pemandu, bila memang untuk metode yang diminta.
+
+    Dikembalikan kosong bila pengguna membuka halaman ini sendiri, bukan lewat
+    pemandu — mengisi pilihan orang yang tidak memintanya justru membingungkan.
+    """
+    konfig = st.session_state.get(PEMANDU_KEY) or {}
+    if metode and konfig.get("metode") != metode:
+        return {}
+    return dict(konfig)
+
+
+def indeks_pilihan(daftar: list, nilai, bawaan: int = 0) -> int:
+    """Letak ``nilai`` pada daftar pilihan; bawaan bila tidak ada.
+
+    Dipakai memasang pilihan awal selectbox tanpa menggagalkan halaman ketika
+    kolom yang disarankan pemandu sudah tidak ada pada data yang sekarang.
+    """
+    try:
+        return daftar.index(nilai)
+    except (ValueError, AttributeError):
+        return bawaan
 
 
 def catat_uji(nama: str, halaman: str = "", p: float | None = None, rincian: str = "") -> None:

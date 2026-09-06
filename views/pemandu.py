@@ -234,14 +234,29 @@ with kanan:
 
 st.divider()
 kiri, kanan = st.columns([2, 3])
-if kiri.button("Konfirmasi dan catat pilihan", type="primary", key="pemandu_konfirmasi"):
+if not utama.tersedia:
+    st.warning(
+        f"**{utama.metode}** adalah metode yang paling tepat untuk data Anda, tetapi "
+        "belum tersedia di aplikasi ini. Pertimbangkan alternatif di bawah, atau "
+        "jalankan metode ini di SPSS maupun R.",
+        icon=":material/build:",
+    )
+
+if kiri.button(
+    "Konfirmasi dan siapkan halamannya",
+    type="primary",
+    key="pemandu_konfirmasi",
+    disabled=not utama.tersedia,
+):
     ui.jejak().catat_keputusan(
         f"Memilih {utama.metode}",
         halaman="Pemandu Uji",
         rincian=utama.alasan,
     )
+    ui.set_konfigurasi_pemandu(utama.konfig)
     kanan.success(
-        f"Tercatat. Buka halaman **{utama.halaman}** untuk menjalankannya.",
+        f"Tercatat, dan variabel yang Anda pilih sudah disiapkan. Buka halaman "
+        f"**{utama.halaman}**; pilihannya sudah terisi.",
         icon=":material/task_alt:",
     )
 else:
@@ -261,7 +276,10 @@ if rekomendasi.alternatif:
         kicker="Alternatif",
     )
     for alternatif in rekomendasi.alternatif:
-        with st.expander(f"**{alternatif.metode}** — tidak dipilih"):
+        label = f"**{alternatif.metode}** — tidak dipilih"
+        if not alternatif.tersedia:
+            label += "  ·  belum tersedia di aplikasi ini"
+        with st.expander(label):
             st.markdown(alternatif.ditolak_karena)
             if alternatif.peringatan:
                 st.caption(alternatif.peringatan)

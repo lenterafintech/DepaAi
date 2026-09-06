@@ -491,3 +491,52 @@ def test_kelompok_kecil_tetapi_memadai_disebut_apa_adanya(acak):
     syarat = pmd.periksa_ukuran_kelompok(df, "g")
     assert syarat.terpenuhi
     assert "non-parametrik lebih aman" in syarat.rincian
+
+
+# --------------------------------------------------------------------------- #
+# Ketersediaan metode
+# --------------------------------------------------------------------------- #
+
+
+def test_setiap_metode_yang_disarankan_benar_benar_dapat_dijalankan(semua_rekomendasi):
+    """Pagar struktural, bukan dokumentasi.
+
+    Pemandu pernah menyarankan uji-t sampel bebas, uji-t Welch, One-Way ANOVA,
+    dan Welch ANOVA — empat uji yang sama sekali belum ada di aplikasi. Pengguna
+    yang menuruti sarannya tiba di halaman yang tidak dapat menjalankannya, dan
+    tidak ada satu pun uji yang menangkapnya sampai validasi lintas software
+    dijalankan.
+    """
+    for rekomendasi in semua_rekomendasi:
+        assert rekomendasi.utama.tersedia, rekomendasi.utama.metode
+
+
+def test_alternatif_yang_belum_ada_ditandai_bukan_disembunyikan(acak):
+    """Metode terbaik yang belum tersedia tetap layak disebut, asalkan ditandai."""
+    df = pd.DataFrame({f"waktu{i}": acak.normal(50, 8, N) for i in range(3)})
+    hasil = _sarankan(
+        df,
+        tujuan="membandingkan",
+        outcome="waktu0",
+        prediktor=["waktu1", "waktu2"],
+        berpasangan=True,
+    )
+    belum = [a for a in hasil.alternatif if not a.tersedia]
+    assert belum, "ANOVA ukur ulang belum tersedia dan harus ditandai"
+    assert "belum tersedia" in belum[0].ditolak_karena.lower()
+
+
+def test_halaman_pada_saran_cocok_dengan_daftar_metode(semua_rekomendasi):
+    """Halaman yang keliru mengantar pengguna ke tempat yang salah."""
+    for rekomendasi in semua_rekomendasi:
+        utama = rekomendasi.utama
+        assert utama.halaman == pmd.METODE_TERSEDIA[utama.metode], utama.metode
+
+
+def test_rekomendasi_membawa_penetapan_variabelnya(acak):
+    """Pengguna tidak boleh diminta memilih ulang variabel yang baru saja ia sebut."""
+    df = _dua_kelompok(acak.normal(50, 8, N), acak.normal(54, 8, N))
+    hasil = _sarankan(df, tujuan="membandingkan", outcome="y", kelompok="g")
+    assert hasil.konfig["outcome"] == "y"
+    assert hasil.konfig["kelompok"] == "g"
+    assert hasil.utama.konfig["metode"] == hasil.utama.metode

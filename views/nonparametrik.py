@@ -5,7 +5,8 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from nalardata import formatting, nonparametrik as npar, preprocessing, ui
+from nalardata import formatting, nonparametrik as npar, parametrik as par
+from nalardata import preprocessing, ui
 
 ui.butuh_fitur("nonparametrik")
 ui.page_setup(
@@ -33,6 +34,16 @@ kategorik = [c for c in df.columns if df[c].nunique(dropna=True) <= 20]
 if not numerik:
     st.error("Halaman ini memerlukan minimal satu kolom numerik.")
     st.stop()
+
+# Penetapan variabel dari Pemandu Uji, bila pengguna tiba lewat tombol
+# "Konfirmasi dan siapkan halamannya". Kosong bila ia membuka halaman ini sendiri.
+dipandu = ui.konfigurasi_pemandu()
+if dipandu.get("metode"):
+    st.success(
+        f"Disiapkan dari Pemandu Uji: **{dipandu['metode']}**. Pilihan di bawah sudah "
+        "terisi sesuai variabel yang Anda tentukan di sana, dan tetap dapat diubah.",
+        icon=":material/explore:",
+    )
 
 perlu, alasan = npar.perlu_nonparametrik(df, numerik[: min(6, len(numerik))])
 (st.warning if perlu else st.info)(
@@ -102,12 +113,33 @@ with tab_bebas:
         st.info("Tidak ada kolom yang berisi tepat dua kategori.")
     else:
         kol1, kol2, kol3 = st.columns(3)
-        nilai = kol1.selectbox("Variabel yang dibandingkan", numerik, key="np_mw_nilai")
-        grup = kol2.selectbox("Penanda kelompok", dua, key="np_mw_grup")
+        nilai = kol1.selectbox(
+            "Variabel yang dibandingkan",
+            numerik,
+            index=ui.indeks_pilihan(numerik, dipandu.get("outcome")),
+            key="np_mw_nilai",
+        )
+        grup = kol2.selectbox(
+            "Penanda kelompok",
+            dua,
+            index=ui.indeks_pilihan(dua, dipandu.get("kelompok")),
+            key="np_mw_grup",
+        )
+        pilihan_dua = ["t_bebas", "t_welch", "mann_whitney", "ks2", "mood"]
+        peta_dua = {
+            "Uji-t sampel bebas": "t_bebas",
+            "Uji-t Welch": "t_welch",
+            "Mann-Whitney U": "mann_whitney",
+        }
         jenis = kol3.selectbox(
             "Uji",
-            ["mann_whitney", "ks2", "mood"],
+            pilihan_dua,
+            index=ui.indeks_pilihan(
+                pilihan_dua, peta_dua.get(dipandu.get("metode", "")), bawaan=2
+            ),
             format_func=lambda k: {
+                "t_bebas": "Uji-t sampel bebas (ragam sama)",
+                "t_welch": "Uji-t Welch (ragam boleh berbeda)",
                 "mann_whitney": "Mann-Whitney U (letak sebaran)",
                 "ks2": "Kolmogorov-Smirnov (bentuk sebaran)",
                 "mood": "Median Mood (posisi terhadap median)",
@@ -118,11 +150,16 @@ with tab_bebas:
         a = df.loc[df[grup] == tingkat[0], nilai]
         b = df.loc[df[grup] == tingkat[1], nilai]
         try:
-            uji = {
-                "mann_whitney": npar.mann_whitney,
-                "ks2": npar.kolmogorov_smirnov_2,
-                "mood": npar.mood_median,
-            }[jenis](a, b, str(tingkat[0]), str(tingkat[1]))
+            if jenis in {"t_bebas", "t_welch"}:
+                uji = par.uji_t_bebas(
+                    df[nilai], df[grup].astype(str), ragam_sama=jenis == "t_bebas"
+                )
+            else:
+                uji = {
+                    "mann_whitney": npar.mann_whitney,
+                    "ks2": npar.kolmogorov_smirnov_2,
+                    "mood": npar.mood_median,
+                }[jenis](a, b, str(tingkat[0]), str(tingkat[1]))
         except ValueError as exc:
             st.error(str(exc))
         else:
@@ -141,36 +178,86 @@ with tab_banyak:
     if not banyak:
         st.info("Tidak ada kolom berisi 3 sampai 12 kategori.")
     else:
-        kol1, kol2 = st.columns(2)
-        nilai_k = kol1.selectbox("Variabel yang dibandingkan", numerik, key="np_kw_nilai")
-        grup_k = kol2.selectbox("Penanda kelompok", banyak, key="np_kw_grup")
+        kol1, kol2, kol3 = st.columns(3)
+        nilai_k = kol1.selectbox(
+            "Variabel yang dibandingkan",
+            numerik,
+            index=ui.indeks_pilihan(numerik, dipandu.get("outcome")),
+            key="np_kw_nilai",
+        )
+        grup_k = kol2.selectbox(
+            "Penanda kelompok",
+            banyak,
+            index=ui.indeks_pilihan(banyak, dipandu.get("kelompok")),
+            key="np_kw_grup",
+        )
+        pilihan_banyak = ["anova", "welch_anova", "kruskal"]
+        peta_banyak = {
+            "One-Way ANOVA": "anova",
+            "Welch ANOVA": "welch_anova",
+            "Kruskal-Wallis": "kruskal",
+        }
+        jenis_k = kol3.selectbox(
+            "Uji",
+            pilihan_banyak,
+            index=ui.indeks_pilihan(
+                pilihan_banyak, peta_banyak.get(dipandu.get("metode", "")), bawaan=2
+            ),
+            format_func=lambda k: {
+                "anova": "One-Way ANOVA (ragam sama)",
+                "welch_anova": "Welch ANOVA (ragam boleh berbeda)",
+                "kruskal": "Kruskal-Wallis (tanpa asumsi normalitas)",
+            }[k],
+            key="np_kw_jenis",
+        )
         try:
-            uji_k = npar.kruskal_wallis(df[nilai_k], df[grup_k])
+            uji_k = {
+                "anova": par.anova_satu_arah,
+                "welch_anova": par.welch_anova,
+                "kruskal": npar.kruskal_wallis,
+            }[jenis_k](df[nilai_k], df[grup_k])
         except ValueError as exc:
             st.error(str(exc))
         else:
-            lapor(uji_k, "uji_kruskal")
-            st.subheader("Uji lanjutan Dunn")
-            koreksi = st.radio(
-                "Koreksi pembandingan ganda",
-                ["holm", "bonferroni", "tanpa"],
-                format_func=lambda k: {
-                    "holm": "Holm (disarankan)",
-                    "bonferroni": "Bonferroni (paling ketat)",
-                    "tanpa": "Tanpa koreksi",
-                }[k],
-                horizontal=True,
-                key="np_dunn_koreksi",
-            )
-            if koreksi == "tanpa":
-                st.warning(
-                    "Tanpa koreksi, membandingkan banyak pasangan sekaligus menaikkan "
-                    "peluang menemukan perbedaan yang sebenarnya tidak ada.",
-                    icon=":material/warning:",
+            lapor(uji_k, f"uji_{jenis_k}")
+
+            # Uji lanjutan mengikuti uji utamanya: Tukey mengandaikan ragam sama,
+            # Games-Howell tidak, dan Dunn bekerja atas peringkat.
+            if jenis_k == "anova":
+                st.subheader("Uji lanjutan Tukey HSD")
+                ui.show_table(par.tukey(df[nilai_k], df[grup_k]), "tukey.csv")
+                ui.interpretation(
+                    "Tukey HSD membandingkan seluruh pasangan sekaligus sambil menjaga "
+                    "peluang salah tolak keseluruhan tetap 5 persen. Selang yang tidak "
+                    "melewati nol berarti pasangan itu berbeda."
                 )
-            ui.show_table(
-                npar.dunn(df[nilai_k], df[grup_k], koreksi), "dunn.csv"
-            )
+            elif jenis_k == "welch_anova":
+                st.subheader("Uji lanjutan Games-Howell")
+                ui.show_table(par.games_howell(df[nilai_k], df[grup_k]), "games_howell.csv")
+                ui.interpretation(
+                    "Games-Howell dipakai berpasangan dengan Welch ANOVA karena ia juga "
+                    "tidak menuntut ragam antar kelompok sama."
+                )
+            else:
+                st.subheader("Uji lanjutan Dunn")
+                koreksi = st.radio(
+                    "Koreksi pembandingan ganda",
+                    ["holm", "bonferroni", "tanpa"],
+                    format_func=lambda k: {
+                        "holm": "Holm (disarankan)",
+                        "bonferroni": "Bonferroni (paling ketat)",
+                        "tanpa": "Tanpa koreksi",
+                    }[k],
+                    horizontal=True,
+                    key="np_dunn_koreksi",
+                )
+                if koreksi == "tanpa":
+                    st.warning(
+                        "Tanpa koreksi, membandingkan banyak pasangan sekaligus menaikkan "
+                        "peluang menemukan perbedaan yang sebenarnya tidak ada.",
+                        icon=":material/warning:",
+                    )
+                ui.show_table(npar.dunn(df[nilai_k], df[grup_k], koreksi), "dunn.csv")
 
 # --------------------------------------------------------------------------- #
 # Sampel berpasangan

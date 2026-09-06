@@ -89,6 +89,39 @@ class Syarat:
         return self.status == DILANGGAR
 
 
+# Metode yang benar-benar dapat dijalankan aplikasi ini, beserta halaman dan
+# kunci sesi yang dipakai mengoper penetapan variabelnya.
+#
+# Daftar ini bukan dokumentasi, melainkan pagar: satu uji menuntut setiap metode
+# yang dapat disarankan pemandu ada di sini. Tanpa itu, pemandu pernah menyarankan
+# uji-t dan ANOVA yang sama sekali belum ada di aplikasi - pengguna yang menuruti
+# sarannya tiba di halaman yang tidak dapat menjalankannya.
+METODE_TERSEDIA: dict[str, str] = {
+    "Uji-t sampel bebas": "Uji Beda",
+    "Uji-t Welch": "Uji Beda",
+    "Uji-t berpasangan": "Uji Beda",
+    "One-Way ANOVA": "Uji Beda",
+    "Welch ANOVA": "Uji Beda",
+    "Mann-Whitney U": "Uji Beda",
+    "Wilcoxon signed-rank": "Uji Beda",
+    "Kruskal-Wallis": "Uji Beda",
+    "Friedman": "Uji Beda",
+    "Chi-square": "Uji Beda",
+    "Uji eksak Fisher": "Uji Beda",
+    "Korelasi Pearson": "Korelasi & Asumsi",
+    "Korelasi Spearman": "Korelasi & Asumsi",
+    "Korelasi Kendall tau": "Korelasi & Asumsi",
+    "Regresi linear berganda": "Regresi",
+    "Regresi logistik biner": "Regresi",
+    "Analisis diskriminan": "Analisis Diskriminan",
+    "Analisis Faktor Eksploratori (EFA)": "Analisis Faktor",
+    "Analisis Komponen Utama (PCA)": "PCA",
+    "Analisis klaster": "Analisis Klaster",
+    "CFA / Analisis Jalur / SEM": "CFA, Jalur & SEM",
+    "Uji validitas dan reliabilitas": "Reliabilitas & Validitas",
+}
+
+
 @dataclass
 class Saran:
     """Satu metode yang disarankan atau ditolak, selalu beserta alasannya."""
@@ -101,10 +134,28 @@ class Saran:
     pembanding: str = ""
     peringatan: str = ""
     ditolak_karena: str = ""
+    konfig: dict = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # Halaman diambil dari daftar metode, bukan dituliskan ulang di tiap
+        # cabang: nama halaman berubah ketika navigasi ditata ulang, dan salinan
+        # yang tersebar akan menunjuk tempat yang sudah tidak ada.
+        if self.metode in METODE_TERSEDIA:
+            self.halaman = METODE_TERSEDIA[self.metode]
 
     @property
     def dipilih(self) -> bool:
         return not self.ditolak_karena
+
+    @property
+    def tersedia(self) -> bool:
+        """Apakah metode ini benar-benar dapat dijalankan di aplikasi ini.
+
+        Saran yang menunjuk metode yang belum ada tetap berguna — pengguna perlu
+        tahu apa yang sebenarnya paling tepat — tetapi harus ditandai, bukan
+        dibiarkan tampak seperti tombol yang tinggal ditekan.
+        """
+        return self.metode in METODE_TERSEDIA
 
 
 @dataclass
@@ -115,6 +166,7 @@ class Rekomendasi:
     alternatif: list[Saran] = field(default_factory=list)
     catatan: list[str] = field(default_factory=list)
     belum_terjawab: list[str] = field(default_factory=list)
+    konfig: dict = field(default_factory=dict)
 
     @property
     def berhasil(self) -> bool:
@@ -409,7 +461,21 @@ def sarankan(
         "menguji_model": _menguji_model,
         "mutu_instrumen": _mutu_instrumen,
     }
-    return penanganan[tujuan](df, kamus, outcome, prediktor, kelompok, berpasangan)
+    hasil = penanganan[tujuan](df, kamus, outcome, prediktor, kelompok, berpasangan)
+
+    # Penetapan variabel diikutkan pada hasil agar halaman metode dapat terbuka
+    # sudah terisi. Tanpa ini, pengguna yang baru saja memberi tahu pemandu
+    # variabel mana yang dipakai harus memilihnya sekali lagi di halaman berikut.
+    hasil.konfig = {
+        "tujuan": tujuan,
+        "outcome": outcome or "",
+        "prediktor": list(prediktor),
+        "kelompok": kelompok or "",
+        "berpasangan": bool(berpasangan),
+    }
+    if hasil.utama is not None:
+        hasil.utama.konfig = dict(hasil.konfig, metode=hasil.utama.metode)
+    return hasil
 
 
 def _numerik(kamus: km.Kamus, nama: str | None) -> bool:

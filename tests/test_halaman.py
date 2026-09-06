@@ -13,8 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 # justru tempat data dibuat; Laporan Hasil menampilkan hasil yang sudah disimpan,
 # yang tetap sah dibaca sekalipun datanya sudah tidak dimuat lagi. Ruang Proyek
 # adalah tahap sebelum data dikumpulkan, sehingga meminta data di sana justru
-# membalik urutan penelitian.
-MANDIRI = {"beranda", "entri_data", "akun", "masuk", "laporan", "proyek"}
+# membalik urutan penelitian. Kesesuaian Hasil membandingkan aplikasi dengan R
+# di atas dataset acuan bawaan, bukan di atas data pengguna.
+MANDIRI = {"beranda", "entri_data", "akun", "masuk", "laporan", "proyek", "kesesuaian"}
 PAGES = sorted(p for p in (ROOT / "views").glob("*.py") if p.stem not in MANDIRI)
 SEMUA = sorted((ROOT / "views").glob("*.py"))
 SAMPLE = ROOT / "data" / "contoh_data_nasabah.csv"
@@ -408,3 +409,59 @@ def test_halaman_akademik_menawarkan_kerangka_naskah(sample):
     assert any("bukan naskah jadi" in c for c in caption)
     assert any("harus Anda tulis sendiri" in c for c in caption)
     assert any("naskah_bab" in c for c in caption), "nama berkas naskah harus tampil"
+
+
+# --------------------------------------------------------------------------- #
+# Serah-terima Pemandu ke halaman metode
+# --------------------------------------------------------------------------- #
+
+
+def test_halaman_uji_beda_terisi_dari_pemandu(sample):
+    """Pengguna tidak boleh diminta memilih ulang variabel yang baru saja ia sebut."""
+    app = AppTest.from_file(str(ROOT / "views" / "nonparametrik.py"), default_timeout=180)
+    app.session_state["paket_langganan"] = "profesional"
+    app.session_state["dataset"] = sample
+    app.session_state["dataset_name"] = "contoh_data_nasabah.csv"
+    app.session_state["pemandu_konfigurasi"] = {
+        "metode": "One-Way ANOVA",
+        "outcome": "skor_kredit",
+        "kelompok": "segmen_usaha",
+        "prediktor": [],
+        "berpasangan": False,
+    }
+    app.run()
+    assert not app.exception
+    assert any("Disiapkan dari Pemandu Uji" in s.value for s in app.success)
+
+
+def test_halaman_uji_beda_tanpa_pemandu_tidak_mengisi_apa_apa(sample):
+    """Mengisi pilihan orang yang tidak memintanya justru membingungkan."""
+    app = _run(ROOT / "views" / "nonparametrik.py", sample)
+    assert not app.exception
+    assert not any("Disiapkan dari Pemandu Uji" in s.value for s in app.success)
+
+
+def test_kolom_pemandu_yang_sudah_tidak_ada_tidak_menggagalkan_halaman(sample):
+    """Data dapat berganti setelah pemandu dijalankan."""
+    app = AppTest.from_file(str(ROOT / "views" / "nonparametrik.py"), default_timeout=180)
+    app.session_state["paket_langganan"] = "profesional"
+    app.session_state["dataset"] = sample
+    app.session_state["dataset_name"] = "contoh_data_nasabah.csv"
+    app.session_state["pemandu_konfigurasi"] = {
+        "metode": "One-Way ANOVA",
+        "outcome": "kolom_yang_sudah_dihapus",
+        "kelompok": "juga_tidak_ada",
+        "prediktor": [],
+        "berpasangan": False,
+    }
+    app.run()
+    assert not app.exception
+
+
+def test_halaman_kesesuaian_menyebut_yang_belum_divalidasi():
+    """Daftar yang menyembunyikan lubangnya sendiri tidak dapat dipercaya."""
+    app = _run(ROOT / "views" / "kesesuaian.py", None)
+    assert not app.exception
+    teks = " ".join(md.value for md in app.markdown)
+    assert "Belum divalidasi" in str(app.session_state) or "belum" in teks.lower()
+    assert any("CFA / SEM" in md.value for md in app.markdown)

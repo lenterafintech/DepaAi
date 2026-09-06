@@ -32,6 +32,7 @@ PAGES = {
     "3 · Mutu Data": [
         st.Page("views/rapor_data.py", title="Rapor Data", icon=":material/fact_check:"),
         st.Page("views/eksplorasi.py", title="Eksplorasi Data", icon=":material/search_insights:"),
+        st.Page("views/kesesuaian.py", title="Kesesuaian Hasil", icon=":material/verified:"),
     ],
     "4 · Instrumen": [
         st.Page("views/reliabilitas.py", title="Reliabilitas & Validitas", icon=":material/rule:"),
