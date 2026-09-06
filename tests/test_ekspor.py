@@ -222,3 +222,90 @@ def test_sintaks_tanpa_konfigurasi_menjelaskan_sebabnya():
 def test_nama_variabel_dikutip_dengan_aman():
     konfig = nr.Konfigurasi(variabel=['aneh"nama'], nama_data='data"ku.csv')
     compile(sintaks.sintaks_python(konfig), "d.py", "exec")
+
+
+# --------------------------------------------------------------------------- #
+# Sintaks SPSS, AMOS, dan Mplus
+# --------------------------------------------------------------------------- #
+
+
+def test_sintaks_spss_memuat_perintah_yang_setara(laporan):
+    skrip = sintaks.sintaks_spss(laporan.konfig)
+    # Perintah pokok SPSS untuk analisis yang dipilih pada fixture.
+    for perintah in ("GET DATA", "DESCRIPTIVES", "CORRELATIONS", "FACTOR", "REGRESSION"):
+        assert perintah in skrip, perintah
+    assert "LOGISTIC REGRESSION" in skrip  # target biner ada pada konfigurasi
+    assert "GLM" in skrip and "DISCRIMINANT" in skrip  # kelompok ada
+    assert laporan.konfig.target_numerik in skrip
+    # Sintaks SPSS berakhir dengan RESTORE agar pengaturan sesi dikembalikan.
+    assert skrip.rstrip().endswith("RESTORE.")
+
+
+def test_sintaks_spss_menyesuaikan_konfigurasi_minimal():
+    konfig = nr.Konfigurasi(variabel=["a", "b"], nama_data="d.csv")
+    skrip = sintaks.sintaks_spss(konfig)
+    assert "DESCRIPTIVES" in skrip
+    assert "REGRESSION" not in skrip
+    assert "GLM" not in skrip
+
+
+def test_sintaks_amos_menyebut_jalur_dan_langkahnya(laporan):
+    teks = sintaks.sintaks_amos(laporan.konfig)
+    assert "VARIABEL TERAMATI" in teks
+    assert "JALUR STRUKTURAL" in teks
+    for prediktor in laporan.konfig.prediktor:
+        assert f"{prediktor} -> {laporan.konfig.target_numerik}" in teks
+
+
+def test_nama_mplus_unik_meski_awalannya_sama():
+    """Pemotongan lugas akan menabrakkan nama; pemetaan harus tetap unik."""
+    nama = ["pendapatan_bulanan", "pendapatan_tahunan", "pendapatan_harian", "usia"]
+    peta = sintaks.nama_mplus(nama)
+    assert len(set(peta.values())) == len(nama)
+    assert all(len(pendek) <= 8 for pendek in peta.values())
+    assert peta["usia"] == "usia"  # nama pendek tidak diubah
+
+
+def test_sintaks_mplus_memakai_nama_yang_dipetakan(laporan):
+    berkas = sintaks.sintaks_mplus(laporan.konfig)
+    assert berkas.startswith("TITLE:")
+    for bagian in ("DATA:", "VARIABLE:", "ANALYSIS:", "MODEL:", "OUTPUT:"):
+        assert bagian in berkas, bagian
+    assert "ESTIMATOR = MLR" in berkas
+    # Seluruh nama pada berkas Mplus tidak boleh melewati 8 karakter.
+    baris_model = [b for b in berkas.splitlines() if " ON " in b][0]
+    for kata in baris_model.replace(";", "").split():
+        if kata != "ON":
+            assert len(kata) <= 8, kata
+
+
+def test_bahasa_sintaks_tak_dikenal_ditolak(laporan):
+    with pytest.raises(ValueError, match="tidak dikenal"):
+        sintaks.bangkitkan(laporan.konfig, "sas")
+
+
+@pytest.mark.parametrize("kode", ["spss", "amos", "mplus"])
+def test_sintaks_baru_tersedia_sebagai_format_ekspor(laporan, kode):
+    isi = ekspor.bangun(laporan, kode)
+    assert len(isi) > 300
+    # Sintaks tidak bergantung pada register pembaca.
+    assert isi == ekspor.bangun(laporan, kode, "profesional", lengkap=True)
+    assert ekspor.nama_berkas(laporan, kode).endswith(ekspor.FORMAT[kode].ekstensi)
+
+
+def test_paket_zip_memuat_seluruh_sintaks_dan_petunjuknya(laporan):
+    arsip = zipfile.ZipFile(io.BytesIO(ekspor.bangun(laporan, "zip", "akademik", True)))
+    nama = arsip.namelist()
+    for berkas in (
+        "sintaks/analisis.py",
+        "sintaks/analisis.R",
+        "sintaks/analisis.sps",
+        "sintaks/model_amos.txt",
+        "sintaks/analisis.inp",
+        "sintaks/BACA_DULU.txt",
+    ):
+        assert berkas in nama, berkas
+    # Petunjuk harus menjelaskan bahwa data.csv tidak ikut dan cara mendapatkannya.
+    petunjuk = arsip.read("sintaks/BACA_DULU.txt").decode("utf-8")
+    assert "TIDAK disertakan" in petunjuk
+    assert ".lentera" in petunjuk

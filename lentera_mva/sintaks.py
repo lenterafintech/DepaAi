@@ -387,8 +387,261 @@ def bangkitkan(konfig: Konfigurasi | None, bahasa: str) -> str:
             "# Sintaks tidak dapat dibangkitkan: konfigurasi analisis tidak tersimpan\n"
             "# pada laporan ini. Jalankan ulang analisis dari halaman ringkasan.\n"
         )
-    if bahasa == "py":
-        return sintaks_python(konfig)
-    if bahasa == "r":
-        return sintaks_r(konfig)
-    raise ValueError(f"Bahasa '{bahasa}' tidak dikenal. Pilih 'py' atau 'r'.")
+    pembuat = {
+        "py": sintaks_python,
+        "r": sintaks_r,
+        "spss": sintaks_spss,
+        "amos": sintaks_amos,
+        "mplus": sintaks_mplus,
+    }
+    if bahasa not in pembuat:
+        raise ValueError(
+            f"Bahasa '{bahasa}' tidak dikenal. Pilih dari: {', '.join(pembuat)}."
+        )
+    return pembuat[bahasa](konfig)
+
+
+# --------------------------------------------------------------------------- #
+# SPSS, AMOS, dan Mplus
+# --------------------------------------------------------------------------- #
+#
+# SPSS mendominasi kampus di Indonesia dan AMOS mendominasi SEM di sana, sehingga
+# banyak pembimbing meminta hasil diperiksa ulang di sana. Sintaks di bawah bukan
+# pengganti aplikasi itu — ia hanya menuliskan perintah yang setara agar hasilnya
+# dapat dibandingkan.
+
+CATATAN_SPSS = (
+    "Sintaks ini mengasumsikan data telah diekspor sebagai data.csv di folder yang "
+    "sama. Perbedaan kecil dapat muncul karena SPSS dan Python berbeda dalam "
+    "penanganan nilai hilang, pengkodean kategori, dan tipe jumlah kuadrat."
+)
+
+
+def _deklarasi_spss(kolom: list[str], numerik: set[str]) -> str:
+    """Daftar variabel beserta formatnya untuk perintah GET DATA."""
+    return "\n".join(
+        f"    {nama} {'F40.10' if nama in numerik else 'A255'}" for nama in kolom
+    )
+
+
+def _kepala_spss(konfig: Konfigurasi, kolom: list[str], numerik: set[str]) -> str:
+    return (
+        f"* Sintaks SPSS - Lentera MVA.\n"
+        f"* Dibangkitkan otomatis pada {date.today().strftime('%d-%m-%Y')}.\n"
+        f"* Sumber data: {konfig.nama_data}.\n"
+        "*\n"
+        f"* {CATATAN_SPSS}\n\n"
+        "PRESERVE.\n"
+        "SET DECIMAL DOT.\n"
+        "GET DATA /TYPE=TXT /FILE='data.csv' /ENCODING='UTF8' /DELCASE=LINE\n"
+        "  /DELIMITERS=',' /QUALIFIER='\"' /ARRANGEMENT=DELIMITED /FIRSTCASE=2\n"
+        "  /IMPORTCASE=ALL\n"
+        f"  /VARIABLES=\n{_deklarasi_spss(kolom, numerik)}.\nEXECUTE.\n"
+    )
+
+
+def sintaks_spss(konfig: Konfigurasi, kolom: list[str] | None = None) -> str:
+    """Perintah SPSS yang setara dengan analisis yang dipilih pengguna."""
+    variabel = list(konfig.variabel)
+    numerik = set(variabel)
+    semua = list(kolom) if kolom else list(variabel)
+    for tambahan in (konfig.target_numerik, konfig.target_biner, konfig.kelompok):
+        if tambahan and tambahan not in semua:
+            semua.append(tambahan)
+    for daftar in (konfig.prediktor, konfig.prediktor_biner, konfig.gugus_x, konfig.gugus_y):
+        for nama in daftar:
+            if nama not in semua:
+                semua.append(nama)
+    numerik |= {
+        n
+        for n in semua
+        if n not in {konfig.kelompok} and n != konfig.target_biner
+    }
+
+    b = [_kepala_spss(konfig, semua, numerik)]
+
+    b.append("* Deskriptif dan korelasi.")
+    b.append(f"DESCRIPTIVES VARIABLES={' '.join(variabel)} /STATISTICS=MEAN STDDEV MIN MAX.")
+    b.append(f"CORRELATIONS /VARIABLES={' '.join(variabel)} /PRINT=TWOTAIL SIG.\n")
+
+    b.append("* Kelayakan reduksi dimensi dan analisis faktor.")
+    b.append(
+        f"FACTOR /VARIABLES {' '.join(variabel)} /MISSING LISTWISE\n"
+        f"  /ANALYSIS {' '.join(variabel)}\n"
+        "  /PRINT KMO EXTRACTION ROTATION\n"
+        "  /CRITERIA MINEIGEN(1)\n"
+        "  /EXTRACTION PC /ROTATION VARIMAX.\n"
+    )
+
+    if konfig.target_numerik and konfig.prediktor:
+        b.append("* Regresi linear berganda beserta diagnostiknya.")
+        b.append(
+            f"REGRESSION /DEPENDENT {konfig.target_numerik}\n"
+            f"  /METHOD=ENTER {' '.join(konfig.prediktor)}\n"
+            "  /STATISTICS COEFF OUTS R ANOVA COLLIN TOL CI(95)\n"
+            "  /RESIDUALS DURBIN.\n"
+        )
+
+    prediktor_biner = konfig.prediktor_biner or konfig.prediktor
+    if konfig.target_biner and prediktor_biner:
+        b.append("* Regresi logistik biner.")
+        b.append(
+            f"LOGISTIC REGRESSION VARIABLES {konfig.target_biner}\n"
+            f"  /METHOD=ENTER {' '.join(prediktor_biner)}\n"
+            "  /PRINT=CI(95) GOODFIT.\n"
+        )
+
+    if konfig.kelompok:
+        b.append("* MANOVA dan analisis diskriminan.")
+        b.append(
+            f"GLM {' '.join(variabel)} BY {konfig.kelompok}\n"
+            "  /PRINT=DESCRIPTIVE HOMOGENEITY PARAMETER\n"
+            f"  /DESIGN={konfig.kelompok}.\n"
+        )
+        b.append(
+            f"DISCRIMINANT /GROUPS={konfig.kelompok}(1 3)\n"
+            f"  /VARIABLES={' '.join(variabel)}\n"
+            "  /ANALYSIS ALL /PRIORS SIZE\n"
+            "  /STATISTICS=MEAN STDDEV BOXM TABLE CROSSVALID.\n"
+            "* Sesuaikan rentang (1 3) dengan kode kelompok pada data Anda."
+        )
+
+    b.append(f"\n* {CATATAN_SPSS}\nRESTORE.\n")
+    return "\n".join(b)
+
+
+def sintaks_amos(konfig: Konfigurasi) -> str:
+    """Spesifikasi model untuk AMOS, ditulis sebagai keterangan terstruktur.
+
+    AMOS memakai format proyek tersendiri dan digambar lewat antarmukanya, sehingga
+    yang dapat diberikan aplikasi ini adalah spesifikasi yang tinggal dipindahkan —
+    bukan berkas yang langsung dibuka.
+    """
+    b = [
+        "Spesifikasi model untuk AMOS - Lentera MVA",
+        f"Dibangkitkan otomatis pada {date.today().strftime('%d-%m-%Y')}",
+        f"Sumber data: {konfig.nama_data}",
+        "",
+        "AMOS menyimpan model dalam format proyeknya sendiri dan digambar lewat",
+        "antarmukanya, sehingga berkas ini berisi spesifikasi yang perlu Anda pindahkan,",
+        "bukan berkas yang langsung dapat dibuka.",
+        "",
+        "LANGKAH",
+        "1. File > Data Files, arahkan ke data.csv yang diekspor bersama berkas ini.",
+        "2. Gambar variabel teramati sebagai persegi dan konstruk laten sebagai elips.",
+        "3. Hubungkan sesuai daftar jalur di bawah.",
+        "4. View > Analysis Properties > Output, centang Standardized estimates,",
+        "   Squared multiple correlations, dan Modification indices.",
+        "",
+        "VARIABEL TERAMATI",
+    ]
+    b += [f"  {v}" for v in konfig.variabel]
+
+    if konfig.target_numerik and konfig.prediktor:
+        b += ["", "JALUR STRUKTURAL (regresi)"]
+        b += [f"  {p} -> {konfig.target_numerik}" for p in konfig.prediktor]
+        b += [
+            "",
+            "GALAT",
+            f"  Tambahkan satu suku galat (e1) pada {konfig.target_numerik}.",
+        ]
+
+    b += [
+        "",
+        "CATATAN",
+        "  Estimasi bawaan AMOS adalah maximum likelihood, sama dengan bawaan aplikasi",
+        "  ini. Untuk data ordinal atau tidak normal, pertimbangkan bootstrap pada",
+        "  Analysis Properties > Bootstrap.",
+        "",
+    ]
+    return "\n".join(b)
+
+
+def nama_mplus(nama: list[str]) -> dict[str, str]:
+    """Petakan nama variabel ke nama Mplus sepanjang maksimal 8 karakter.
+
+    Pemotongan lugas berbahaya: ``pendapatan_bulanan`` dan ``pendapatan_tahunan``
+    sama-sama menjadi ``pendapat``, menghasilkan berkas Mplus yang rusak tanpa
+    peringatan apa pun. Karena itu tabrakan diselesaikan dengan mengganti huruf
+    terakhir menjadi nomor urut, dan seluruh pemetaan dilaporkan pada berkasnya.
+    """
+    hasil: dict[str, str] = {}
+    dipakai: set[str] = set()
+    for asli in nama:
+        calon = str(asli)[:8]
+        if calon.lower() in dipakai:
+            for urut in range(2, 100):
+                akhiran = str(urut)
+                calon = str(asli)[: 8 - len(akhiran)] + akhiran
+                if calon.lower() not in dipakai:
+                    break
+        dipakai.add(calon.lower())
+        hasil[asli] = calon
+    return hasil
+
+
+def _baris_mplus(nama: list[str], peta: dict[str, str], per_baris: int = 6) -> list[str]:
+    """Pecah daftar variabel agar tidak melewati batas panjang baris Mplus."""
+    pendek = [peta.get(n, str(n)[:8]) for n in nama]
+    return [
+        " ".join(pendek[i : i + per_baris]) for i in range(0, len(pendek), per_baris)
+    ]
+
+
+def sintaks_mplus(konfig: Konfigurasi) -> str:
+    """Berkas input Mplus (.inp) untuk analisis yang dipilih."""
+    semua = list(konfig.variabel)
+    for tambahan in (konfig.target_numerik, konfig.kelompok):
+        if tambahan and tambahan not in semua:
+            semua.append(tambahan)
+    for nama in konfig.prediktor:
+        if nama not in semua:
+            semua.append(nama)
+
+    peta = nama_mplus(semua)
+    diubah = [(asli, pendek) for asli, pendek in peta.items() if asli != pendek]
+
+    b = [
+        "TITLE: Analisis Lentera MVA;",
+        "",
+        "DATA:",
+        "    FILE = data.csv;",
+        "",
+        "VARIABLE:",
+        "    NAMES =",
+        "        " + "\n        ".join(_baris_mplus(semua, peta)) + ";",
+    ]
+    if konfig.target_numerik and konfig.prediktor:
+        dipakai = [konfig.target_numerik] + list(konfig.prediktor)
+        b += [
+            "    USEVARIABLES =",
+            "        " + "\n        ".join(_baris_mplus(dipakai, peta)) + ";",
+        ]
+    b += [
+        "    MISSING = ALL (-999);",
+        "",
+        "ANALYSIS:",
+        "    ESTIMATOR = MLR;   ! robust terhadap ketidaknormalan",
+        "",
+        "MODEL:",
+    ]
+    if konfig.target_numerik and konfig.prediktor:
+        terikat = peta[konfig.target_numerik]
+        penjelas = " ".join(peta[p] for p in konfig.prediktor)
+        b.append(f"    {terikat} ON {penjelas};")
+    else:
+        b.append("    ! Tuliskan model Anda di sini, misalnya:  y ON x1 x2;")
+    b += [
+        "",
+        "OUTPUT:",
+        "    STANDARDIZED SAMPSTAT TECH1 MODINDICES(10);",
+        "",
+    ]
+    if diubah:
+        b += [
+            "! Mplus membatasi nama variabel 8 karakter, sehingga nama berikut diubah.",
+            "! Sesuaikan judul kolom pada data.csv agar cocok dengan nama di kanan.",
+            *[f"!   {asli} -> {pendek}" for asli, pendek in diubah],
+            "",
+        ]
+    return "\n".join(b)

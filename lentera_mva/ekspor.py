@@ -536,6 +536,44 @@ def ke_r(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
     return bangkitkan(getattr(sumber, "konfig", None), "r").encode("utf-8")
 
 
+def _petunjuk_sintaks() -> str:
+    """Keterangan yang menyertai berkas sintaks di dalam paket ZIP."""
+    return (
+        "SINTAKS UNTUK PERANGKAT LAIN\n"
+        "============================\n\n"
+        "Berkas di folder ini menjalankan ulang analisis yang sama di perangkat lain:\n\n"
+        "  analisis.py     Python - memakai pustaka yang sama, angkanya identik\n"
+        "  analisis.R      R - padanan terdekat, untuk pemeriksaan silang\n"
+        "  analisis.sps    SPSS - perintah yang setara\n"
+        "  model_amos.txt  AMOS - spesifikasi yang perlu digambar ulang\n"
+        "  analisis.inp    Mplus - berkas input siap jalan\n\n"
+        "SEBELUM MENJALANKAN: seluruh berkas merujuk data.csv, yang TIDAK disertakan\n"
+        "di sini karena paket laporan memang tidak membawa data mentah. Ambil datanya\n"
+        "dengan salah satu cara berikut, lalu letakkan sebagai data.csv di folder yang\n"
+        "sama:\n\n"
+        "  - Unduh dari halaman Beranda & Data pada aplikasi, atau\n"
+        "  - Buka berkas proyek .lentera Anda; data.csv ada di dalamnya.\n\n"
+        "Perbedaan kecil antar perangkat adalah hal wajar. Sebelum membandingkan,\n"
+        "samakan lebih dulu penanganan nilai hilang, standardisasi, pengkodean\n"
+        "kategori, dan tipe jumlah kuadrat.\n"
+    )
+
+
+def ke_spss(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
+    """Sintaks SPSS yang setara, untuk memeriksa ulang hasil di perangkat itu."""
+    return bangkitkan(getattr(sumber, "konfig", None), "spss").encode("utf-8")
+
+
+def ke_amos(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
+    """Spesifikasi model untuk dipindahkan ke AMOS."""
+    return bangkitkan(getattr(sumber, "konfig", None), "amos").encode("utf-8")
+
+
+def ke_mplus(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
+    """Berkas input Mplus (.inp)."""
+    return bangkitkan(getattr(sumber, "konfig", None), "mplus").encode("utf-8")
+
+
 def ke_zip(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
     """Paket lengkap: laporan dalam beberapa format sekaligus, ditambah tabel CSV.
 
@@ -763,8 +801,18 @@ def _dok_ke_zip(dokumen: Dokumen, konfig=None) -> bytes:
         arsip.writestr(f"{dasar}.pdf", ke_pdf(dokumen))
         arsip.writestr(f"{dasar}.json", _dok_ke_json(dokumen))
         if konfig is not None:
-            arsip.writestr("sintaks/analisis.py", bangkitkan(konfig, "py"))
-            arsip.writestr("sintaks/analisis.R", bangkitkan(konfig, "r"))
+            for berkas, bahasa in (
+                ("sintaks/analisis.py", "py"),
+                ("sintaks/analisis.R", "r"),
+                ("sintaks/analisis.sps", "spss"),
+                ("sintaks/model_amos.txt", "amos"),
+                ("sintaks/analisis.inp", "mplus"),
+            ):
+                arsip.writestr(berkas, bangkitkan(konfig, bahasa))
+            # Seluruh sintaks merujuk data.csv, yang tidak ikut di sini karena paket
+            # laporan memang tidak membawa data mentah. Petunjuknya disertakan agar
+            # pengguna tidak mencari-cari berkas yang tidak ada.
+            arsip.writestr("sintaks/BACA_DULU.txt", _petunjuk_sintaks())
         for nomor, (judul, tabel) in enumerate(dokumen.tabel(), start=1):
             nama = "".join(
                 c if c.isalnum() or c in "-_" else "_" for c in str(judul).lower()
@@ -809,8 +857,14 @@ FORMAT: dict[str, Format] = {
                  "Skrip yang menjalankan ulang analisis dengan pustaka yang sama."),
     "r": Format("r", "Sintaks R", "R", "text/plain",
                 "Skrip R untuk memeriksa silang hasil di luar aplikasi."),
+    "spss": Format("spss", "Sintaks SPSS", "sps", "text/plain",
+                   "Perintah SPSS yang setara, untuk diperiksa ulang di sana."),
+    "amos": Format("amos", "Spesifikasi AMOS", "txt", "text/plain",
+                   "Daftar jalur dan langkah untuk dipindahkan ke AMOS."),
+    "mplus": Format("mplus", "Input Mplus", "inp", "text/plain",
+                    "Berkas .inp siap dijalankan di Mplus."),
     "zip": Format("zip", "Paket lengkap (ZIP)", "zip", "application/zip",
-                  "Seluruh format, tabel dalam CSV, dan sintaks Python serta R."),
+                  "Seluruh format, tabel dalam CSV, serta sintaks Python, R, SPSS, AMOS, dan Mplus."),
 }
 
 _PEMBUAT = {
@@ -823,6 +877,9 @@ _PEMBUAT = {
     "json": ke_json,
     "py": ke_python,
     "r": ke_r,
+    "spss": ke_spss,
+    "amos": ke_amos,
+    "mplus": ke_mplus,
     "zip": ke_zip,
 }
 
@@ -847,7 +904,7 @@ def bangun(
 def nama_berkas(
     sumber, kode_format: str, pembaca: str = "eksekutif", lengkap: bool = False
 ) -> str:
-    if kode_format in {"py", "r"}:
+    if kode_format in {"py", "r", "spss", "amos", "mplus"}:
         ragam = "sintaks_analisis"
     elif isinstance(sumber, Keranjang):
         ragam = "laporan_hasil"

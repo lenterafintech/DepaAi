@@ -20,7 +20,7 @@ interpretasinya dalam bahasa Indonesia.
 | Uji non-parametrik | Mann-Whitney U, Kolmogorov-Smirnov dua sampel, median Mood, Kruskal-Wallis dengan uji lanjutan Dunn (koreksi Holm/Bonferroni), Wilcoxon peringkat bertanda, uji tanda, Friedman + Kendall's W, chi-square kebebasan + Cramér's V, uji eksak Fisher, korelasi Spearman & Kendall — seluruhnya dilaporkan bersama ukuran efek dan padanan parametriknya |
 | Uji beda & hubungan | Analisis diskriminan linear/kuadratik (fungsi kanonik, Wilks' lambda), MANOVA satu jalur + Hotelling's T², MANCOVA dengan rata-rata terkoreksi dan uji homogenitas kemiringan, korelasi kanonik dengan indeks redundansi |
 | Model struktural | CFA (muatan terstandardisasi, CR/AVE, indeks kecocokan termasuk SRMR), analisis jalur dengan dekomposisi efek langsung/tidak langsung, SEM penuh, uji mediasi bootstrap dengan VAF, pilihan estimator ML / FIML / DWLS / ULS / GLS beserta saran otomatis sesuai ciri data, serta spesifikasi model bebas bergaya lavaan lengkap dengan pemeriksaan sintaks |
-| Ekspor & reproduksi | Laporan Lengkap maupun Ringkasan diekspor ke Word, PDF, Excel, PowerPoint, HTML, Markdown, JSON, atau satu paket ZIP; disertai sintaks Python dan R yang menjalankan ulang analisis yang sama |
+| Ekspor & reproduksi | Laporan Lengkap maupun Ringkasan diekspor ke Word, PDF, Excel, PowerPoint, HTML, Markdown, JSON, atau satu paket ZIP; disertai sintaks Python, R, SPSS, AMOS, dan Mplus yang menjalankan ulang analisis yang sama |
 | Laporan analisis | Tiga halaman menurut pembaca — Umum, Mahasiswa & Pengajar, Profesional — masing-masing tersedia dalam dua bentuk: **Ringkasan** dan **Laporan Lengkap**. Ditambah **Laporan Hasil**, yang mengumpulkan analisis yang benar-benar dijalankan pengguna |
 
 ## Menjalankan aplikasi
@@ -135,6 +135,9 @@ berkasnya persis sama dengan yang tampil di layar.
 | Markdown | Teks polos untuk disunting lebih lanjut |
 | JSON | Data terstruktur untuk diolah sistem lain |
 | Sintaks Python / R | Skrip yang menjalankan ulang analisis yang sama |
+| Sintaks SPSS | Perintah `.sps` yang setara, untuk diperiksa ulang di SPSS |
+| Spesifikasi AMOS | Daftar jalur dan langkah untuk dipindahkan ke AMOS |
+| Input Mplus | Berkas `.inp` siap dijalankan |
 | Paket lengkap (ZIP) | Seluruh format di atas, setiap tabel dalam CSV, dan kedua sintaks |
 
 Seluruh penulis format kini melewati satu lapisan dokumen netral (`Dokumen` di
@@ -167,10 +170,27 @@ menjadi pesan yang dapat ditindaklanjuti, bukan kegagalan mesin estimasi yang sa
 ### Sintaks yang dapat dijalankan ulang
 
 `lentera_mva/sintaks.py` menuliskan langkah analisis yang benar-benar dipilih pengguna
-menjadi skrip. Versi Python memakai pustaka yang persis sama dengan aplikasi
-(pandas, scipy, scikit-learn, statsmodels), sehingga angkanya identik; versi R memakai
-padanan terdekat (`psych`, `car`, `MASS`, `CCA`, `lmtest`) sebagai pemeriksaan silang.
-Skrip hanya memuat jalur berkas, bukan datanya.
+menjadi skrip untuk lima perangkat:
+
+| Berkas | Perangkat | Sifat |
+| --- | --- | --- |
+| `analisis.py` | Python | Pustaka yang persis sama dengan aplikasi, angkanya identik |
+| `analisis.R` | R | Padanan terdekat (`psych`, `car`, `MASS`, `CCA`, `lmtest`) |
+| `analisis.sps` | SPSS | Perintah setara: `REGRESSION`, `FACTOR`, `GLM`, `DISCRIMINANT` |
+| `model_amos.txt` | AMOS | Spesifikasi jalur beserta langkah menggambarnya |
+| `analisis.inp` | Mplus | Berkas input dengan `ESTIMATOR = MLR` |
+
+SPSS mendominasi kampus di Indonesia dan AMOS mendominasi SEM di sana, sehingga
+pembimbing kerap meminta hasil diperiksa ulang di perangkat itu.
+
+Mplus membatasi nama variabel 8 karakter. Pemotongan lugas berbahaya —
+`pendapatan_bulanan` dan `pendapatan_tahunan` sama-sama menjadi `pendapat` dan
+menghasilkan berkas rusak tanpa peringatan — sehingga tabrakan diselesaikan dengan
+penomoran dan seluruh pemetaannya dilaporkan di dalam berkas.
+
+Skrip hanya memuat jalur berkas, bukan datanya. Paket ZIP menyertakan
+`sintaks/BACA_DULU.txt` yang menjelaskan cara memperoleh `data.csv` yang dirujuk
+seluruh skrip itu.
 
 ## Akun dan paket langganan
 
