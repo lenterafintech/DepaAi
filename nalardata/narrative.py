@@ -18,7 +18,7 @@ Setiap temuan ditulis dalam tiga register pembaca:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 
 import numpy as np
@@ -2165,7 +2165,71 @@ def susun_laporan(a: Analisis) -> Laporan:
     return laporan
 
 
-def analisis_dan_laporan(df: pd.DataFrame, konfig: Konfigurasi) -> tuple[Analisis, Laporan]:
-    """Jalan pintas: hitung analisis lalu susun laporannya."""
+def kunci_kesimpulan(laporan: Laporan, penelitian) -> Laporan:
+    """Terapkan kunci kausalitas pada seluruh teks laporan, lalu sisipkan batasnya.
+
+    Dikerjakan sekali di sini, bukan dua puluh kali di tempat kalimatnya disusun.
+    Kunci yang dipasang per kalimat pasti terlewat di salah satunya, dan satu kalimat
+    yang lolos sudah cukup membuat pembaca menyimpulkan sebab-akibat dari data potong
+    lintang — kekeliruan yang justru paling sulit disadari sendiri.
+
+    ``penelitian`` bernilai ``None`` diperlakukan sebagai keadaan paling berhati-hati:
+    bahasa sebab-akibat tetap dikunci.
+    """
+    from nalardata import pagar
+
+    if penelitian is not None and penelitian.boleh_sebab:
+        batas = penelitian.batas_kesimpulan()
+    else:
+        def lurus(teks: str) -> str:
+            return pagar.luruskan_kausalitas(teks, penelitian)
+
+        laporan.headline = lurus(laporan.headline)
+        laporan.subheadline = lurus(laporan.subheadline)
+        laporan.pendorong_sumber = lurus(laporan.pendorong_sumber)
+        laporan.temuan = [
+            replace(
+                t,
+                ringkas=lurus(t.ringkas),
+                eksekutif=lurus(t.eksekutif),
+                akademik=lurus(t.akademik),
+                profesional=lurus(t.profesional),
+            )
+            for t in laporan.temuan
+        ]
+        laporan.rekomendasi = [
+            replace(r, alasan=lurus(r.alasan)) for r in laporan.rekomendasi
+        ]
+        laporan.paragraf = [replace(p, teks=lurus(p.teks)) for p in laporan.paragraf]
+        laporan.lampu = [replace(l, catatan=lurus(l.catatan)) for l in laporan.lampu]
+        laporan.pendorong = [replace(d, catatan=lurus(d.catatan)) for d in laporan.pendorong]
+        laporan.keterbatasan = [lurus(k) for k in laporan.keterbatasan]
+        batas = (
+            penelitian.batas_kesimpulan()
+            if penelitian is not None
+            else _BATAS_TANPA_RANCANGAN
+        )
+
+    # Batas rancangan ditaruh paling depan: ia berlaku atas seluruh temuan,
+    # sedangkan keterbatasan lain hanya menyangkut metode tertentu.
+    laporan.keterbatasan = batas + [k for k in laporan.keterbatasan if k not in batas]
+    return laporan
+
+
+# Dipakai ketika pengguna melewati Ruang Proyek. Sengaja menyebutkan bahwa
+# rancangannya belum diisi, bukan berpura-pura tahu.
+_BATAS_TANPA_RANCANGAN = [
+    "Rancangan penelitian belum diisi pada Ruang Proyek, sehingga aplikasi memakai "
+    "anggapan paling berhati-hati: hasil dibaca sebagai hubungan, bukan sebab-akibat.",
+    "Keterwakilan sampel ditentukan cara pengambilannya, bukan banyaknya. Selama "
+    "teknik sampling belum dinyatakan, kesimpulan berlaku bagi responden yang "
+    "diteliti dan bukan bagi seluruh populasi.",
+]
+
+
+def analisis_dan_laporan(
+    df: pd.DataFrame, konfig: Konfigurasi, penelitian=None
+) -> tuple[Analisis, Laporan]:
+    """Jalan pintas: hitung analisis, susun laporannya, lalu kunci kesimpulannya."""
     analisis = jalankan_analisis(df, konfig)
-    return analisis, susun_laporan(analisis)
+    return analisis, kunci_kesimpulan(susun_laporan(analisis), penelitian)

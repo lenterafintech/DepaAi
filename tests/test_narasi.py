@@ -226,3 +226,71 @@ def test_laporan_html_gabungan_memuat_ketiga_pembaca(hasil):
         assert f'data-panel="{pembaca}"' in html
     # Bagian khas akademik hanya muncul di panelnya sendiri.
     assert html.count("Kalimat siap salin") == 1
+
+
+# --------------------------------------------------------------------------- #
+# Kunci kausalitas pada laporan sungguhan
+# --------------------------------------------------------------------------- #
+
+
+def _seluruh_teks(lap) -> str:
+    """Setiap ruas teks laporan, tanpa kecuali.
+
+    Memeriksa sebagian saja akan meloloskan kebocoran di ruas yang terlupa — dan
+    ruas yang terlupa itulah yang justru akan dibaca penguji.
+    """
+    bagian = [lap.headline, lap.subheadline, lap.pendorong_sumber]
+    bagian += [t.judul + t.ringkas + t.eksekutif + t.akademik + t.profesional for t in lap.temuan]
+    bagian += [r.judul + r.alasan for r in lap.rekomendasi]
+    bagian += [p.teks for p in lap.paragraf]
+    bagian += [l.catatan for l in lap.lampu]
+    bagian += list(lap.keterbatasan)
+    bagian += [d.catatan for d in lap.pendorong]
+    return " ".join(bagian)
+
+
+def test_laporan_potong_lintang_tidak_memuat_satu_pun_ungkapan_sebab(data, konfig_lengkap):
+    """Invarian utama kunci kausalitas, diuji pada laporan yang benar-benar disusun."""
+    from nalardata import pagar
+    from nalardata import proyek_penelitian as pp
+
+    lintang = pp.ProyekPenelitian(desain="potong_lintang", teknik_sampling="purposif")
+    _, lap = nr.analisis_dan_laporan(data, konfig_lengkap, lintang)
+    assert pagar.periksa_kausalitas(_seluruh_teks(lap), lintang) == []
+
+
+def test_laporan_eksperimen_acak_boleh_memakai_bahasa_sebab(data, konfig_lengkap):
+    from nalardata import proyek_penelitian as pp
+
+    eksperimen = pp.ProyekPenelitian(
+        desain="eksperimen", penugasan_acak=True, teknik_sampling="acak_sederhana"
+    )
+    _, lap = nr.analisis_dan_laporan(data, konfig_lengkap, eksperimen)
+    assert "berpengaruh" in _seluruh_teks(lap)
+
+
+def test_tanpa_rancangan_kunci_tetap_menutup(data, konfig_lengkap):
+    """Pengguna yang melewati Ruang Proyek tetap terlindungi."""
+    from nalardata import pagar
+
+    _, lap = nr.analisis_dan_laporan(data, konfig_lengkap, None)
+    assert pagar.periksa_kausalitas(_seluruh_teks(lap), None) == []
+    assert any("belum diisi" in k for k in lap.keterbatasan)
+
+
+def test_batas_rancangan_muncul_paling_depan_pada_keterbatasan(data, konfig_lengkap):
+    from nalardata import proyek_penelitian as pp
+
+    lintang = pp.ProyekPenelitian(desain="potong_lintang", teknik_sampling="insidental")
+    _, lap = nr.analisis_dan_laporan(data, konfig_lengkap, lintang)
+    assert "bukan sebab-akibat" in lap.keterbatasan[0]
+    assert any("bukan bagi seluruh populasi" in k for k in lap.keterbatasan)
+
+
+def test_keterbatasan_tidak_terduplikasi(data, konfig_lengkap):
+    from nalardata import proyek_penelitian as pp
+
+    _, lap = nr.analisis_dan_laporan(
+        data, konfig_lengkap, pp.ProyekPenelitian(desain="potong_lintang")
+    )
+    assert len(lap.keterbatasan) == len(set(lap.keterbatasan))

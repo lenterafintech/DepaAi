@@ -207,3 +207,66 @@ def test_ruang_proyek_berguna_sebelum_data_ada():
     assert not any("Belum ada data" in w.value for w in app.warning)
     teks = " ".join(md.value for md in app.markdown)
     assert "sebab-akibat" in teks
+
+
+# --------------------------------------------------------------------------- #
+# Kunci kausalitas pada halaman laporan
+# --------------------------------------------------------------------------- #
+
+
+def _jalankan_laporan(sample, desain: str, acak: bool = False):
+    from nalardata import proyek_penelitian as pp
+
+    app = AppTest.from_file(str(ROOT / "views" / "ringkasan_akademik.py"), default_timeout=300)
+    app.session_state["paket_langganan"] = "profesional"
+    app.session_state["dataset"] = sample
+    app.session_state["dataset_name"] = "contoh_data_nasabah.csv"
+    app.session_state["proyek_penelitian"] = pp.ProyekPenelitian(
+        desain=desain, penugasan_acak=acak
+    )
+    app.run()
+    return app
+
+
+def _teks_laporan(app) -> str:
+    """Seluruh teks pada laporan yang benar-benar disusun halaman itu.
+
+    Diambil dari objek laporannya, bukan dari tangkapan layar: teks temuan sebagian
+    dirender lewat ``st.html`` sehingga tidak muncul pada ``app.markdown``, dan
+    memeriksa yang muncul saja akan meloloskan justru bagian yang dibaca penguji.
+    """
+    lap = app.session_state["kesimpulan_laporan"]
+    bagian = [lap.headline, lap.subheadline, lap.pendorong_sumber]
+    bagian += [t.judul + t.ringkas + t.eksekutif + t.akademik + t.profesional for t in lap.temuan]
+    bagian += [r.judul + r.alasan for r in lap.rekomendasi]
+    bagian += [p.teks for p in lap.paragraf]
+    bagian += [l.catatan for l in lap.lampu]
+    bagian += [d.catatan for d in lap.pendorong]
+    bagian += list(lap.keterbatasan)
+    return " ".join(bagian)
+
+
+def test_halaman_laporan_menghormati_kunci_kausalitas(sample):
+    """Rancangan potong lintang tidak boleh menghasilkan bahasa sebab-akibat."""
+    from nalardata import pagar
+    from nalardata import proyek_penelitian as pp
+
+    app = _jalankan_laporan(sample, "potong_lintang")
+    assert not app.exception
+    lintang = pp.ProyekPenelitian(desain="potong_lintang")
+    assert pagar.periksa_kausalitas(_teks_laporan(app), lintang) == []
+
+
+def test_rancangan_eksperimen_membuka_bahasa_sebab_di_halaman(sample):
+    """Rancangan ikut menandai cache; bila tidak, laporan lama dipakai ulang."""
+    app = _jalankan_laporan(sample, "eksperimen", acak=True)
+    assert not app.exception
+    assert "berpengaruh" in _teks_laporan(app)
+
+
+def test_batas_rancangan_ikut_ke_halaman(sample):
+    app = _jalankan_laporan(sample, "potong_lintang")
+    assert any(
+        "bukan sebab-akibat" in k
+        for k in app.session_state["kesimpulan_laporan"].keterbatasan
+    )

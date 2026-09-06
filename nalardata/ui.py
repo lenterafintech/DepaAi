@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from nalardata import formatting, kamus as km, keranjang as kr, langganan
+from nalardata import formatting, jejak as jj, kamus as km, keranjang as kr, langganan
 from nalardata import pengguna as pg, preprocessing
 from nalardata import proyek_penelitian as pp
 
@@ -19,6 +19,7 @@ KERANJANG_KEY = "keranjang_hasil"
 KAMUS_KEY = "kamus_variabel"
 CONTOH_KEY = "data_adalah_contoh"
 PENELITIAN_KEY = "proyek_penelitian"
+JEJAK_KEY = "jejak_langkah"
 SAMPLE_PATH = Path(__file__).resolve().parents[1] / "data" / "contoh_data_nasabah.csv"
 
 # Palet terang. Warna status sengaja terpisah dari aksen agar "berhasil" dan
@@ -397,6 +398,26 @@ def penelitian() -> pp.ProyekPenelitian:
 
 def set_penelitian(baru: pp.ProyekPenelitian) -> None:
     st.session_state[PENELITIAN_KEY] = baru
+
+
+def jejak() -> jj.Jejak:
+    """Jejak langkah sesi ini, dibuat saat pertama kali dipakai."""
+    if JEJAK_KEY not in st.session_state:
+        st.session_state[JEJAK_KEY] = jj.Jejak()
+    return st.session_state[JEJAK_KEY]
+
+
+def set_jejak(baru: jj.Jejak) -> None:
+    st.session_state[JEJAK_KEY] = baru
+
+
+def catat_uji(nama: str, halaman: str = "", p: float | None = None, rincian: str = "") -> None:
+    """Catat satu uji yang benar-benar dijalankan.
+
+    Dipanggil halaman metode sesudah hasilnya keluar. Nilai p yang dicatat adalah
+    nilai p utama uji itu — yang akan dilaporkan — bukan seluruh nilai p pada tabel.
+    """
+    jejak().catat_uji(nama, halaman=halaman, p=p, rincian=rincian)
 
 
 def get_dataset() -> pd.DataFrame | None:

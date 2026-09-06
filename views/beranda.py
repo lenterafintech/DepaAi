@@ -111,6 +111,8 @@ with tab_proyek:
                     ui.set_kamus(proyek_dibuka.kamus)
                 if not proyek_dibuka.penelitian.kosong():
                     ui.set_penelitian(proyek_dibuka.penelitian)
+                if not proyek_dibuka.jejak.kosong():
+                    ui.set_jejak(proyek_dibuka.jejak)
                 for kunci, nilai in (proyek_dibuka.konfigurasi or {}).items():
                     # Kunci widget halaman laporan dipulihkan apa adanya.
                     st.session_state[kunci] = nilai
@@ -219,6 +221,7 @@ try:
         konfigurasi,
         kamus=ui.kamus(),
         penelitian=ui.penelitian(),
+        jejak=ui.jejak(),
     )
 except ValueError as galat:
     st.info(str(galat))

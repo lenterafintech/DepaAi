@@ -50,7 +50,7 @@ DESAIN: dict[str, Desain] = {
         keterangan="Seluruh variabel diukur pada satu waktu, lazimnya lewat satu kuesioner.",
         boleh_sebab=False,
         alasan=(
-            "Sebab dan akibat diukur bersamaan, sehingga arah pengaruhnya tidak dapat "
+            "Sebab dan akibat diukur bersamaan, sehingga arah hubungannya tidak dapat "
             "dipastikan dan perancu yang tidak diukur tetap mungkin berperan."
         ),
     ),
@@ -207,28 +207,6 @@ SUMBER_DATA = {
     "sekunder": "Sekunder — berasal dari pihak lain atau data yang sudah ada",
     "campuran": "Campuran primer dan sekunder",
 }
-
-# Kata yang menyiratkan sebab-akibat. Dipakai kunci kausalitas untuk memeriksa
-# kalimat yang dihasilkan aplikasi sendiri, bukan tulisan pengguna.
-KATA_SEBAB = (
-    "menyebabkan",
-    "penyebab",
-    "disebabkan",
-    "mengakibatkan",
-    "berakibat",
-    "akibat dari",
-    "berdampak pada",
-    "dampak dari",
-    "berpengaruh terhadap",
-    "berpengaruh pada",
-    "mempengaruhi",
-    "memengaruhi",
-    "pengaruh terhadap",
-    "meningkatkan",
-    "menurunkan",
-    "menaikkan",
-)
-
 
 # --------------------------------------------------------------------------- #
 # Praregistrasi

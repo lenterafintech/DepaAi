@@ -258,13 +258,3 @@ def test_nilai_cacat_kembali_ke_bawaan_tanpa_menggagalkan():
 def test_dari_dict_kosong_menghasilkan_proyek_bawaan():
     assert pp.ProyekPenelitian.dari_dict(None).kosong()
     assert pp.ProyekPenelitian.dari_dict({}).kosong()
-
-
-# --------------------------------------------------------------------------- #
-# Kosakata sebab-akibat
-# --------------------------------------------------------------------------- #
-
-
-def test_kata_sebab_memuat_ungkapan_yang_lazim_dipakai_skripsi():
-    for kata in ("berpengaruh terhadap", "memengaruhi", "menyebabkan", "meningkatkan"):
-        assert kata in pp.KATA_SEBAB

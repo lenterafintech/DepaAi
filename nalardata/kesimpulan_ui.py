@@ -364,8 +364,10 @@ def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan]:
         kelompok=None if kelompok == TANPA else kelompok,
     )
 
+    penelitian = ui.penelitian()
+
     # Analisis lengkap cukup mahal, jadi hasilnya dipakai ulang lintas halaman
-    # sampai konfigurasi atau datanya berubah.
+    # sampai konfigurasi, data, atau rancangan penelitiannya berubah.
     tanda = (
         nama_data,
         df.shape,
@@ -375,12 +377,20 @@ def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan]:
         konfig.target_biner,
         tuple(konfig.prediktor_biner),
         konfig.kelompok,
+        # Rancangan ikut menandai: mengubah desain penelitian mengubah kosakata
+        # seluruh laporan, jadi laporan lama tidak boleh dipakai kembali.
+        penelitian.desain,
+        penelitian.penugasan_acak,
+        penelitian.teknik_sampling,
+        penelitian.sumber_data,
     )
     if st.session_state.get("kesimpulan_tanda") != tanda:
         with st.spinner("Menjalankan seluruh analisis dan menyusun kesimpulan…"):
             analisis = nr.jalankan_analisis(df, konfig)
             st.session_state["kesimpulan_analisis"] = analisis
-            st.session_state["kesimpulan_laporan"] = nr.susun_laporan(analisis)
+            st.session_state["kesimpulan_laporan"] = nr.kunci_kesimpulan(
+                nr.susun_laporan(analisis), penelitian
+            )
             st.session_state["kesimpulan_tanda"] = tanda
 
     laporan = st.session_state["kesimpulan_laporan"]
