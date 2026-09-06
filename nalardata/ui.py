@@ -690,6 +690,34 @@ def simpan_ke_keranjang(
         st.rerun()
 
 
+def sumber_angka(teks: str, indeks, kunci: str, label: str = "Lihat sumber angka") -> None:
+    """Tampilkan penelusuran tiap angka pada sebuah paragraf kembali ke sel tabelnya.
+
+    Ditaruh berdampingan dengan paragrafnya, bukan di lampiran: pembaca yang harus
+    mencari sendiri ke halaman lain tidak akan memeriksanya, dan paragraf yang tidak
+    diperiksa sama saja dengan paragraf yang harus dipercaya begitu saja.
+    """
+    from nalardata import sumber as sm
+
+    if not indeks or not str(teks).strip():
+        return
+
+    tabel = sm.ringkas(teks, indeks)
+    if tabel.empty:
+        return
+
+    hilang = int((tabel["Sumber"] == "tidak ditemukan di tabel mana pun").sum())
+    judul = label if not hilang else f"{label} — {hilang} angka belum bertabel"
+    with st.expander(judul, expanded=False):
+        st.dataframe(tabel, width="stretch", hide_index=True, key=f"sumber_{kunci}")
+        if hilang:
+            st.caption(
+                "Angka yang belum bertabel tetap benar — ia dihitung mesin statistik "
+                "yang sama — namun belum punya sel yang dapat ditunjuk pembimbing. "
+                "Sebutkan sendiri asalnya bila dikutip pada naskah."
+            )
+
+
 def tautan_halaman(jalur: str, label: str, ikon: str = "") -> None:
     """Tautan ke halaman lain, dengan mundur ke teks biasa bila belum terdaftar.
 

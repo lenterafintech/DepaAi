@@ -1733,6 +1733,149 @@ def tabel_regresi(a: Analisis) -> pd.DataFrame:
     )
 
 
+def tabel_normalitas(a: Analisis) -> pd.DataFrame:
+    """Uji normalitas per variabel sebagai tabel yang dapat ditunjuk."""
+    if a.normalitas is None or a.normalitas.empty:
+        raise ValueError("Hasil uji normalitas tidak tersedia.")
+    sumber = a.normalitas
+    return pd.DataFrame(
+        {
+            "Variabel": sumber["Variabel"],
+            "N": [num(int(v)) for v in sumber["N"]],
+            "Shapiro-W": [num(v, 3) for v in sumber["Shapiro-W"]],
+            "p (Shapiro)": [
+                "< 0,001" if v < 0.001 else num(v, 3) for v in sumber["p (Shapiro)"]
+            ],
+            "KS": [num(v, 3) for v in sumber["KS"]],
+            "p (KS)": ["< 0,001" if v < 0.001 else num(v, 3) for v in sumber["p (KS)"]],
+            "Kesimpulan": sumber["Kesimpulan"],
+        }
+    )
+
+
+def tabel_pca(a: Analisis) -> pd.DataFrame:
+    """Ragam terjelaskan tiap komponen utama."""
+    if a.pca is None:
+        raise ValueError("Hasil PCA tidak tersedia.")
+    eigen = list(a.pca.eigenvalues)
+    rasio = list(a.pca.explained_ratio)
+    kumulatif = list(a.pca.cumulative_ratio)
+    return pd.DataFrame(
+        {
+            "Komponen": [f"PC{i}" for i in range(1, len(eigen) + 1)],
+            "Eigenvalue": [num(v, 3) for v in eigen],
+            "Ragam (%)": [num(v * 100, 1) for v in rasio],
+            "Ragam kumulatif (%)": [num(v * 100, 1) for v in kumulatif],
+        }
+    )
+
+
+def tabel_klaster(a: Analisis) -> pd.DataFrame:
+    """Ukuran dan mutu solusi klaster."""
+    if a.klaster is None:
+        raise ValueError("Hasil analisis klaster tidak tersedia.")
+    hasil = a.klaster
+    # ``sizes`` adalah metode yang mengembalikan tabel, bukan urutan angka.
+    ukuran = hasil.sizes()
+    baris = [{"Ukuran": "Jumlah klaster", "Nilai": num(int(hasil.n_clusters))}]
+    for _, isi in ukuran.iterrows():
+        baris.append(
+            {
+                "Ukuran": f"Anggota klaster {int(isi['Klaster'])}",
+                "Nilai": num(int(isi["Anggota"])),
+            }
+        )
+        baris.append(
+            {
+                "Ukuran": f"Bagian klaster {int(isi['Klaster'])} (%)",
+                "Nilai": num(float(isi["Persen (%)"]), 1),
+            }
+        )
+    baris += [
+        {"Ukuran": "Silhouette", "Nilai": num(hasil.silhouette, 3)},
+        {"Ukuran": "Calinski-Harabasz", "Nilai": num(hasil.calinski_harabasz)},
+        {"Ukuran": "Davies-Bouldin", "Nilai": num(hasil.davies_bouldin, 3)},
+    ]
+    return pd.DataFrame(baris)
+
+
+def tabel_diskriminan(a: Analisis) -> pd.DataFrame:
+    """Ketepatan klasifikasi dan uji Wilks pada analisis diskriminan."""
+    if a.diskriminan is None:
+        raise ValueError("Hasil analisis diskriminan tidak tersedia.")
+    hasil = a.diskriminan
+    baris = [
+        {"Ukuran": "Ketepatan klasifikasi (%)", "Nilai": num(hasil.accuracy * 100, 1)},
+        {
+            "Ukuran": "Ketepatan validasi silang (%)",
+            "Nilai": num(hasil.cv_accuracy * 100, 1),
+        },
+        {"Ukuran": "Jumlah kelompok", "Nilai": num(len(hasil.classes))},
+    ]
+    # ``eigenvalues`` dan ``wilks`` berupa tabel, bukan angka tunggal.
+    eigen = hasil.eigenvalues
+    if isinstance(eigen, pd.DataFrame):
+        for _, isi in eigen.head(3).iterrows():
+            nama = str(isi.get("Fungsi", "Fungsi"))
+            baris.append(
+                {"Ukuran": f"Eigenvalue {nama}", "Nilai": num(float(isi["Eigenvalue"]), 3)}
+            )
+            if "Korelasi Kanonik" in isi:
+                baris.append(
+                    {
+                        "Ukuran": f"Korelasi kanonik {nama}",
+                        "Nilai": num(float(isi["Korelasi Kanonik"]), 3),
+                    }
+                )
+    wilks = hasil.wilks
+    if isinstance(wilks, pd.DataFrame) and not wilks.empty:
+        for kolom in wilks.columns:
+            nilai = pd.to_numeric(wilks[kolom], errors="coerce").dropna()
+            if not nilai.empty:
+                baris.append(
+                    {"Ukuran": f"Wilks — {kolom}", "Nilai": num(float(nilai.iloc[0]), 3)}
+                )
+    return pd.DataFrame(baris)
+
+
+def tabel_ringkasan_model(a: Analisis) -> pd.DataFrame:
+    """Statistik model regresi sebagai tabel, bukan sebagai catatan kaki.
+
+    R², F, dan derajat bebas sebelumnya hanya muncul pada catatan di bawah tabel
+    koefisien. Catatan berupa kalimat, sehingga pembimbing yang hendak memeriksa
+    R² tidak punya sel untuk ditunjuk — dan penelusuran "lihat sumber angka"
+    melaporkannya sebagai angka tanpa sumber. Angka yang dikutip narasi harus
+    berdiri sebagai sel yang dapat ditunjuk.
+    """
+    if a.regresi is None:
+        raise ValueError("Hasil regresi tidak tersedia.")
+    model = a.regresi.model
+    return pd.DataFrame(
+        {
+            "Ukuran": [
+                "N",
+                "R²",
+                "R² adjusted",
+                "F",
+                "df model",
+                "df galat",
+                "p (uji F)",
+                "Galat baku estimasi",
+            ],
+            "Nilai": [
+                num(int(model.nobs)),
+                num(model.rsquared, 3),
+                num(model.rsquared_adj, 3),
+                num(model.fvalue),
+                num(int(model.df_model)),
+                num(int(model.df_resid)),
+                "< 0,001" if model.f_pvalue < 0.001 else num(model.f_pvalue, 3),
+                num_auto(float(np.sqrt(model.mse_resid))),
+            ],
+        }
+    )
+
+
 def tabel_asumsi(a: Analisis) -> pd.DataFrame:
     baris = []
     if a.mardia is not None:
@@ -1841,6 +1984,12 @@ def susun_tabel(a: Analisis) -> dict[str, tuple[str, pd.DataFrame, str]]:
     if a.regresi is not None:
         model = a.regresi.model
         tabel[f"Tabel {nomor}"] = (
+            f"Ringkasan model regresi terhadap {a.regresi.y_name}",
+            tabel_ringkasan_model(a),
+            "Angka pada paragraf hasil dapat ditelusuri kembali ke tabel ini.",
+        )
+        nomor += 1
+        tabel[f"Tabel {nomor}"] = (
             f"Hasil regresi linear berganda terhadap {a.regresi.y_name}",
             tabel_regresi(a),
             f"R² = {num(model.rsquared, 3)}; R² adjusted = {num(model.rsquared_adj, 3)}; "
@@ -1862,6 +2011,46 @@ def susun_tabel(a: Analisis) -> dict[str, tuple[str, pd.DataFrame, str]]:
             "Ambang besaran efek η²: 0,01 kecil; 0,06 sedang; 0,14 besar (Cohen, 1988).",
         )
         nomor += 1
+    # Metode yang dinarasikan wajib punya tabelnya sendiri. Tanpa itu, angka yang
+    # dikutip paragraf hasil tidak dapat ditunjuk pembimbing maupun dipertahankan
+    # penulisnya - dan penelusuran "lihat sumber angka" melaporkannya tanpa sumber.
+    for judul, bangun, catatan in (
+        (
+            "Uji normalitas per variabel",
+            tabel_normalitas,
+            "Shapiro-Wilk lebih peka pada sampel kecil; keduanya dilaporkan.",
+        ),
+        (
+            "Ragam terjelaskan tiap komponen utama",
+            tabel_pca,
+            "Komponen dengan eigenvalue di atas 1 lazim dipertahankan (kriteria Kaiser).",
+        ),
+        (
+            "Ringkasan solusi klaster",
+            tabel_klaster,
+            "Silhouette mendekati 1 berarti klaster terpisah baik; di bawah 0,25 lemah.",
+        ),
+        (
+            "Ketepatan analisis diskriminan",
+            tabel_diskriminan,
+            "Ketepatan validasi silang lebih jujur daripada ketepatan pada data latih.",
+        ),
+    ):
+        try:
+            isi = bangun(a)
+        except ValueError:
+            # Metode memang tidak dijalankan pada konfigurasi ini.
+            continue
+        except Exception as galat:  # noqa: BLE001
+            # Tabel yang gagal karena cacat kode harus tercatat, bukan hilang
+            # tanpa jejak: tanpa catatan ini, tabel klaster pernah absen selama
+            # berhari-hari tanpa satu pun tanda di layar.
+            a.gagal[judul] = f"Tabel gagal disusun: {galat}"
+            continue
+        if isi is not None and not isi.empty:
+            tabel[f"Tabel {nomor}"] = (judul, isi, catatan)
+            nomor += 1
+
     asumsi = tabel_asumsi(a)
     if not asumsi.empty:
         tabel[f"Tabel {nomor}"] = (
