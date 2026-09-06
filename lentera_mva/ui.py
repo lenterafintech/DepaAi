@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from lentera_mva import formatting, langganan, preprocessing
+from lentera_mva import formatting, langganan, pengguna as pg, preprocessing
 
 DATA_KEY = "dataset"
 NAME_KEY = "dataset_name"
@@ -60,6 +60,14 @@ _GAYA = f"""
   overflow-wrap: anywhere}}
 .mva-data .rinci {{font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: .72rem; color: {WARNA['redup']}; margin-top: .2rem}}
+.mva-akun {{border: 1px solid {WARNA['garis']}; border-radius: 9px; padding: .6rem .75rem;
+  margin-bottom: .5rem}}
+.mva-akun .nm {{font-size: .85rem; font-weight: 650; color: {WARNA['tinta']};
+  overflow-wrap: anywhere}}
+.mva-akun .pk {{font-size: .74rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: {WARNA['aksen2']}; margin-top: .2rem}}
+.mva-akun .al {{font-size: .72rem; color: {WARNA['redup']}; margin-top: .25rem;
+  line-height: 1.4}}
 </style>
 """
 
@@ -82,19 +90,53 @@ def page_setup(title: str, kicker: str = "Lentera MVA", description: str = "") -
 
 
 PAKET_KEY = "paket_langganan"
+PENGGUNA_KEY = "pengguna_id"
+
+
+def pengguna_aktif() -> pg.Pengguna | None:
+    """Akun yang sedang masuk pada sesi ini, atau None bila belum masuk."""
+    id_pengguna = st.session_state.get(PENGGUNA_KEY)
+    if id_pengguna is None:
+        return None
+    return pg.ambil_dengan_id(int(id_pengguna))
+
+
+def set_pengguna(akun: pg.Pengguna) -> None:
+    st.session_state[PENGGUNA_KEY] = akun.id
+    # Paket mengikuti akun, sehingga penanda paket pada sesi tidak lagi dipakai.
+    st.session_state.pop(PAKET_KEY, None)
+
+
+def keluar() -> None:
+    """Akhiri sesi dan bersihkan data yang sedang dianalisis."""
+    for kunci in (PENGGUNA_KEY, PAKET_KEY, DATA_KEY, NAME_KEY):
+        st.session_state.pop(kunci, None)
 
 
 def paket_aktif() -> langganan.Paket:
-    """Paket yang sedang berlaku bagi pengguna sesi ini.
+    """Paket yang berlaku: dari akun bila sudah masuk, dengan uji coba diperhitungkan.
 
-    Untuk sementara status disimpan pada sesi karena penagihan belum terpasang;
-    ketika basis data pengguna sudah ada, cukup fungsi ini yang diubah.
+    Penanda paket pada sesi tetap dihormati agar pengujian otomatis dan peragaan
+    dapat memilih paket tanpa membuat akun.
     """
-    return langganan.ambil_paket(st.session_state.get(PAKET_KEY, langganan.PAKET_BAWAAN))
+    penanda_sesi = st.session_state.get(PAKET_KEY)
+    if penanda_sesi:
+        return langganan.ambil_paket(penanda_sesi)
+    akun = pengguna_aktif()
+    if akun is not None:
+        return langganan.ambil_paket(akun.paket_efektif())
+    return langganan.ambil_paket(langganan.PAKET_BAWAAN)
 
 
 def set_paket(kode: str) -> None:
-    st.session_state[PAKET_KEY] = langganan.ambil_paket(kode).kode
+    """Ubah paket: tersimpan ke akun bila sudah masuk, selain itu hanya di sesi."""
+    aman = langganan.ambil_paket(kode).kode
+    akun = pengguna_aktif()
+    if akun is not None:
+        pg.set_paket(akun.surel, aman)
+        st.session_state.pop(PAKET_KEY, None)
+    else:
+        st.session_state[PAKET_KEY] = aman
 
 
 def _ajakan_naik(pelanggaran: langganan.Pelanggaran) -> None:
@@ -155,8 +197,19 @@ def require_dataset() -> pd.DataFrame:
 def sidebar_info() -> None:
     """Ringkasan data aktif pada sidebar, dibuat ringkas agar tidak memakan ruang."""
     df = get_dataset()
+    akun = pengguna_aktif()
     with st.sidebar:
         st.divider()
+        if akun is not None:
+            paket = paket_aktif()
+            st.html(
+                f'<div class="mva-akun"><div class="nm">{akun.nama}</div>'
+                f'<div class="pk">{paket.nama}</div>'
+                f'<div class="al">{akun.alasan_paket()}</div></div>'
+            )
+            if st.button("Keluar", key="tombol_keluar", width="stretch"):
+                keluar()
+                st.rerun()
         if df is None:
             st.caption("Belum ada data dimuat.")
             return

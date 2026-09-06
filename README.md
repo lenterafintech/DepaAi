@@ -51,20 +51,28 @@ halaman tidak menghitung ulang. Tiap halaman menyediakan unduhan laporan HTML ma
 berisi ketiga ringkasan sekaligus untuk pembaca campuran. Seluruh angka dihitung ulang
 dari data yang sedang aktif — tidak ada nilai contoh yang ditanam.
 
-## Paket langganan
+## Akun dan paket langganan
 
-Fitur dibatasi menurut paket yang berlaku (`lentera_mva/langganan.py`):
+Pengguna mendaftar dengan surel dan kata sandi; akun tersimpan pada SQLite
+(`data/pengguna.db`, tidak ikut ke dalam repositori). Kata sandi disimpan sebagai
+turunan PBKDF2-HMAC-SHA256 dengan garam acak per pengguna, bukan dalam bentuk asli.
 
-| Paket | Batas data | Cakupan |
-| --- | --- | --- |
-| Gratis | 300 baris · 10 kolom | Eksplorasi, korelasi, PCA/EFA, klaster, regresi, entri data, ringkasan eksekutif |
-| Pro | 50.000 baris · 100 kolom | Seluruh metode termasuk instrumen dan SEM, ketiga ringkasan, unduhan laporan |
-| Institusi | 500.000 baris · 500 kolom | Sama seperti Pro dengan batas data jauh lebih besar |
+**Setiap akun baru mendapat 3 hari uji coba dengan seluruh fitur terbuka.** Setelah
+masa itu berakhir, akun berlanjut pada paket yang dipilih saat mendaftar.
 
-**Penagihan belum terpasang.** Halaman *Akun & Langganan* saat ini berjalan dalam
-mode uji coba: paket dapat diganti bebas untuk mencoba batasannya. Status paket
-disimpan pada sesi; ketika basis data pengguna tersedia, hanya fungsi
-`ui.paket_aktif()` yang perlu diubah.
+| Paket | Harga | Batas data | Cakupan |
+| --- | --- | --- | --- |
+| Gratis | Gratis | 300 baris · 10 kolom | Eksplorasi, korelasi, PCA/EFA, klaster, regresi, entri data, ringkasan eksekutif |
+| Mahasiswa & Pengajar | Rp 49.000/bulan | 5.000 baris · 60 kolom | Seluruh metode termasuk instrumen, MANOVA/MANCOVA, CFA dan SEM; ringkasan akademik; unduhan laporan |
+| Profesional | Rp 149.000/bulan | 100.000 baris · 150 kolom | Seluruh fitur dan ketiga ringkasan |
+| Institusi (Khusus) | Sesuai kesepakatan | 1.000.000 baris · 500 kolom | Seluruh fitur untuk kampus dan perusahaan; ketentuan disepakati tersendiri |
+
+**Penagihan belum terpasang.** Selama masa perkenalan seluruh paket dapat
+diaktifkan tanpa pembayaran, dan halaman *Akun & Langganan* menyatakan hal itu
+secara terbuka. Rencana pembayaran memakai Doku; hosting memakai VPS Hostinger.
+
+Yang belum ada pada lapisan akun, dan diperlukan sebelum aplikasi dibuka untuk
+umum: verifikasi alamat surel, pemulihan kata sandi, dan pembatasan percobaan masuk.
 
 ## Format data yang didukung
 
@@ -98,6 +106,7 @@ lentera_mva/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   mancova.py           MANCOVA, ANCOVA univariat, rata-rata terkoreksi
   sem_analysis.py      CFA, analisis jalur, SEM, dan mediasi bootstrap (semopy)
   langganan.py         Paket langganan dan pembatasan fitur
+  pengguna.py          Basis data akun, autentikasi, dan masa uji coba
   narrative.py         Penyusun kesimpulan naratif tiga register pembaca
   report_html.py       Laporan HTML mandiri yang dapat diunduh
   kesimpulan_ui.py     Komponen bersama ketiga halaman ringkasan

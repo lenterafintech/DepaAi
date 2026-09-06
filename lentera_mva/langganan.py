@@ -36,10 +36,14 @@ class Paket:
 
     kode: str
     nama: str
-    harga_bulanan: int  # rupiah; 0 berarti gratis
+    harga_bulanan: int  # rupiah; 0 berarti gratis atau ditetapkan per kesepakatan
     ringkas: str
     maks_baris: int
     maks_variabel: int
+    # Urutan tingkatan ditetapkan sendiri, bukan diturunkan dari harga: paket
+    # institusi berharga kesepakatan (0) sehingga pengurutan berdasarkan harga
+    # akan keliru menganggapnya paket paling murah.
+    urutan: int = 0
     fitur: frozenset[str] = field(default_factory=frozenset)
 
     def punya(self, kode_fitur: str) -> bool:
@@ -50,11 +54,21 @@ class Paket:
 
 
 _DASAR = {"dasar", "reduksi", "klaster", "regresi", "entri_data", "ringkasan_eksekutif"}
+_AKADEMIK = _DASAR | {
+    "uji_beda",
+    "instrumen",
+    "sem",
+    "ringkasan_akademik",
+    "unduh_laporan",
+}
 _LENGKAP = set(FITUR)
 
+# Harga dicantumkan sebagai rencana. Selama masa perkenalan seluruh paket dapat
+# diaktifkan tanpa pembayaran; halaman akun menyatakan hal itu secara terbuka.
 PAKET: dict[str, Paket] = {
     "gratis": Paket(
         kode="gratis",
+        urutan=0,
         nama="Gratis",
         harga_bulanan=0,
         ringkas="Untuk mencoba dan mengerjakan analisis berskala kecil.",
@@ -62,21 +76,39 @@ PAKET: dict[str, Paket] = {
         maks_variabel=10,
         fitur=frozenset(_DASAR),
     ),
-    "pro": Paket(
-        kode="pro",
-        nama="Pro",
-        harga_bulanan=99_000,
-        ringkas="Seluruh metode, ketiga ringkasan, dan unduhan laporan.",
-        maks_baris=50_000,
-        maks_variabel=100,
+    "mahasiswa": Paket(
+        kode="mahasiswa",
+        urutan=1,
+        nama="Mahasiswa & Pengajar",
+        harga_bulanan=49_000,
+        ringkas=(
+            "Seluruh metode yang dibutuhkan skripsi, tesis, dan penelitian kelas, "
+            "termasuk CFA dan SEM."
+        ),
+        maks_baris=5_000,
+        maks_variabel=60,
+        fitur=frozenset(_AKADEMIK),
+    ),
+    "profesional": Paket(
+        kode="profesional",
+        urutan=2,
+        nama="Profesional",
+        harga_bulanan=149_000,
+        ringkas="Seluruh fitur, ketiga ringkasan, dan data berukuran kerja.",
+        maks_baris=100_000,
+        maks_variabel=150,
         fitur=frozenset(_LENGKAP),
     ),
     "institusi": Paket(
         kode="institusi",
-        nama="Institusi",
-        harga_bulanan=750_000,
-        ringkas="Untuk kampus dan perusahaan; data besar dan banyak pengguna.",
-        maks_baris=500_000,
+        urutan=3,
+        nama="Institusi (Khusus)",
+        harga_bulanan=0,  # ditetapkan per kesepakatan
+        ringkas=(
+            "Untuk kampus dan perusahaan: banyak pengguna, data besar, dan "
+            "kebutuhan khusus. Harga dan ketentuan disepakati tersendiri."
+        ),
+        maks_baris=1_000_000,
         maks_variabel=500,
         fitur=frozenset(_LENGKAP),
     ),
@@ -137,34 +169,39 @@ def periksa_ukuran(paket: Paket, n_baris: int, n_kolom: int) -> Pelanggaran | No
     return None
 
 
-def _urut_harga() -> list[Paket]:
-    return sorted(PAKET.values(), key=lambda p: p.harga_bulanan)
+def urut_tingkatan() -> list[Paket]:
+    """Paket dari yang paling terbatas ke yang paling lengkap."""
+    return sorted(PAKET.values(), key=lambda p: p.urutan)
 
 
 def paket_terkecil_dengan(kode_fitur: str) -> str | None:
     """Paket termurah yang memuat sebuah fitur."""
-    for paket in _urut_harga():
+    for paket in urut_tingkatan():
         if paket.punya(kode_fitur):
             return paket.kode
     return None
 
 
 def paket_terkecil_untuk_ukuran(n_baris: int, n_kolom: int) -> str | None:
-    for paket in _urut_harga():
+    for paket in urut_tingkatan():
         if n_baris <= paket.maks_baris and n_kolom <= paket.maks_variabel:
             return paket.kode
     return None
 
 
+def harga_tampil(paket: Paket) -> str:
+    """Harga yang ditampilkan; paket institusi ditawarkan lewat kesepakatan."""
+    if paket.kode == "institusi":
+        return "Sesuai kesepakatan"
+    if not paket.harga_bulanan:
+        return "Gratis"
+    return f"Rp {_ribuan(paket.harga_bulanan)}/bulan"
+
+
 def ringkas_paket(paket: Paket) -> list[tuple[str, str]]:
     """Daftar (label, nilai) untuk ditampilkan pada kartu paket."""
     return [
-        (
-            "Harga",
-            "Gratis"
-            if not paket.harga_bulanan
-            else f"Rp {_ribuan(paket.harga_bulanan)}/bulan",
-        ),
+        ("Harga", harga_tampil(paket)),
         ("Batas data", f"{_ribuan(paket.maks_baris)} baris · {paket.maks_variabel} kolom"),
         ("Metode", f"{len(paket.fitur)} dari {len(FITUR)} fitur"),
     ]

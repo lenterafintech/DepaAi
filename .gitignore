@@ -14,3 +14,7 @@ venv/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Basis data pengguna (berisi data akun; tidak untuk dibagikan)
+data/*.db
+data/*.db-journal

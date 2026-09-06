@@ -38,6 +38,7 @@ PAGES = {
         st.Page("views/sem.py", title="CFA, Jalur & SEM", icon=":material/account_tree:"),
     ],
     "Akun": [
+        st.Page("views/masuk.py", title="Masuk / Daftar", icon=":material/login:"),
         st.Page("views/akun.py", title="Akun & Langganan", icon=":material/workspace_premium:"),
     ],
     "Ringkasan Kesimpulan": [

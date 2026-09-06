@@ -14,11 +14,29 @@ ui.page_setup(
 ui.sidebar_info()
 
 paket = ui.paket_aktif()
+akun = ui.pengguna_aktif()
+
+if akun is None:
+    st.warning(
+        "Anda belum masuk, sehingga paket hanya berlaku untuk sesi ini dan hilang saat "
+        "halaman ditutup. Buka halaman *Masuk / Daftar* untuk membuat akun.",
+        icon=":material/person_off:",
+    )
+else:
+    st.caption(f"Akun: **{akun.nama}** ({akun.surel}) · {akun.alasan_paket()}")
+    if akun.dalam_uji_coba():
+        sisa = akun.sisa_uji_coba()
+        st.success(
+            f"Masa uji coba berjalan: seluruh fitur terbuka selama "
+            f"{sisa.days} hari {sisa.seconds // 3600} jam lagi. Setelah itu akun "
+            f"berlanjut pada paket **{langganan.ambil_paket(akun.paket).nama}**.",
+            icon=":material/schedule:",
+        )
 
 st.info(
-    "**Mode uji coba.** Pembayaran belum terpasang, jadi paket dapat diganti bebas di "
-    "halaman ini untuk mencoba batasannya. Ketika penagihan sudah aktif, perubahan "
-    "paket hanya terjadi setelah pembayaran berhasil.",
+    "**Masa perkenalan.** Pembayaran belum terpasang, sehingga seluruh paket dapat "
+    "diaktifkan tanpa biaya. Ketika penagihan sudah aktif, perubahan paket hanya "
+    "terjadi setelah pembayaran berhasil.",
     icon=":material/science:",
 )
 
@@ -47,10 +65,10 @@ st.html(
 )
 
 kartu = []
-for p in sorted(langganan.PAKET.values(), key=lambda x: x.harga_bulanan):
+for p in langganan.urut_tingkatan():
     aktif = " aktif" if p.kode == paket.kode else ""
     tag = '<span class="tag">Paket Anda</span>' if p.kode == paket.kode else ""
-    harga = "Gratis" if not p.harga_bulanan else f"Rp {p.harga_bulanan:,}/bulan".replace(",", ".")
+    harga = langganan.harga_tampil(p)
     batas = f"{p.maks_baris:,} baris · {p.maks_variabel} kolom".replace(",", ".")
     kartu.append(
         f'<div class="p{aktif}"><div class="nm">{p.nama}{tag}</div>'
@@ -60,14 +78,20 @@ for p in sorted(langganan.PAKET.values(), key=lambda x: x.harga_bulanan):
 st.html(f'<div class="mva-paket">{"".join(kartu)}</div>')
 
 st.subheader("Ganti paket")
+kode_urut = [p.kode for p in langganan.urut_tingkatan()]
 pilihan = st.radio(
-    "Paket yang dicoba",
-    list(langganan.PAKET),
-    format_func=lambda k: langganan.PAKET[k].nama,
-    index=list(langganan.PAKET).index(paket.kode),
-    horizontal=True,
+    "Paket yang dipilih",
+    kode_urut,
+    format_func=lambda k: f"{langganan.PAKET[k].nama} — {langganan.harga_tampil(langganan.PAKET[k])}",
+    index=kode_urut.index(paket.kode) if paket.kode in kode_urut else 0,
     key="pilih_paket",
 )
+if pilihan == "institusi":
+    st.caption(
+        "Paket institusi memerlukan kesepakatan tersendiri. Selama masa perkenalan "
+        "Anda dapat mengaktifkannya untuk mencoba, namun pengelola akan menghubungi "
+        "Anda untuk verifikasi."
+    )
 if pilihan != paket.kode and st.button("Terapkan paket ini", type="primary"):
     ui.set_paket(pilihan)
     st.rerun()

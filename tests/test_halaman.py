@@ -11,7 +11,7 @@ from streamlit.testing.v1 import AppTest
 ROOT = Path(__file__).resolve().parents[1]
 # Beranda dan halaman entri sengaja tetap berguna tanpa data aktif: keduanya
 # justru tempat data dibuat, jadi tidak ikut diuji sebagai halaman yang menuntut data.
-MANDIRI = {"beranda", "entri_data", "akun"}
+MANDIRI = {"beranda", "entri_data", "akun", "masuk"}
 PAGES = sorted(p for p in (ROOT / "views").glob("*.py") if p.stem not in MANDIRI)
 SEMUA = sorted((ROOT / "views").glob("*.py"))
 SAMPLE = ROOT / "data" / "contoh_data_nasabah.csv"
@@ -22,7 +22,7 @@ def sample() -> pd.DataFrame:
     return pd.read_csv(SAMPLE)
 
 
-def _run(path: Path, sample: pd.DataFrame | None, paket: str = "pro") -> AppTest:
+def _run(path: Path, sample: pd.DataFrame | None, paket: str = "profesional") -> AppTest:
     app = AppTest.from_file(str(path), default_timeout=180)
     # Halaman diuji pada paket penuh; pembatasan paket diuji terpisah.
     app.session_state["paket_langganan"] = paket
@@ -72,8 +72,8 @@ def test_halaman_terkunci_pada_paket_gratis(sample):
     assert any("tidak termasuk dalam paket" in w.value for w in app.warning)
 
 
-def test_halaman_terbuka_pada_paket_pro(sample):
-    app = _run(ROOT / "views" / "manova.py", sample, paket="pro")
+def test_halaman_terbuka_pada_paket_profesional(sample):
+    app = _run(ROOT / "views" / "manova.py", sample, paket="profesional")
     assert not app.exception
     assert not any("tidak termasuk dalam paket" in w.value for w in app.warning)
 
@@ -88,4 +88,10 @@ def test_data_melebihi_batas_paket_ditolak(sample):
 def test_halaman_akun_menampilkan_paket_aktif():
     app = _run(ROOT / "views" / "akun.py", None, paket="gratis")
     assert not app.exception
-    assert any("Mode uji coba" in i.value for i in app.info)
+    assert any("Masa perkenalan" in i.value for i in app.info)
+
+
+def test_halaman_masuk_menawarkan_pendaftaran():
+    app = _run(ROOT / "views" / "masuk.py", None, paket="gratis")
+    assert not app.exception
+    assert any("Paket yang tersedia" in str(s.value) for s in app.subheader)
