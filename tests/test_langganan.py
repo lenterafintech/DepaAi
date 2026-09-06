@@ -55,15 +55,19 @@ def test_harga_institusi_bersifat_kesepakatan():
 
 
 def test_batas_ukuran_data():
+    # Angka batas dibaca dari paketnya, bukan ditulis ulang di sini: uji yang
+    # mengunci angka harfiah akan patah setiap kali batasnya ditinjau ulang.
     gratis = lg.PAKET["gratis"]
     assert lg.periksa_ukuran(gratis, 100, 5) is None
-    baris = lg.periksa_ukuran(gratis, 5_000, 5)
+
+    baris = lg.periksa_ukuran(gratis, gratis.maks_baris + 1, 5)
     assert baris is not None and baris.jenis == "baris"
-    # 5.000 baris masih muat pada paket Mahasiswa, jadi itulah yang disarankan.
-    assert "300" in baris.pesan and baris.saran_paket == "mahasiswa"
+    assert lg._ribuan(gratis.maks_baris) in baris.pesan
+    assert baris.saran_paket == "mahasiswa"
     # Kalimatnya tetap utuh: pemisah ribuan tidak merusak tanda baca.
     assert "baris, sedangkan" in baris.pesan
-    kolom = lg.periksa_ukuran(gratis, 100, 50)
+
+    kolom = lg.periksa_ukuran(gratis, 100, gratis.maks_variabel + 1)
     assert kolom is not None and kolom.jenis == "variabel"
 
 
@@ -81,7 +85,8 @@ def test_saran_paket_memilih_yang_termurah_dan_mencukupi():
 def test_ringkas_paket_memakai_format_rupiah():
     ringkas = dict(lg.ringkas_paket(lg.PAKET["profesional"]))
     assert ringkas["Harga"] == "Rp 149.000/bulan"
-    assert "100.000 baris" in ringkas["Batas data"]
+    profesional = lg.PAKET["profesional"]
+    assert lg._ribuan(profesional.maks_baris) + " baris" in ringkas["Batas data"]
     assert dict(lg.ringkas_paket(lg.PAKET["gratis"]))["Harga"] == "Gratis"
 
 
@@ -90,16 +95,44 @@ def test_ringkas_paket_memakai_format_rupiah():
 # --------------------------------------------------------------------------- #
 
 
-def test_contoh_data_bawaan_melebihi_batas_paket_gratis():
-    """Fakta yang mendasari pengecualian di ``ui.require_dataset``.
-
-    Contoh data sengaja dibuat cukup besar agar seluruh metode dapat dijalankan
-    di atasnya. Akibatnya ia melewati batas paket Gratis — dan bila batas itu
-    ditegakkan, tombol "Muat contoh data" milik aplikasi sendiri akan mengantar
-    pengguna baru ke ajakan berlangganan sebelum ia melihat satu hasil pun.
-    """
+def _contoh():
     import pandas as pd
 
-    df = pd.read_csv(ROOT / "data" / "contoh_data_nasabah.csv")
+    return pd.read_csv(ROOT / "data" / "contoh_data_nasabah.csv")
+
+
+def test_contoh_data_bawaan_muat_pada_paket_gratis():
+    """Onboarding tidak boleh terbentur dinding berbayar.
+
+    Contoh data sengaja dibuat cukup besar agar seluruh metode dapat dijalankan
+    di atasnya - SEM menuntut sekurang-kurangnya 200 responden, dan 18 kolom
+    itulah yang membuat PCA, analisis faktor, dan korelasi kanonik bermakna.
+    Karena contohnya tidak dapat dikecilkan, batas paket Gratis yang harus
+    memuatnya. Uji ini menjaga agar keduanya tidak pernah berselisih lagi.
+    """
+    df = _contoh()
+    assert lg.periksa_ukuran(lg.ambil_paket("gratis"), len(df), df.shape[1]) is None
+
+
+def test_paket_gratis_memuat_kuesioner_skripsi_yang_lazim():
+    """100-400 responden dengan 20-40 butir adalah ukuran skripsi yang lazim.
+
+    Pembeda antar paket adalah metodenya, bukan banyaknya baris. Membatasi
+    ukuran justru menutup pintu bagi pengguna yang paling membutuhkan pemandu
+    uji, yakni yang belum mampu berlangganan.
+    """
     gratis = lg.ambil_paket("gratis")
-    assert lg.periksa_ukuran(gratis, len(df), df.shape[1]) is not None
+    assert lg.periksa_ukuran(gratis, 400, 45) is None
+    assert lg.periksa_ukuran(gratis, 1_000, 50) is None
+
+
+def test_batas_paket_naik_menurut_tingkatannya():
+    tingkat = lg.urut_tingkatan()
+    for lebih_rendah, lebih_tinggi in zip(tingkat, tingkat[1:]):
+        assert lebih_tinggi.maks_baris > lebih_rendah.maks_baris
+        assert lebih_tinggi.maks_variabel > lebih_rendah.maks_variabel
+
+
+def test_data_yang_terlalu_besar_tetap_ditolak():
+    pelanggaran = lg.periksa_ukuran(lg.ambil_paket("gratis"), 5_000, 10)
+    assert pelanggaran is not None

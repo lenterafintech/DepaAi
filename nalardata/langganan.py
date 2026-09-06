@@ -13,6 +13,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+# Batas ukuran data ditetapkan agar paket Gratis muat memuat satu penelitian
+# kuesioner yang sungguh-sungguh: skripsi Indonesia lazimnya 100-400 responden
+# dengan 20-40 butir ditambah data demografi. Pembeda antar paket adalah
+# metodenya - SEM, panel, ekspor laporan, simulasi sidang - bukan banyaknya
+# baris. Membatasi ukuran justru menutup pintu bagi pengguna yang paling
+# membutuhkan pemandu uji, yakni yang belum mampu berlangganan.
+
 # Kode fitur yang dapat dibatasi. Dipakai sebagai kunci di seluruh aplikasi.
 FITUR = {
     "dasar": "Eksplorasi, korelasi, dan uji asumsi",
@@ -88,9 +95,12 @@ PAKET: dict[str, Paket] = {
         urutan=0,
         nama="Gratis",
         harga_bulanan=0,
-        ringkas="Untuk mencoba dan mengerjakan analisis berskala kecil.",
-        maks_baris=300,
-        maks_variabel=10,
+        ringkas=(
+            "Cukup untuk satu penelitian kuesioner utuh: pemandu uji, deskriptif, "
+            "uji beda, korelasi, dan regresi."
+        ),
+        maks_baris=1_000,
+        maks_variabel=50,
         fitur=frozenset(_DASAR),
     ),
     "mahasiswa": Paket(
@@ -102,8 +112,8 @@ PAKET: dict[str, Paket] = {
             "Seluruh metode yang dibutuhkan skripsi, tesis, dan penelitian kelas, "
             "termasuk CFA dan SEM."
         ),
-        maks_baris=5_000,
-        maks_variabel=60,
+        maks_baris=25_000,
+        maks_variabel=200,
         fitur=frozenset(_AKADEMIK),
     ),
     "profesional": Paket(
@@ -112,8 +122,8 @@ PAKET: dict[str, Paket] = {
         nama="Profesional",
         harga_bulanan=149_000,
         ringkas="Seluruh fitur, ketiga ringkasan, dan data berukuran kerja.",
-        maks_baris=100_000,
-        maks_variabel=150,
+        maks_baris=250_000,
+        maks_variabel=500,
         fitur=frozenset(_LENGKAP),
     ),
     "institusi": Paket(
@@ -125,8 +135,8 @@ PAKET: dict[str, Paket] = {
             "Untuk kampus dan perusahaan: banyak pengguna, data besar, dan "
             "kebutuhan khusus. Harga dan ketentuan disepakati tersendiri."
         ),
-        maks_baris=1_000_000,
-        maks_variabel=500,
+        maks_baris=2_000_000,
+        maks_variabel=1_000,
         fitur=frozenset(_LENGKAP),
     ),
 }

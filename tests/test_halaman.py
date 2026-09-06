@@ -82,8 +82,20 @@ def test_halaman_terbuka_pada_paket_profesional(sample):
 
 
 def test_data_melebihi_batas_paket_ditolak(sample):
-    """Data yang lebih besar dari batas paket dihentikan dengan pesan yang jelas."""
-    app = _run(ROOT / "views" / "eksplorasi.py", sample, paket="gratis")
+    """Data yang lebih besar dari batas paket dihentikan dengan pesan yang jelas.
+
+    Contoh bawaan sengaja muat pada paket Gratis, jadi datanya digandakan sampai
+    melewati batas - yang diuji adalah penegakannya, bukan ukuran contohnya.
+    """
+    import pandas as pd
+
+    from nalardata import langganan as lg
+
+    ulang = lg.PAKET["gratis"].maks_baris // len(sample) + 2
+    besar = pd.concat([sample] * ulang, ignore_index=True)
+    app = _run(ROOT / "views" / "eksplorasi.py", besar, paket="gratis")
+    app.session_state["dataset_name"] = "data_saya.csv"
+    app.run()
     assert not app.exception
     assert any("membatasi" in w.value for w in app.warning)
 
@@ -167,11 +179,18 @@ def test_contoh_data_tetap_terbuka_pada_paket_gratis(sample):
     assert not any("membatasi" in w.value for w in app.warning)
 
 
-def test_data_pengguna_tetap_dibatasi_paket(sample):
-    """Pengecualian hanya berlaku bagi contoh bawaan, bukan data pengguna."""
+def test_data_pengguna_yang_terlalu_besar_tetap_dibatasi(sample):
+    """Pengecualian hanya berlaku bagi contoh bawaan, bukan data pengguna.
+
+    Contoh bawaan kini muat pada paket Gratis, jadi datanya digandakan agar
+    yang diuji benar-benar penegakan batasnya.
+    """
+    import pandas as pd
+
+    besar = pd.concat([sample] * 4, ignore_index=True)
     app = AppTest.from_file(str(ROOT / "views" / "eksplorasi.py"), default_timeout=180)
     app.session_state["paket_langganan"] = "gratis"
-    app.session_state["dataset"] = sample
+    app.session_state["dataset"] = besar
     app.session_state["dataset_name"] = "data_saya.csv"
     app.run()
     assert not app.exception
