@@ -140,8 +140,12 @@ def muatan_faktor_tunggal(df: pd.DataFrame) -> pd.Series:
 
 
 def cr_ave(muatan: pd.Series) -> tuple[float, float]:
-    """Composite reliability dan average variance extracted dari muatan faktor."""
-    lam = muatan.to_numpy(dtype=float)
+    """Composite reliability dan average variance extracted dari muatan faktor.
+
+    Nilai mutlak muatan dipakai karena butir berarah terbalik bermuatan negatif;
+    tanpa itu jumlah muatan saling meniadakan dan CR jatuh secara keliru.
+    """
+    lam = np.abs(muatan.to_numpy(dtype=float))
     galat = 1 - lam**2
     penyebut = lam.sum() ** 2 + galat.sum()
     cr = float(lam.sum() ** 2 / penyebut) if penyebut else float("nan")

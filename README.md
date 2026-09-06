@@ -14,8 +14,9 @@ interpretasinya dalam bahasa Indonesia.
 | Korelasi & asumsi | Korelasi Pearson/Spearman/Kendall dengan uji signifikansi, korelasi parsial, KMO, Bartlett's test of sphericity, VIF, Box's M, Levene |
 | Reduksi dimensi | PCA (scree plot, biplot, komunalitas, analisis paralel Horn), analisis faktor eksploratori (principal / principal axis factoring / maximum likelihood) dengan rotasi varimax & promax |
 | Pengelompokan | K-Means (elbow, silhouette, Calinski-Harabasz, Davies-Bouldin), hierarki + dendrogram, DBSCAN, profil klaster dengan uji ANOVA |
-| Pemodelan | Regresi linear berganda (koefisien baku, ANOVA, VIF, uji asumsi klasik, stepwise) dan regresi logistik biner (odds ratio, ROC/AUC, matriks konfusi) |
-| Uji beda & hubungan | Analisis diskriminan linear/kuadratik (fungsi kanonik, Wilks' lambda), MANOVA satu jalur + Hotelling's T², korelasi kanonik dengan indeks redundansi |
+| Pemodelan | Regresi linear berganda (koefisien baku, ANOVA, VIF, uji asumsi klasik, stepwise), regresi logistik biner (odds ratio, ROC/AUC, matriks konfusi), dan regresi moderasi/MRA (suku interaksi, ΔR², simple slopes, Johnson-Neyman) |
+| Uji beda & hubungan | Analisis diskriminan linear/kuadratik (fungsi kanonik, Wilks' lambda), MANOVA satu jalur + Hotelling's T², MANCOVA dengan rata-rata terkoreksi dan uji homogenitas kemiringan, korelasi kanonik dengan indeks redundansi |
+| Model struktural | CFA (muatan terstandardisasi, CR/AVE, indeks kecocokan), analisis jalur dengan dekomposisi efek langsung/tidak langsung, SEM penuh, serta uji mediasi bootstrap dengan VAF |
 | Ringkasan kesimpulan | Tiga halaman ringkasan terpisah — Eksekutif, Akademik, Profesional — yang menuliskan satu hasil analisis dengan lampu status, peringkat pendorong, matriks prioritas, tabel bergaya APA, paragraf siap salin, rekomendasi, dan keterbatasan |
 
 ## Menjalankan aplikasi
@@ -93,6 +94,9 @@ lentera_mva/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   cca.py               Korelasi kanonik
   data_entry.py        Pembuatan dan pembersihan data hasil entri manual
   reliability.py       Alpha, omega, CR, AVE, dan validitas diskriminan
+  moderation.py        Regresi moderasi: interaksi, simple slopes, Johnson-Neyman
+  mancova.py           MANCOVA, ANCOVA univariat, rata-rata terkoreksi
+  sem_analysis.py      CFA, analisis jalur, SEM, dan mediasi bootstrap (semopy)
   langganan.py         Paket langganan dan pembatasan fitur
   narrative.py         Penyusun kesimpulan naratif tiga register pembaca
   report_html.py       Laporan HTML mandiri yang dapat diunduh

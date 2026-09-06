@@ -453,3 +453,88 @@ def line_comparison(df: pd.DataFrame, x: str, y_columns: list[str], title: str) 
         )
     fig.update_layout(**LAYOUT, title=title, height=420, xaxis_title=x)
     return fig
+
+
+def moderation_plot(
+    data: pd.DataFrame, x: str, y: str, group: str = "Tingkat moderator"
+) -> go.Figure:
+    """Garis prediksi Y terhadap X pada beberapa tingkat moderator."""
+    fig = px.line(
+        data,
+        x=x,
+        y=y,
+        color=group,
+        color_discrete_sequence=QUALITATIVE,
+        title="Kemiringan Sederhana pada Tiap Tingkat Moderator",
+    )
+    fig.update_traces(line=dict(width=2.5))
+    fig.update_layout(**LAYOUT, height=440, legend_title_text="")
+    return fig
+
+
+def path_diagram(jalur: pd.DataFrame, laten: list[str] | None = None) -> go.Figure:
+    """Diagram jalur sederhana: simpul disusun berlapis menurut arah hubungan."""
+    laten = laten or []
+    simpul = sorted(set(jalur["Dari"]) | set(jalur["Ke"]))
+    # Lapis 0 untuk variabel yang tidak pernah menjadi tujuan (eksogen), lalu seterusnya.
+    tujuan = set(jalur["Ke"])
+    lapis: dict[str, int] = {s: (0 if s not in tujuan else 1) for s in simpul}
+    for _ in range(len(simpul)):
+        berubah = False
+        for _, baris in jalur.iterrows():
+            usul = lapis[baris["Dari"]] + 1
+            if usul > lapis[baris["Ke"]]:
+                lapis[baris["Ke"]] = usul
+                berubah = True
+        if not berubah:
+            break
+
+    posisi: dict[str, tuple[float, float]] = {}
+    for tingkat in sorted(set(lapis.values())):
+        anggota = [s for s in simpul if lapis[s] == tingkat]
+        for i, nama in enumerate(anggota):
+            posisi[nama] = (tingkat, i - (len(anggota) - 1) / 2)
+
+    fig = go.Figure()
+    for _, baris in jalur.iterrows():
+        x0, y0 = posisi[baris["Dari"]]
+        x1, y1 = posisi[baris["Ke"]]
+        signifikan = str(baris.get("Signifikan", "Ya")) == "Ya"
+        fig.add_annotation(
+            x=x1, y=y1, ax=x0, ay=y0, xref="x", yref="y", axref="x", ayref="y",
+            showarrow=True, arrowhead=3, arrowsize=1.2, arrowwidth=2,
+            arrowcolor=QUALITATIVE[0] if signifikan else TINTA_REDUP,
+            opacity=1.0 if signifikan else 0.5,
+        )
+        fig.add_annotation(
+            x=(x0 + x1) / 2, y=(y0 + y1) / 2 + 0.12,
+            text=f"{float(baris['Estimasi baku']):.2f}".replace(".", ","),
+            showarrow=False, font=dict(size=11, color=TINTA),
+            bgcolor="rgba(255,255,255,.85)",
+        )
+
+    fig.add_trace(
+        go.Scatter(
+            x=[posisi[s][0] for s in simpul],
+            y=[posisi[s][1] for s in simpul],
+            mode="markers+text",
+            text=simpul,
+            textposition="bottom center",
+            marker=dict(
+                size=26,
+                color=[QUALITATIVE[2] if s in laten else "#ffffff" for s in simpul],
+                line=dict(width=2, color=QUALITATIVE[0]),
+                symbol=["circle" if s in laten else "square" for s in simpul],
+            ),
+            hoverinfo="text",
+            showlegend=False,
+        )
+    )
+    fig.update_layout(
+        **LAYOUT,
+        title="Diagram Jalur (angka = koefisien baku)",
+        height=420,
+        xaxis=dict(visible=False, range=[-0.6, max(lapis.values()) + 0.6]),
+        yaxis=dict(visible=False),
+    )
+    return fig

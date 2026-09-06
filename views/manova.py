@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from lentera_mva import assumptions, descriptive, manova, plots, preprocessing, ui
+from lentera_mva import assumptions, descriptive, mancova, manova, plots, preprocessing, ui
 
 ui.butuh_fitur("uji_beda")
 ui.page_setup(
@@ -42,8 +42,8 @@ except Exception as exc:  # noqa: BLE001 - kesalahan model ditampilkan ke penggu
     st.error(f"MANOVA gagal dijalankan: {exc}")
     st.stop()
 
-tab_main, tab_uni, tab_desc, tab_assum = st.tabs(
-    ["Uji Multivariat", "ANOVA Lanjutan", "Deskriptif Kelompok", "Asumsi"]
+tab_main, tab_uni, tab_cov, tab_desc, tab_assum = st.tabs(
+    ["Uji Multivariat", "ANOVA Lanjutan", "MANCOVA", "Deskriptif Kelompok", "Asumsi"]
 )
 
 with tab_main:
@@ -78,6 +78,64 @@ with tab_uni:
     )
     var = st.selectbox("Visualisasikan variabel", dependents)
     st.plotly_chart(plots.box_by_group(df, var, factor), width="stretch")
+
+with tab_cov:
+    st.caption(
+        "MANCOVA menjawab pertanyaan yang tidak dapat dijawab MANOVA: apakah kelompok "
+        "tetap berbeda setelah pengaruh variabel lain disingkirkan. Kovariat lazimnya "
+        "variabel yang sudah berbeda sejak awal antar kelompok — misalnya usia."
+    )
+    kandidat_kovariat = [c for c in numeric_cols if c not in dependents]
+    kovariat = st.multiselect(
+        "Kovariat yang dikendalikan",
+        kandidat_kovariat,
+        default=kandidat_kovariat[:1],
+        key="mancova_kovariat",
+    )
+    if not kovariat:
+        st.info("Pilih minimal satu kovariat. Tanpa kovariat, gunakan tab Uji Multivariat.")
+    else:
+        try:
+            hasil_cov = mancova.run_mancova(df, dependents, factor, kovariat)
+        except ValueError as exc:
+            st.error(str(exc))
+        else:
+            st.subheader("Uji multivariat setelah kovariat dikendalikan")
+            ui.show_table(hasil_cov.multivariate, "mancova_multivariat.csv")
+            if hasil_cov.signifikan():
+                st.success(hasil_cov.conclusion(), icon=":material/check_circle:")
+            else:
+                st.info(hasil_cov.conclusion(), icon=":material/info:")
+
+            st.subheader("Pengaruh kovariat")
+            ui.show_table(hasil_cov.pengaruh_kovariat, "mancova_kovariat.csv")
+            ui.interpretation(
+                "Kovariat yang signifikan memang perlu dikendalikan; bila tidak "
+                "signifikan, ia hanya mengurangi derajat bebas tanpa memperbaiki apa "
+                "pun — pertimbangkan mengeluarkannya dari model."
+            )
+
+            st.subheader("ANCOVA univariat")
+            ui.show_table(hasil_cov.univariate, "mancova_univariat.csv")
+
+            st.subheader("Rata-rata terkoreksi")
+            ui.show_table(mancova.bandingkan_rata(hasil_cov), "mancova_rata.csv")
+            ui.interpretation(
+                "Rata-rata terkoreksi adalah rata-rata tiap kelompok seandainya seluruh "
+                "kelompok memiliki nilai kovariat yang sama. Selisih besar terhadap "
+                "rata-rata mentah menandakan perbedaan antar kelompok sebagian berasal "
+                "dari kovariat, bukan dari kelompoknya sendiri."
+            )
+
+            st.subheader("Asumsi kemiringan regresi homogen")
+            ui.show_table(hasil_cov.homogenitas_slope, "mancova_slope.csv")
+            if not hasil_cov.slope_homogen():
+                st.warning(
+                    "Kemiringan regresi kovariat berbeda antar kelompok, sehingga "
+                    "asumsi MANCOVA dilanggar. Artinya pengaruh kovariat sendiri "
+                    "bergantung pada kelompok — pertimbangkan analisis moderasi "
+                    "alih-alih memaksakan MANCOVA."
+                )
 
 with tab_desc:
     ui.show_table(result.group_sizes, "manova_ukuran_kelompok.csv")

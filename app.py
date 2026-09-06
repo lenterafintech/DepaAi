@@ -29,9 +29,13 @@ PAGES = {
     ],
     "Pemodelan & Uji Beda": [
         st.Page("views/regresi.py", title="Regresi", icon=":material/trending_up:"),
+        st.Page("views/moderasi.py", title="Regresi Moderasi (MRA)", icon=":material/alt_route:"),
         st.Page("views/diskriminan.py", title="Analisis Diskriminan", icon=":material/rule:"),
         st.Page("views/manova.py", title="MANOVA", icon=":material/balance:"),
         st.Page("views/korelasi_kanonik.py", title="Korelasi Kanonik", icon=":material/compare_arrows:"),
+    ],
+    "Model Struktural": [
+        st.Page("views/sem.py", title="CFA, Jalur & SEM", icon=":material/account_tree:"),
     ],
     "Akun": [
         st.Page("views/akun.py", title="Akun & Langganan", icon=":material/workspace_premium:"),

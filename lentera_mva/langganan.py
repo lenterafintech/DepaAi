@@ -109,15 +109,20 @@ def periksa_fitur(paket: Paket, kode_fitur: str) -> Pelanggaran | None:
     )
 
 
+def _ribuan(angka: int) -> str:
+    """Angka dengan titik sebagai pemisah ribuan, tanpa menyentuh tanda baca lain."""
+    return f"{int(angka):,}".replace(",", ".")
+
+
 def periksa_ukuran(paket: Paket, n_baris: int, n_kolom: int) -> Pelanggaran | None:
     """Periksa apakah ukuran data masih di dalam batas paket."""
     if n_baris > paket.maks_baris:
         return Pelanggaran(
             jenis="baris",
             pesan=(
-                f"Data berisi {n_baris:,} baris, sedangkan paket {paket.nama} membatasi "
-                f"{paket.maks_baris:,} baris."
-            ).replace(",", "."),
+                f"Data berisi {_ribuan(n_baris)} baris, sedangkan paket {paket.nama} "
+                f"membatasi {_ribuan(paket.maks_baris)} baris."
+            ),
             saran_paket=paket_terkecil_untuk_ukuran(n_baris, n_kolom),
         )
     if n_kolom > paket.maks_variabel:
@@ -154,7 +159,12 @@ def paket_terkecil_untuk_ukuran(n_baris: int, n_kolom: int) -> str | None:
 def ringkas_paket(paket: Paket) -> list[tuple[str, str]]:
     """Daftar (label, nilai) untuk ditampilkan pada kartu paket."""
     return [
-        ("Harga", "Gratis" if not paket.harga_bulanan else f"Rp {paket.harga_bulanan:,}/bulan".replace(",", ".")),
-        ("Batas data", f"{paket.maks_baris:,} baris · {paket.maks_variabel} kolom".replace(",", ".")),
+        (
+            "Harga",
+            "Gratis"
+            if not paket.harga_bulanan
+            else f"Rp {_ribuan(paket.harga_bulanan)}/bulan",
+        ),
+        ("Batas data", f"{_ribuan(paket.maks_baris)} baris · {paket.maks_variabel} kolom"),
         ("Metode", f"{len(paket.fitur)} dari {len(FITUR)} fitur"),
     ]

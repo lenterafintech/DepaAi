@@ -114,7 +114,7 @@ with tab_banyak:
     )
     tebakan = rb.tebak_konstruk(numerik)
     if not tebakan:
-        tebakan = {"Konstruk 1": numerik[: min(3, len(numerik))]}
+        tebakan = {"konstruk1": numerik[: min(3, len(numerik))]}
     if "rel_konstruk" not in st.session_state:
         st.session_state["rel_konstruk"] = list(tebakan)
 
