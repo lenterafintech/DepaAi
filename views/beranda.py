@@ -62,7 +62,8 @@ tab_upload, tab_sample, tab_proyek = st.tabs(
 
 with tab_upload:
     uploaded = st.file_uploader(
-        "Berkas CSV, TSV, atau Excel", type=["csv", "tsv", "txt", "xlsx", "xlsm", "xls"]
+        "Berkas CSV, TSV, Excel, atau SPSS",
+        type=["csv", "tsv", "txt", "xlsx", "xlsm", "xls", "sav", "zsav"],
     )
     if uploaded is not None:
         sheet: str | int = 0

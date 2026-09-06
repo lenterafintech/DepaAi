@@ -60,10 +60,11 @@ JALUR_FONT = [
 class Blok:
     """Satu potongan isi laporan, bebas dari format berkasnya."""
 
-    jenis: str  # judul | subjudul | paragraf | poin | tabel | meta | catatan
+    jenis: str  # judul | subjudul | paragraf | poin | tabel | gambar | meta | catatan
     teks: str = ""
     poin: list[str] = field(default_factory=list)
     tabel: pd.DataFrame | None = None
+    gambar: bytes | None = None
     catatan: str = ""
 
 
@@ -131,6 +132,8 @@ def susun_blok(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = Fal
         Blok("paragraf", laporan.subheadline),
     ]
 
+    gambar = {nama: isi for nama, isi in _grafik(laporan)}
+
     if laporan.lampu:
         blok.append(Blok("subjudul", "Status pemeriksaan"))
         blok.append(
@@ -146,6 +149,8 @@ def susun_blok(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = Fal
                 ),
             )
         )
+        if "Status pemeriksaan" in gambar:
+            blok.append(Blok("gambar", gambar=gambar["Status pemeriksaan"]))
 
     if laporan.pendorong:
         blok.append(Blok("subjudul", "Peringkat pendorong"))
@@ -165,6 +170,8 @@ def susun_blok(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = Fal
                 ),
             )
         )
+        if "Peringkat pendorong" in gambar:
+            blok.append(Blok("gambar", gambar=gambar["Peringkat pendorong"]))
 
     blok.append(Blok("subjudul", "Temuan"))
     if lengkap:
@@ -291,6 +298,16 @@ def _dokumen(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> Dokum
     return dari_laporan(sumber, pembaca, lengkap)
 
 
+def _grafik(laporan: Laporan) -> list[tuple[str, bytes]]:
+    """Grafik statis untuk laporan; kegagalannya tidak menggagalkan ekspor."""
+    try:
+        from lentera_mva.grafik import grafik_laporan
+
+        return grafik_laporan(laporan)
+    except Exception:  # noqa: BLE001 - matplotlib tak ada atau render gagal
+        return []
+
+
 def _aman_pdf(teks: str) -> str:
     """Ganti lambang yang tidak ada pada huruf bawaan PDF dengan padanan ASCII."""
     hasil = str(teks)
@@ -332,6 +349,10 @@ def ke_docx(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
             paragraf = dok.add_paragraph(blok.catatan)
             paragraf.runs[0].italic = True
             paragraf.runs[0].font.size = Pt(9)
+        elif blok.jenis == "gambar" and blok.gambar:
+            from docx.shared import Inches
+
+            dok.add_picture(io.BytesIO(blok.gambar), width=Inches(6.2))
         elif blok.jenis == "tabel" and blok.tabel is not None:
             tabel = blok.tabel.fillna("")
             objek = dok.add_table(rows=1, cols=len(tabel.columns))
@@ -469,6 +490,18 @@ def ke_pdf(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
                 isi.append(Paragraph("• " + teks(butir), gaya_isi))
         elif blok.jenis == "catatan" and blok.catatan:
             isi.append(Paragraph(teks(blok.catatan), gaya_meta))
+        elif blok.jenis == "gambar" and blok.gambar:
+            from reportlab.platypus import Image as GambarPDF
+
+            try:
+                gambar_pdf = GambarPDF(io.BytesIO(blok.gambar))
+                skala = dokumen.width / gambar_pdf.imageWidth
+                gambar_pdf.drawWidth = dokumen.width
+                gambar_pdf.drawHeight = gambar_pdf.imageHeight * skala
+                isi.append(gambar_pdf)
+                isi.append(Spacer(1, 10))
+            except Exception:  # noqa: BLE001 - gambar rusak dilewati
+                pass
         elif blok.jenis == "tabel" and blok.tabel is not None:
             tabel = blok.tabel.fillna("")
             data = [[Paragraph(f"<b>{teks(k)}</b>", gaya_meta) for k in tabel.columns]]
@@ -655,6 +688,7 @@ def _dok_ke_pptx(dokumen: Dokumen) -> bytes:
 
     # Blok dikelompokkan menurut subjudul terdekat agar tiap bagian menjadi satu slide.
     bagian: dict[str, list[str]] = {}
+    slide_gambar: list[tuple[str, bytes]] = []
     tajuk = dokumen.judul
     for b in dokumen.blok:
         if b.jenis == "subjudul" and b.teks:
@@ -664,6 +698,8 @@ def _dok_ke_pptx(dokumen: Dokumen) -> bytes:
             bagian.setdefault(tajuk, []).append(b.teks)
         elif b.jenis == "poin" and b.poin:
             bagian.setdefault(tajuk, []).extend(b.poin)
+        elif b.jenis == "gambar" and b.gambar:
+            slide_gambar.append((tajuk, b.gambar))
         elif b.jenis == "tabel" and b.tabel is not None:
             bagian.setdefault(tajuk, []).append(
                 f"[tabel {b.tabel.shape[0]} baris x {b.tabel.shape[1]} kolom - "
@@ -673,6 +709,17 @@ def _dok_ke_pptx(dokumen: Dokumen) -> bytes:
     for judul, butir in bagian.items():
         if butir:
             slide_isi(judul, butir)
+
+    # Grafik mendapat slide sendiri agar terbaca pada layar presentasi.
+    for judul, isi_gambar in slide_gambar:
+        s = presentasi.slides.add_slide(presentasi.slide_layouts[5])
+        s.shapes.title.text = judul
+        try:
+            s.shapes.add_picture(
+                io.BytesIO(isi_gambar), Inches(0.6), Inches(1.5), width=Inches(12.1)
+            )
+        except Exception:  # noqa: BLE001 - gambar rusak dilewati
+            pass
 
     penampung = io.BytesIO()
     presentasi.save(penampung)
@@ -696,6 +743,13 @@ def _dok_ke_html(dokumen: Dokumen) -> bytes:
             bagian.append(f"<ul>{butir}</ul>")
         elif b.jenis == "catatan" and b.catatan:
             bagian.append(f'<p class="catatan">{escape(b.catatan)}</p>')
+        elif b.jenis == "gambar" and b.gambar:
+            import base64
+
+            sandi = base64.b64encode(b.gambar).decode("ascii")
+            bagian.append(
+                f'<img alt="Grafik laporan" src="data:image/png;base64,{sandi}">'
+            )
         elif b.jenis == "tabel" and b.tabel is not None:
             tabel = b.tabel.fillna("")
             kepala = "".join(f"<th>{escape(str(k))}</th>" for k in tabel.columns)
@@ -735,6 +789,8 @@ ul{{margin:0 0 1rem;padding-left:1.3rem;color:var(--tinta2)}}
 li{{margin-bottom:.4rem}}
 .tabel{{overflow-x:auto;border:1px solid var(--garis);border-radius:8px;
 margin-bottom:.6rem}}
+img{{max-width:100%;height:auto;display:block;margin:0 0 1rem;border:1px solid var(--garis);
+border-radius:8px;background:#fff}}
 table{{border-collapse:collapse;width:100%;font-size:.84rem}}
 th{{background:var(--samar);text-align:left;padding:8px 11px;font-size:.72rem;
 text-transform:uppercase;letter-spacing:.04em;color:var(--redup);
@@ -763,6 +819,8 @@ def _dok_ke_markdown(dokumen: Dokumen) -> bytes:
             baris += [f"- {p}" for p in b.poin] + [""]
         elif b.jenis == "catatan" and b.catatan:
             baris += [f"> {b.catatan}", ""]
+        elif b.jenis == "gambar" and b.gambar:
+            baris += ["*(grafik tersedia pada berkas Word, PDF, PowerPoint, dan HTML)*", ""]
         elif b.jenis == "tabel" and b.tabel is not None:
             baris += [tabel_markdown(b.tabel), ""]
             if b.catatan:
@@ -783,6 +841,9 @@ def _dok_ke_json(dokumen: Dokumen) -> bytes:
                 "tabel": (
                     None if b.tabel is None else b.tabel.fillna("").to_dict(orient="records")
                 ),
+                # Gambar tidak disematkan ke JSON agar berkasnya tetap ringan dan
+                # dapat dibaca; keberadaannya cukup ditandai.
+                "ada_gambar": bool(b.gambar),
             }
             for b in dokumen.blok
         ],

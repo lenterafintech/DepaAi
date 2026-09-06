@@ -12,6 +12,7 @@ interpretasinya dalam bahasa Indonesia.
 | Entri data | Membuat tabel baru langsung di aplikasi (definisi kolom, skala Likert, butir kuesioner bernomor), menyunting data aktif, memeriksa kelengkapan isian, serta meringkas beberapa butir menjadi satu variabel konstruk (rata-rata, jumlah, atau skor baku) dengan aturan butir minimal terisi |
 | Instrumen | Alpha Cronbach dengan statistik per butir dan alpha-if-deleted, reliabilitas belah-dua Spearman-Brown, omega McDonald, composite reliability, AVE, serta validitas diskriminan Fornell-Larcker dan HTMT |
 | Audit kualitas data | Satu keputusan tentang kesiapan data: nilai hilang bertingkat, baris kembar, kolom kosong dan tidak beragam, angka yang tersimpan sebagai teks, nilai tak hingga, pencilan, kemencengan, dan kategori yang tidak seragam — masing-masing disertai dampak dan saran, tanpa mengubah data |
+| Impor data | CSV, TSV, Excel, dan **SPSS `.sav`** — label nilai SPSS diterapkan apa adanya, sehingga kolom kategori tidak muncul sebagai angka tanpa makna |
 | Eksplorasi | Statistik deskriptif, tabel frekuensi, uji normalitas (Shapiro-Wilk, D'Agostino, KS), normalitas multivariat Mardia, pencilan IQR & jarak Mahalanobis |
 | Korelasi & asumsi | Korelasi Pearson/Spearman/Kendall dengan uji signifikansi, korelasi parsial, KMO, Bartlett's test of sphericity, VIF, Box's M, Levene |
 | Reduksi dimensi | PCA (scree plot, biplot, komunalitas, analisis paralel Horn), analisis faktor eksploratori (principal / principal axis factoring / maximum likelihood) dengan rotasi varimax & promax |
@@ -215,6 +216,23 @@ secara terbuka. Rencana pembayaran memakai Doku; hosting memakai VPS Hostinger.
 Yang belum ada pada lapisan akun, dan diperlukan sebelum aplikasi dibuka untuk
 umum: verifikasi alamat surel, pemulihan kata sandi, dan pembatasan percobaan masuk.
 
+### Grafik pada berkas laporan
+
+Grafik di layar dibuat dengan Plotly, tetapi Plotly memerlukan `kaleido` untuk
+menghasilkan gambar. Berkas Word, PDF, dan PowerPoint hanya menerima gambar, sehingga
+grafik untuk laporan digambar ulang memakai **matplotlib** — menghindari satu
+dependensi tanpa mengorbankan apa pun, karena media cetak memang tidak punya
+interaksi yang hilang.
+
+Dua grafik ikut ke laporan: **status pemeriksaan** dan **peringkat pendorong**. Warnanya
+memakai palet yang sama dengan grafik di layar, yang sudah lolos pemeriksaan
+keterbacaan bagi pembaca dengan buta warna. Arah pengaruh dibawa warna **sekaligus**
+tanda angkanya, sehingga tidak ada makna yang hilang bila warnanya tidak terbaca.
+
+Word, PDF, PowerPoint, dan HTML memuat gambarnya (HTML menyematkannya sebagai data URI
+agar berkasnya tetap mandiri). Markdown dan JSON hanya menandai keberadaannya supaya
+berkasnya tetap ringan dan dapat dibaca.
+
 ## Format data yang didukung
 
 - CSV/TSV/TXT — pemisah kolom dideteksi otomatis (koma, titik koma, atau tab)
@@ -244,6 +262,7 @@ lentera_mva/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   data_entry.py        Pembuatan data, pembersihan, dan variabel gabungan dari butir
   reliability.py       Alpha, Spearman-Brown, omega, CR, AVE, Fornell-Larcker, HTMT
   audit.py             Audit kualitas data: temuan bertingkat beserta dampak dan sarannya
+  grafik.py            Grafik statis matplotlib untuk disisipkan ke berkas laporan
   moderation.py        Regresi moderasi: interaksi, simple slopes, Johnson-Neyman
   mancova.py           MANCOVA, ANCOVA univariat, rata-rata terkoreksi
   sem_analysis.py      CFA, analisis jalur, SEM, estimator ML/FIML/DWLS, SRMR, mediasi bootstrap

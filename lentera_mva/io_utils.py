@@ -1,4 +1,4 @@
-"""Pemuatan berkas data (CSV/TSV/Excel) dan ringkasan strukturnya."""
+"""Pemuatan berkas data (CSV/TSV/Excel/SPSS) dan ringkasan strukturnya."""
 
 from __future__ import annotations
 
@@ -9,7 +9,10 @@ import pandas as pd
 
 CSV_SUFFIXES = {".csv", ".tsv", ".txt"}
 EXCEL_SUFFIXES = {".xlsx", ".xlsm", ".xls"}
-SUPPORTED_SUFFIXES = CSV_SUFFIXES | EXCEL_SUFFIXES
+# Banyak peneliti di Indonesia menerima data dalam format SPSS, sehingga .sav
+# didukung langsung agar tidak perlu dikonversi lebih dulu.
+SPSS_SUFFIXES = {".sav", ".zsav"}
+SUPPORTED_SUFFIXES = CSV_SUFFIXES | EXCEL_SUFFIXES | SPSS_SUFFIXES
 
 
 class UnsupportedFileError(ValueError):
@@ -37,7 +40,9 @@ def load_table(
     titik koma tetap terbaca.
     """
     suffix = _suffix(source, filename)
-    if suffix in EXCEL_SUFFIXES:
+    if suffix in SPSS_SUFFIXES:
+        df = _baca_spss(source)
+    elif suffix in EXCEL_SUFFIXES:
         df = pd.read_excel(source, sheet_name=sheet_name)
     elif suffix in CSV_SUFFIXES or suffix == "":
         df = pd.read_csv(source, sep=None, engine="python", decimal=decimal)
@@ -47,6 +52,52 @@ def load_table(
         )
     df.columns = [str(c).strip() for c in df.columns]
     return df
+
+
+def _baca_spss(source: str | Path | BinaryIO) -> pd.DataFrame:
+    """Baca berkas SPSS .sav beserta label nilainya.
+
+    Label nilai SPSS dipakai apa adanya (misalnya 1 menjadi "Laki-laki") karena
+    itulah yang dilihat peneliti di SPSS; tanpa itu, kolom kategori muncul sebagai
+    angka tanpa makna dan mudah keliru diperlakukan sebagai variabel numerik.
+    """
+    try:
+        import pyreadstat
+    except ImportError as exc:  # pragma: no cover - hanya bila paket dicopot
+        raise UnsupportedFileError(
+            "Membaca berkas SPSS memerlukan paket pyreadstat. Pasang dengan "
+            "'pip install pyreadstat', atau simpan data Anda sebagai CSV."
+        ) from exc
+
+    # pyreadstat menuntut jalur berkas, sedangkan unggahan Streamlit berupa aliran
+    # dalam memori; aliran itu disalin dulu ke berkas sementara.
+    if hasattr(source, "read"):
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".sav", delete=False) as sementara:
+            sementara.write(source.read())
+            jalur = sementara.name
+        try:
+            df, _ = pyreadstat.read_sav(jalur, apply_value_formats=True)
+        finally:
+            Path(jalur).unlink(missing_ok=True)
+    else:
+        df, _ = pyreadstat.read_sav(str(source), apply_value_formats=True)
+    return df
+
+
+def meta_spss(source: str | Path) -> pd.DataFrame:
+    """Label variabel dari berkas SPSS, berguna sebagai kamus data."""
+    import pyreadstat
+
+    _, meta = pyreadstat.read_sav(str(source), metadataonly=True)
+    label = meta.column_names_to_labels or {}
+    return pd.DataFrame(
+        {
+            "Kolom": list(meta.column_names),
+            "Label": [str(label.get(k) or "") for k in meta.column_names],
+        }
+    )
 
 
 def profile(df: pd.DataFrame) -> pd.DataFrame:
