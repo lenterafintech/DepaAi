@@ -309,3 +309,22 @@ def test_paket_zip_memuat_seluruh_sintaks_dan_petunjuknya(laporan):
     petunjuk = arsip.read("sintaks/BACA_DULU.txt").decode("utf-8")
     assert "TIDAK disertakan" in petunjuk
     assert ".nalardata" in petunjuk
+
+
+def test_blok_poin_yang_salah_diisi_akan_hilang_dari_seluruh_format():
+    """Butir daftar disimpan di ruas ``poin``, bukan ``teks``.
+
+    Blok yang diisi lewat ruas yang keliru tidak menimbulkan galat — ia hanya
+    lenyap dari keluaran, dan Bab V pernah terbit nyaris kosong karenanya.
+    """
+    from nalardata.ekspor import Blok, Dokumen, bangun
+
+    benar = Dokumen(
+        judul="Uji",
+        blok=[Blok("judul", "Uji"), Blok("poin", poin=["butir pertama", "butir kedua"])],
+    )
+    keliru = Dokumen(
+        judul="Uji", blok=[Blok("judul", "Uji"), Blok("poin", "butir pertama")]
+    )
+    assert b"butir pertama" in bangun(benar, "md")
+    assert b"butir pertama" not in bangun(keliru, "md")

@@ -387,3 +387,24 @@ def test_halaman_bawaan_hanya_satu():
                 if kata_kunci.arg == "default" and getattr(kata_kunci.value, "value", False):
                     bawaan += 1
     assert bawaan == 1
+
+
+def test_halaman_terkunci_memakai_nama_halaman_bukan_keterangan_fiturnya(sample):
+    """Keterangan fitur adalah kalimat, bukan nama halaman."""
+    app = _run(ROOT / "views" / "sidang.py", sample, paket="gratis")
+    assert not app.exception
+    tajuk = " ".join(md.value for md in app.markdown) + " ".join(
+        h.value for h in getattr(app, "header", [])
+    )
+    assert "latihan menjawab pertanyaan penguji" not in tajuk.split("—")[0][:80]
+    assert any("Mahasiswa" in c.value for c in app.caption)
+
+
+def test_halaman_akademik_menawarkan_kerangka_naskah(sample):
+    """Tajuk bagian dirender lewat st.html, jadi yang diperiksa isinya."""
+    app = _run(ROOT / "views" / "ringkasan_akademik.py", sample)
+    assert not app.exception
+    caption = [c.value for c in app.caption]
+    assert any("bukan naskah jadi" in c for c in caption)
+    assert any("harus Anda tulis sendiri" in c for c in caption)
+    assert any("naskah_bab" in c for c in caption), "nama berkas naskah harus tampil"

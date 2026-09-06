@@ -973,6 +973,8 @@ def nama_berkas(
         ragam = (
             f"laporan_lengkap_{pembaca}" if lengkap else f"ringkasan_{pembaca}"
         )
+    if isinstance(sumber, Dokumen):
+        ragam = sumber.nama_dasar or ragam
     dasar = str(getattr(sumber, "dataset", "nalardata")).rsplit(".", 1)[0]
     bersih = "".join(c if c.isalnum() or c in "-_" else "_" for c in dasar)[:40].strip("_")
-    return f"{bersih or 'lentera'}_{ragam}.{FORMAT[kode_format].ekstensi}"
+    return f"{bersih or 'nalardata'}_{ragam}.{FORMAT[kode_format].ekstensi}"

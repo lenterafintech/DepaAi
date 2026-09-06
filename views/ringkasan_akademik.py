@@ -6,7 +6,8 @@ from html import escape
 
 import streamlit as st
 
-from nalardata import kesimpulan_ui as kui
+from nalardata import ekspor, kesimpulan_ui as kui
+from nalardata import naskah as nk
 from nalardata import sumber as sm
 from nalardata import ui
 
@@ -71,5 +72,73 @@ if lengkap:
         st.markdown(f"- {rujukan}")
 
     kui.analisis_yang_dilewati(laporan)
+
+# --------------------------------------------------------------------------- #
+# Naskah skripsi
+# --------------------------------------------------------------------------- #
+
+ui.judul_bagian(
+    "Kerangka naskah skripsi",
+    "Bahan yang sudah dikumpulkan aplikasi disusun ulang mengikuti urutan bab, "
+    "bukan urutan analisis.",
+    kicker="Naskah",
+)
+
+if not ui.paket_aktif().punya("unduh_laporan"):
+    st.info(
+        "Unduhan naskah tersedia mulai paket Mahasiswa & Pengajar.",
+        icon=":material/lock:",
+    )
+else:
+    st.caption(
+        "Yang dihasilkan **kerangka berisi**, bukan naskah jadi. Pembahasan teoretis "
+        "dan kaitan dengan penelitian terdahulu harus Anda tulis sendiri — bagian "
+        "itulah yang dinilai penguji."
+    )
+    kiri, tengah, kanan = st.columns([2, 1.4, 1.4])
+    gaya = kiri.selectbox(
+        "Bagian naskah",
+        list(nk.GAYA),
+        format_func=lambda k: nk.GAYA[k],
+        key="naskah_gaya",
+    )
+    format_naskah = tengah.selectbox(
+        "Format berkas",
+        ["docx", "pdf", "html", "md"],
+        format_func=lambda k: ekspor.FORMAT[k].nama,
+        key="naskah_format",
+    )
+
+    try:
+        dokumen = nk.susun(laporan, gaya, ui.penelitian(), ui.kamus())
+        berkas = ekspor.bangun(dokumen, format_naskah)
+    except Exception as galat:  # noqa: BLE001 - kegagalan ekspor tidak menghentikan halaman
+        st.error(f"Naskah gagal disusun: {galat}", icon=":material/error:")
+    else:
+        nama = ekspor.nama_berkas(dokumen, format_naskah)
+        kanan.download_button(
+            f"Unduh {nk.GAYA[gaya].split('—')[0].strip()}",
+            berkas,
+            file_name=nama,
+            mime=ekspor.FORMAT[format_naskah].mime,
+            type="primary",
+            width="stretch",
+            key=f"unduh_naskah_{gaya}_{format_naskah}",
+        )
+        kanan.caption(f"`{nama}`")
+
+        with st.expander("Pratinjau isi", expanded=False):
+            for blok in dokumen.blok[:24]:
+                if blok.jenis == "subjudul":
+                    st.markdown(f"**{blok.teks}**")
+                elif blok.jenis == "catatan":
+                    st.caption(blok.teks)
+                elif blok.jenis == "poin" and blok.poin:
+                    for butir in blok.poin[:6]:
+                        st.markdown(f"- {butir}")
+                elif blok.jenis == "tabel" and blok.tabel is not None:
+                    st.dataframe(blok.tabel, width="stretch", hide_index=True)
+                elif blok.teks and blok.jenis != "judul":
+                    st.write(blok.teks)
 
 kui.unduhan(laporan, "akademik", lengkap)

@@ -15,7 +15,7 @@ from nalardata import formatting, kamus as km, kesimpulan_ui as kui, sidang as s
 
 JAWABAN = "sidang_jawaban"
 
-ui.butuh_fitur("ringkasan_akademik")
+ui.butuh_fitur("sidang", "Simulasi Sidang")
 ui.page_setup(
     "Simulasi Sidang",
     "Laporan",

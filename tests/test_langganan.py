@@ -136,3 +136,15 @@ def test_batas_paket_naik_menurut_tingkatannya():
 def test_data_yang_terlalu_besar_tetap_ditolak():
     pelanggaran = lg.periksa_ukuran(lg.ambil_paket("gratis"), 5_000, 10)
     assert pelanggaran is not None
+
+
+def test_simulasi_sidang_punya_kode_fiturnya_sendiri():
+    """Halaman yang menumpang kode fitur lain menampilkan pesan kunci yang keliru.
+
+    Simulasi Sidang sempat memakai kode 'ringkasan_akademik', sehingga pengguna
+    paket Gratis yang membukanya diberi tahu bahwa "Ringkasan akademik tidak
+    termasuk paket Gratis" - halaman yang sama sekali berbeda.
+    """
+    assert "sidang" in lg.FITUR
+    assert not lg.ambil_paket("gratis").punya("sidang")
+    assert lg.ambil_paket("mahasiswa").punya("sidang")

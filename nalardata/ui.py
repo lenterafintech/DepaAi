@@ -332,14 +332,21 @@ def _ajakan_naik(pelanggaran: langganan.Pelanggaran) -> None:
         )
 
 
-def butuh_fitur(kode_fitur: str) -> None:
-    """Hentikan halaman bila fitur tidak termasuk paket yang sedang aktif."""
+def butuh_fitur(kode_fitur: str, judul: str = "") -> None:
+    """Hentikan halaman bila fitur tidak termasuk paket yang sedang aktif.
+
+    ``judul`` dipakai sebagai judul halaman terkunci. Tanpa itu, keterangan fitur
+    yang panjang dipakai apa adanya sebagai tajuk — "Simulasi sidang: latihan
+    menjawab pertanyaan penguji" terbaca sebagai kalimat, bukan nama halaman.
+    """
     pelanggaran = langganan.periksa_fitur(paket_aktif(), kode_fitur)
     if pelanggaran is not None:
+        keterangan = langganan.FITUR.get(kode_fitur, "")
         page_setup(
-            langganan.FITUR.get(kode_fitur, "Fitur terkunci"),
+            judul or keterangan.split(":")[0].strip() or "Fitur terkunci",
             "Terkunci",
-            "Halaman ini belum termasuk dalam paket Anda.",
+            f"{keterangan} — belum termasuk dalam paket Anda." if keterangan
+            else "Halaman ini belum termasuk dalam paket Anda.",
         )
         _ajakan_naik(pelanggaran)
         st.stop()

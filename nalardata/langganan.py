@@ -38,6 +38,7 @@ FITUR = {
     "entri_data": "Membuat dan menyunting data di aplikasi",
     "keranjang": "Mengumpulkan hasil analisis menjadi satu laporan",
     "unduh_laporan": "Ekspor laporan (Word, PDF, Excel, PPT, HTML, sintaks)",
+    "sidang": "Simulasi sidang: latihan menjawab pertanyaan penguji",
 }
 
 
@@ -84,6 +85,7 @@ _AKADEMIK = _DASAR | {
     "sem",
     "ringkasan_akademik",
     "unduh_laporan",
+    "sidang",
 }
 _LENGKAP = set(FITUR)
 
