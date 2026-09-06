@@ -9,8 +9,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from mv_statlab import narrative as nr
-from mv_statlab.report_html import laporan_html
+from nalardata import narrative as nr
+from nalardata.report_html import laporan_html
 
 ROOT = Path(__file__).resolve().parents[1]
 NUMERIK = [
@@ -217,7 +217,7 @@ def test_diskriminan_tanpa_validasi_silang(data):
 
 
 def test_laporan_html_gabungan_memuat_ketiga_pembaca(hasil):
-    from mv_statlab.report_html import laporan_html_semua
+    from nalardata.report_html import laporan_html_semua
 
     _, laporan = hasil
     html = laporan_html_semua(laporan)

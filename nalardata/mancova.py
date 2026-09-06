@@ -21,7 +21,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from statsmodels.multivariate.manova import MANOVA
 
-from mv_statlab import preprocessing
+from nalardata import preprocessing
 
 
 @dataclass

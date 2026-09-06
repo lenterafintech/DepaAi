@@ -10,8 +10,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from mv_statlab import keranjang as kr
-from mv_statlab import proyek as pr
+from nalardata import keranjang as kr
+from nalardata import proyek as pr
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -96,8 +96,8 @@ def test_ringkas_menyebut_isi_utama(data, isi_keranjang):
 
 
 def test_nama_berkas_proyek_dibersihkan():
-    assert pr.nama_berkas_proyek("contoh data/nasabah.csv") == "contoh_data_nasabah.mvstatlab"
-    assert pr.nama_berkas_proyek("") == "mvstatlab.mvstatlab"
+    assert pr.nama_berkas_proyek("contoh data/nasabah.csv") == "contoh_data_nasabah.nalardata"
+    assert pr.nama_berkas_proyek("") == "nalardata.nalardata"
 
 
 # --------------------------------------------------------------------------- #
@@ -232,8 +232,13 @@ def test_konfigurasi_rusak_tidak_menggagalkan_pembukaan(data):
     assert pr.buka_proyek(penampung.getvalue()).konfigurasi == {}
 
 
-def test_proyek_dari_nama_aplikasi_lama_tetap_terbuka(data):
-    """Berkas yang disimpan sebelum aplikasi berganti nama tidak boleh ditolak."""
+@pytest.mark.parametrize("format_lama", sorted(pr.FORMAT_LAMA))
+def test_proyek_dari_nama_aplikasi_lama_tetap_terbuka(data, format_lama):
+    """Berkas yang disimpan sebelum aplikasi berganti nama tidak boleh ditolak.
+
+    Aplikasi sudah dua kali berganti nama (Lentera MVA, MV Statlab, NalarData).
+    Setiap nama format lama diuji, bukan hanya yang terakhir.
+    """
     berkas = pr.simpan_proyek(data, "d.csv")
     sumber = zipfile.ZipFile(io.BytesIO(berkas))
     penampung = io.BytesIO()
@@ -242,7 +247,7 @@ def test_proyek_dari_nama_aplikasi_lama_tetap_terbuka(data):
             isi = sumber.read(nama)
             if nama == "proyek.json":
                 manifest = json.loads(isi)
-                manifest["format"] = "lentera-mva-proyek"  # nama format lama
+                manifest["format"] = format_lama
                 isi = json.dumps(manifest).encode("utf-8")
             arsip.writestr(nama, isi)
 
@@ -251,5 +256,5 @@ def test_proyek_dari_nama_aplikasi_lama_tetap_terbuka(data):
 
 
 def test_ekstensi_berkas_mengikuti_nama_aplikasi():
-    assert pr.EKSTENSI == "mvstatlab"
-    assert pr.nama_berkas_proyek("data.csv").endswith(".mvstatlab")
+    assert pr.EKSTENSI == "nalardata"
+    assert pr.nama_berkas_proyek("data.csv").endswith(".nalardata")

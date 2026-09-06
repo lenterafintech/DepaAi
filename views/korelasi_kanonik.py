@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from mv_statlab import cca, plots, preprocessing, ui
+from nalardata import cca, plots, preprocessing, ui
 
 ui.butuh_fitur("uji_beda")
 ui.page_setup(

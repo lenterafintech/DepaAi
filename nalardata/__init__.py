@@ -1,10 +1,10 @@
-"""MV Statlab - pustaka analisis multivariat.
+"""NalarData - pustaka analisis multivariat.
 
 Seluruh fungsi di paket ini murni komputasi (DataFrame masuk, hasil keluar)
 sehingga dapat diuji tanpa menjalankan antarmuka Streamlit.
 """
 
-from mv_statlab import (
+from nalardata import (
     assumptions,
     cca,
     clustering,

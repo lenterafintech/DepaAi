@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from mv_statlab import formatting, plots, preprocessing, reliability as rb, ui
+from nalardata import formatting, plots, preprocessing, reliability as rb, ui
 
 ui.butuh_fitur("instrumen")
 ui.page_setup(

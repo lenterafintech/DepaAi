@@ -6,8 +6,8 @@ from html import escape
 
 import streamlit as st
 
-from mv_statlab import kesimpulan_ui as kui
-from mv_statlab import ui
+from nalardata import kesimpulan_ui as kui
+from nalardata import ui
 
 analisis, laporan, lengkap = kui.buka_ringkasan(
     "Laporan Akademik",

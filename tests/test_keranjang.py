@@ -9,8 +9,8 @@ import zipfile
 import pandas as pd
 import pytest
 
-from mv_statlab import ekspor
-from mv_statlab import keranjang as kr
+from nalardata import ekspor
+from nalardata import keranjang as kr
 
 
 @pytest.fixture

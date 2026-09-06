@@ -24,8 +24,8 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
-from mv_statlab.formatting import bintang, num, num_auto, pct, pval  # noqa: F401
-from mv_statlab import (
+from nalardata.formatting import bintang, num, num_auto, pct, pval  # noqa: F401
+from nalardata import (
     assumptions,
     cca,
     clustering,
@@ -312,7 +312,7 @@ class Laporan:
         baris += [
             "---",
             "",
-            "Disusun otomatis oleh MV Statlab dari data yang Anda unggah. Kesimpulan "
+            "Disusun otomatis oleh NalarData dari data yang Anda unggah. Kesimpulan "
             "statistik menunjukkan pola dalam data, bukan bukti sebab-akibat; keputusan "
             "akhir tetap memerlukan pertimbangan konteks dan keahlian bidang.",
         ]

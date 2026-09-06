@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from mv_statlab import ekspor, formatting, ui
+from nalardata import ekspor, formatting, ui
 
 ui.butuh_fitur("keranjang")
 ui.page_setup(

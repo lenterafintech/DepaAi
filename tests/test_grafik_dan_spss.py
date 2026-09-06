@@ -9,8 +9,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from mv_statlab import ekspor, grafik, io_utils
-from mv_statlab import narrative as nr
+from nalardata import ekspor, grafik, io_utils
+from nalardata import narrative as nr
 
 ROOT = Path(__file__).resolve().parents[1]
 NUMERIK = [

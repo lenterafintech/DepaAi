@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from mv_statlab import formatting, keranjang as kr, langganan, pengguna as pg, preprocessing
+from nalardata import formatting, keranjang as kr, langganan, pengguna as pg, preprocessing
 
 DATA_KEY = "dataset"
 NAME_KEY = "dataset_name"
@@ -246,14 +246,14 @@ def keadaan_kosong(judul: str, keterangan: str, ikon: str = "○") -> None:
     )
 
 
-def page_setup(title: str, kicker: str = "MV Statlab", description: str = "") -> None:
+def page_setup(title: str, kicker: str = "NalarData", description: str = "") -> None:
     """Kepala halaman standar: kicker, judul, deskripsi, garis pemisah.
 
     Ikon sengaja tidak dipakai di sini — penanda visual tiap halaman sudah ada pada
     menu sisi kiri, sehingga judul cukup berupa teks dan tidak menyaingi isi halaman.
     """
     if not st.session_state.get("_page_configured"):
-        st.set_page_config(page_title="MV Statlab", page_icon="📊", layout="wide")
+        st.set_page_config(page_title="NalarData", page_icon="📊", layout="wide")
         st.session_state["_page_configured"] = True
     st.html(_gaya())
     deskripsi = f'<p class="desc">{description}</p>' if description else ""

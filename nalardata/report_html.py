@@ -1,4 +1,4 @@
-"""Pembuat laporan HTML mandiri dari hasil :class:`~mv_statlab.narrative.Laporan`.
+"""Pembuat laporan HTML mandiri dari hasil :class:`~nalardata.narrative.Laporan`.
 
 Berkas yang dihasilkan berdiri sendiri (tanpa aset eksternal), mengikuti tema
 terang/gelap peramban pembaca, dan siap dicetak menjadi PDF.
@@ -10,7 +10,7 @@ from html import escape
 
 import pandas as pd
 
-from mv_statlab.narrative import AUDIENCE_LABELS, AUDIENCES, Laporan
+from nalardata.narrative import AUDIENCE_LABELS, AUDIENCES, Laporan
 
 _CSS = """
 :root{
@@ -224,7 +224,7 @@ def _bagian(laporan: Laporan, pembaca: str) -> str:
 
 def _kepala(laporan: Laporan, judul: str, keterangan: str) -> str:
     return f"""<header class="masthead">
-  <div class="kicker">MV Statlab · Kesimpulan Analisis Multivariat</div>
+  <div class="kicker">NalarData · Kesimpulan Analisis Multivariat</div>
   <h1>{escape(judul)}</h1>
   <p class="sub">{escape(keterangan)}</p>
   <dl class="specs">
@@ -241,7 +241,7 @@ def _kepala(laporan: Laporan, judul: str, keterangan: str) -> str:
 
 
 _FOOTER = """<footer>
-  Disusun otomatis oleh MV Statlab dari data yang diunggah pengguna. Kesimpulan statistik
+  Disusun otomatis oleh NalarData dari data yang diunggah pengguna. Kesimpulan statistik
   menunjukkan pola dalam data, bukan bukti sebab-akibat; keputusan akhir tetap memerlukan
   pertimbangan konteks dan keahlian bidang.
 </footer>"""

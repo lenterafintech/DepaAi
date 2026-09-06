@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import streamlit as st
 
-from mv_statlab import audit as ad
-from mv_statlab import descriptive, plots, preprocessing, ui
+from nalardata import audit as ad
+from nalardata import descriptive, plots, preprocessing, ui
 
 ui.butuh_fitur("dasar")
 ui.page_setup(

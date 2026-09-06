@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mv_statlab import mancova as mc
-from mv_statlab import sem_analysis as sem
+from nalardata import mancova as mc
+from nalardata import sem_analysis as sem
 
 ROOT = Path(__file__).resolve().parents[1]
 

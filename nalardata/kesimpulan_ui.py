@@ -14,8 +14,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from mv_statlab import ekspor, narrative as nr
-from mv_statlab import preprocessing, ui
+from nalardata import ekspor, narrative as nr
+from nalardata import preprocessing, ui
 
 TANPA = "(tidak ada)"
 

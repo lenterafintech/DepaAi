@@ -22,7 +22,7 @@ import semopy
 
 import re
 
-from mv_statlab import preprocessing
+from nalardata import preprocessing
 
 # Nama variabel dan konstruk harus berupa pengenal sederhana; spasi atau tanda baca
 # membuat spesifikasi model ditolak oleh mesin estimasi.

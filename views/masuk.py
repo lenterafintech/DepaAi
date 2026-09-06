@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import streamlit as st
 
-from mv_statlab import langganan, pengguna as pg, ui
+from nalardata import langganan, pengguna as pg, ui
 
 ui.page_setup(
-    "Masuk ke MV Statlab",
+    "Masuk ke NalarData",
     "Akun",
     "Masuk untuk menyimpan paket dan melanjutkan analisis Anda. Akun baru langsung "
     f"mendapat {pg.HARI_UJI_COBA} hari uji coba dengan seluruh fitur terbuka.",

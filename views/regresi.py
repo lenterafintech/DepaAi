@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from mv_statlab import plots, preprocessing, regression, ui
+from nalardata import plots, preprocessing, regression, ui
 
 ui.butuh_fitur("regresi")
 ui.page_setup(

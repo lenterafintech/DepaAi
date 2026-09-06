@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from mv_statlab import assumptions, factor_analysis, pca_analysis, plots, ui
+from nalardata import assumptions, factor_analysis, pca_analysis, plots, ui
 
 ui.butuh_fitur("reduksi")
 ui.page_setup(

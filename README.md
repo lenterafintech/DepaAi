@@ -1,4 +1,4 @@
-# MV Statlab — Aplikasi Analisis Multivariat
+# NalarData — Aplikasi Analisis Multivariat
 
 Aplikasi web untuk analisis statistik multivariat: unggah berkas CSV/Excel, pilih
 metode, lalu baca hasil beserta uji asumsi, visualisasi, dan penjelasan
@@ -8,7 +8,7 @@ interpretasinya dalam bahasa Indonesia.
 
 | Kelompok | Metode |
 | --- | --- |
-| Proyek | Menyimpan data aktif, hasil pada Laporan Hasil, dan pengaturan cakupan analisis ke satu berkas `.mvstatlab`, lalu membukanya kembali pada sesi berikutnya |
+| Proyek | Menyimpan data aktif, hasil pada Laporan Hasil, dan pengaturan cakupan analisis ke satu berkas `.nalardata`, lalu membukanya kembali pada sesi berikutnya |
 | Entri data | Membuat tabel baru langsung di aplikasi (definisi kolom, skala Likert, butir kuesioner bernomor), menyunting data aktif, memeriksa kelengkapan isian, serta meringkas beberapa butir menjadi satu variabel konstruk (rata-rata, jumlah, atau skor baku) dengan aturan butir minimal terisi |
 | Instrumen | Alpha Cronbach dengan statistik per butir dan alpha-if-deleted, reliabilitas belah-dua Spearman-Brown, omega McDonald, composite reliability, AVE, serta validitas diskriminan Fornell-Larcker dan HTMT |
 | Audit kualitas data | Satu keputusan tentang kesiapan data: nilai hilang bertingkat, baris kembar, kolom kosong dan tidak beragam, angka yang tersimpan sebagai teks, nilai tak hingga, pencilan, kemencengan, dan kategori yang tidak seragam — masing-masing disertai dampak dan saran, tanpa mengubah data |
@@ -85,7 +85,7 @@ Aplikasi ini **tidak menyimpan apa pun di server**. Data yang diunggah, hasil pa
 Laporan Hasil, dan pengaturan cakupan analisis semuanya hidup di dalam sesi, sehingga
 hilang ketika peramban ditutup atau layanan hosting menidurkan aplikasi.
 
-Berkas proyek `.mvstatlab` menutup celah itu — satu arsip berisi:
+Berkas proyek `.nalardata` menutup celah itu — satu arsip berisi:
 
 ```
 proyek.json        manifest: format, versi, waktu pembuatan
@@ -142,7 +142,7 @@ berkasnya persis sama dengan yang tampil di layar.
 | Paket lengkap (ZIP) | Seluruh format di atas, setiap tabel dalam CSV, dan kedua sintaks |
 
 Seluruh penulis format kini melewati satu lapisan dokumen netral (`Dokumen` di
-`mv_statlab/ekspor.py`), sehingga angka dan kesimpulannya tidak pernah berbeda antar
+`nalardata/ekspor.py`), sehingga angka dan kesimpulannya tidak pernah berbeda antar
 berkas — dan sumber yang sama dapat berupa laporan naratif maupun Laporan Hasil.
 
 ### Galat baku robust pada regresi
@@ -170,7 +170,7 @@ menjadi pesan yang dapat ditindaklanjuti, bukan kegagalan mesin estimasi yang sa
 
 ### Sintaks yang dapat dijalankan ulang
 
-`mv_statlab/sintaks.py` menuliskan langkah analisis yang benar-benar dipilih pengguna
+`nalardata/sintaks.py` menuliskan langkah analisis yang benar-benar dipilih pengguna
 menjadi skrip untuk lima perangkat:
 
 | Berkas | Perangkat | Sifat |
@@ -264,7 +264,7 @@ otomatis diubah menjadi variabel dummy pada analisis regresi.
 ```
 app.py                 Entri aplikasi & navigasi halaman
 views/                 Halaman antarmuka Streamlit (satu berkas per metode)
-mv_statlab/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
+nalardata/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   io_utils.py          Pemuatan berkas dan profil data
   preprocessing.py     Missing value, penskalaan, encoding, matriks desain
   descriptive.py       Deskriptif, normalitas, Mardia, pencilan
@@ -293,7 +293,7 @@ mv_statlab/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   report_html.py       Laporan HTML mandiri yang dapat diunduh
   kesimpulan_ui.py     Komponen bersama ketiga halaman laporan
   keranjang.py         Keranjang hasil: kumpulan analisis yang disimpan pengguna
-  proyek.py            Simpan/buka berkas proyek .mvstatlab beserta batas keamanannya
+  proyek.py            Simpan/buka berkas proyek .nalardata beserta batas keamanannya
   plots.py             Visualisasi Plotly
   ui.py                Komponen antarmuka bersama
 data/                  Contoh data
@@ -303,11 +303,11 @@ jalankan.sh            Peluncur Linux/macOS pada port 8503
 tests/                 Uji perhitungan dan uji asap halaman
 ```
 
-Pustaka `mv_statlab` dapat dipakai langsung tanpa antarmuka:
+Pustaka `nalardata` dapat dipakai langsung tanpa antarmuka:
 
 ```python
 import pandas as pd
-from mv_statlab import pca_analysis, regression
+from nalardata import pca_analysis, regression
 
 df = pd.read_csv("data/contoh_data_nasabah.csv")
 hasil = pca_analysis.run_pca(df[["skor_kredit", "rasio_utang_pendapatan", "saldo_tabungan"]])

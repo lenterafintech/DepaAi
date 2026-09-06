@@ -61,7 +61,7 @@ class HasilUji:
 
     def ringkas(self) -> str:
         """Kalimat pelaporan siap salin."""
-        from mv_statlab.formatting import num, pval
+        from nalardata.formatting import num, pval
 
         # Statistik yang berupa cacahan ditulis tanpa desimal agar tidak
         # terbaca seolah-olah hasil pengukuran.

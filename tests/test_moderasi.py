@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mv_statlab import moderation as mo
+from nalardata import moderation as mo
 
 
 @pytest.fixture(scope="module")

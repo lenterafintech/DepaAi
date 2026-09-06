@@ -5,9 +5,9 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from mv_statlab import formatting, plots, preprocessing, reliability as rb
-from mv_statlab import sem_analysis as sem
-from mv_statlab import ui
+from nalardata import formatting, plots, preprocessing, reliability as rb
+from nalardata import sem_analysis as sem
+from nalardata import ui
 
 ui.butuh_fitur("sem")
 ui.page_setup(

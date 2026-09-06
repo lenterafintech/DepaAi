@@ -1,11 +1,11 @@
 """Simpan dan buka proyek: data, keranjang hasil, dan konfigurasi dalam satu berkas.
 
-Sampai kini MV Statlab tidak menyimpan apa pun. Data yang diunggah, hasil yang
+Sampai kini NalarData tidak menyimpan apa pun. Data yang diunggah, hasil yang
 dikumpulkan di keranjang, dan pengaturan cakupan analisis semuanya hilang begitu
 sesi berakhir — dan pada layanan hosting yang menidurkan aplikasi, itu terjadi
 berkali-kali sehari. Modul ini menutup celah tersebut.
 
-Berkas proyek adalah arsip zip biasa berakhiran ``.mvstatlab``:
+Berkas proyek adalah arsip zip biasa berakhiran ``.nalardata``:
 
     proyek.json          manifest: format, versi, waktu, daftar isi
     data.csv             data aktif, selalu ada sebagai cadangan yang bisa dibaca
@@ -29,13 +29,13 @@ from datetime import datetime
 
 import pandas as pd
 
-from mv_statlab import keranjang as kr
+from nalardata import keranjang as kr
 
-FORMAT = "mv-statlab-proyek"
-EKSTENSI = "mvstatlab"
+FORMAT = "nalardata-proyek"
+EKSTENSI = "nalardata"
 # Berkas yang disimpan sebelum aplikasi berganti nama tetap dapat dibuka; menolak
 # berkas milik pengguna sendiri hanya karena namanya berubah tidak dapat dibenarkan.
-FORMAT_LAMA = {"lentera-mva-proyek"}
+FORMAT_LAMA = {"lentera-mva-proyek", "mv-statlab-proyek"}
 VERSI = 1
 VERSI_DIDUKUNG = {1}
 
@@ -168,7 +168,7 @@ def simpan_proyek(
 def nama_berkas_proyek(nama_data: str = "data") -> str:
     dasar = str(nama_data).rsplit(".", 1)[0]
     bersih = re.sub(r"[^0-9A-Za-z_-]+", "_", dasar).strip("_")[:40]
-    return f"{bersih or 'mvstatlab'}.{EKSTENSI}"
+    return f"{bersih or 'nalardata'}.{EKSTENSI}"
 
 
 # --------------------------------------------------------------------------- #
@@ -192,7 +192,7 @@ def _periksa_arsip(arsip: zipfile.ZipFile) -> set[str]:
     nama = {a.filename for a in anggota}
     if "proyek.json" not in nama:
         raise ValueError(
-            "Berkas ini bukan proyek MV Statlab: proyek.json tidak ditemukan di dalamnya."
+            "Berkas ini bukan proyek NalarData: proyek.json tidak ditemukan di dalamnya."
         )
     return nama
 
@@ -280,7 +280,7 @@ def buka_proyek(isi: bytes) -> Proyek:
             format_berkas = manifest.get("format")
             if format_berkas not in {FORMAT, *FORMAT_LAMA}:
                 raise ValueError(
-                    "Format berkas tidak dikenali sebagai proyek MV Statlab."
+                    "Format berkas tidak dikenali sebagai proyek NalarData."
                 )
             try:
                 versi = int(manifest.get("versi"))

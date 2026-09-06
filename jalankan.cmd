@@ -1,5 +1,5 @@
 @echo off
-REM Jalankan MV Statlab di port 8503.
+REM Jalankan NalarData di port 8503.
 REM
 REM Port tidak dikunci di .streamlit/config.toml karena layanan hosting memeriksa
 REM port bawaannya sendiri; port ditetapkan di sini agar berlaku lokal saja.

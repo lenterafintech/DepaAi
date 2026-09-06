@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mv_statlab import (
+from nalardata import (
     assumptions,
     cca,
     clustering,

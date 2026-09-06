@@ -5,8 +5,8 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from mv_statlab import descriptive, formatting, io_utils, ui
-from mv_statlab import proyek as pr
+from nalardata import descriptive, formatting, io_utils, ui
+from nalardata import proyek as pr
 
 ui.page_setup(
     "Beranda & Data",
@@ -90,12 +90,12 @@ with tab_sample:
 
 with tab_proyek:
     st.markdown(
-        "Berkas proyek `.mvstatlab` memuat data, hasil yang Anda simpan di **Laporan "
+        "Berkas proyek `.nalardata` memuat data, hasil yang Anda simpan di **Laporan "
         "Hasil**, dan pengaturan cakupan analisis sekaligus — sehingga pekerjaan dapat "
         "dilanjutkan pada sesi berikutnya."
     )
     berkas_proyek = st.file_uploader(
-        "Berkas proyek", type=["mvstatlab", "zip"], key="unggah_proyek"
+        "Berkas proyek", type=["nalardata", "zip"], key="unggah_proyek"
     )
     if berkas_proyek is not None:
         try:

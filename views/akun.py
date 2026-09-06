@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from mv_statlab import langganan, ui
+from nalardata import langganan, ui
 
 ui.page_setup(
     "Akun & Langganan",

@@ -113,7 +113,7 @@ def test_laporan_hasil_tanpa_keranjang_menjelaskan_caranya():
 
 
 def test_laporan_hasil_menampilkan_isi_keranjang(sample):
-    from mv_statlab import keranjang as kr
+    from nalardata import keranjang as kr
 
     isi = kr.Keranjang()
     isi.tambah_tabel("Regresi linear", "Koefisien regresi", sample.head(3))
@@ -139,7 +139,7 @@ def test_bilah_status_menyebut_data_aktif(sample):
 
 def test_token_warna_mengikuti_tema():
     """Palet terang dan gelap harus punya kunci yang sama persis."""
-    from mv_statlab import ui
+    from nalardata import ui
 
     assert set(ui.WARNA) == set(ui.WARNA_GELAP)
     gaya = ui._gaya()

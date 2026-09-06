@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from mv_statlab import clustering, pca_analysis, plots, ui
+from nalardata import clustering, pca_analysis, plots, ui
 
 ui.butuh_fitur("klaster")
 ui.page_setup(
