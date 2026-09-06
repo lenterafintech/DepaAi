@@ -90,9 +90,9 @@ with tab_sample:
 
 with tab_proyek:
     st.markdown(
-        "Berkas proyek `.nalardata` memuat data, hasil yang Anda simpan di **Laporan "
-        "Hasil**, dan pengaturan cakupan analisis sekaligus — sehingga pekerjaan dapat "
-        "dilanjutkan pada sesi berikutnya."
+        "Berkas proyek `.nalardata` memuat data, kamus variabel, hasil yang Anda "
+        "simpan di **Laporan Hasil**, dan pengaturan cakupan analisis sekaligus — "
+        "sehingga pekerjaan dapat dilanjutkan pada sesi berikutnya."
     )
     berkas_proyek = st.file_uploader(
         "Berkas proyek", type=["nalardata", "zip"], key="unggah_proyek"
@@ -107,6 +107,8 @@ with tab_proyek:
             if st.button("Muat proyek ini", type="primary", key="muat_proyek"):
                 ui.set_dataset(proyek_dibuka.data, proyek_dibuka.nama_data)
                 st.session_state[ui.KERANJANG_KEY] = proyek_dibuka.keranjang
+                if len(proyek_dibuka.kamus):
+                    ui.set_kamus(proyek_dibuka.kamus)
                 for kunci, nilai in (proyek_dibuka.konfigurasi or {}).items():
                     # Kunci widget halaman laporan dipulihkan apa adanya.
                     st.session_state[kunci] = nilai
@@ -209,7 +211,11 @@ konfigurasi = {k: st.session_state[k] for k in kunci_konfig}
 
 try:
     berkas = pr.simpan_proyek(
-        df, st.session_state.get(ui.NAME_KEY, "data"), isi_keranjang, konfigurasi
+        df,
+        st.session_state.get(ui.NAME_KEY, "data"),
+        isi_keranjang,
+        konfigurasi,
+        kamus=ui.kamus(),
     )
 except ValueError as galat:
     st.info(str(galat))
@@ -227,5 +233,6 @@ else:
     kanan.caption(
         f"Berisi {len(df):,} baris data".replace(",", ".")
         + f" · {len(isi_keranjang.item)} hasil tersimpan"
+        + f" · kamus {len(ui.kamus())} variabel"
         + (f" · {len(konfigurasi)} pengaturan" if konfigurasi else "")
     )

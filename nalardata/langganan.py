@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 # Kode fitur yang dapat dibatasi. Dipakai sebagai kunci di seluruh aplikasi.
 FITUR = {
     "dasar": "Eksplorasi, korelasi, dan uji asumsi",
+    "kamus": "Kamus variabel: skala, peran, dan definisi operasional",
     "reduksi": "PCA dan analisis faktor eksploratori",
     "klaster": "Analisis klaster",
     "regresi": "Regresi linear dan logistik",
@@ -55,8 +56,11 @@ class Paket:
         return [k for k in FITUR if k not in self.fitur]
 
 
+# Kamus variabel masuk paket gratis dengan sengaja: pengguna yang paling
+# membutuhkannya justru yang belum menguasai skala pengukuran.
 _DASAR = {
     "dasar",
+    "kamus",
     "reduksi",
     "klaster",
     "regresi",

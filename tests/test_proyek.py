@@ -10,6 +10,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from nalardata import kamus as km
 from nalardata import keranjang as kr
 from nalardata import proyek as pr
 
@@ -258,3 +259,72 @@ def test_proyek_dari_nama_aplikasi_lama_tetap_terbuka(data, format_lama):
 def test_ekstensi_berkas_mengikuti_nama_aplikasi():
     assert pr.EKSTENSI == "nalardata"
     assert pr.nama_berkas_proyek("data.csv").endswith(".nalardata")
+
+
+# --------------------------------------------------------------------------- #
+# Kamus variabel di dalam proyek
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture
+def isi_kamus(data) -> km.Kamus:
+    k = km.Kamus.dari_data(data)
+    k.tetapkan(
+        "usia",
+        nama_lengkap="Usia nasabah",
+        definisi="Usia saat pengajuan kredit",
+        satuan="tahun",
+        skala=km.RASIO,
+        peran="prediktor",
+        kode_hilang=[99],
+    )
+    k.tetapkan("segmen_usaha", peran="kelompok")
+    return k
+
+
+def test_kamus_pulih_utuh_dari_berkas_proyek(data, isi_kamus):
+    hasil = pr.buka_proyek(pr.simpan_proyek(data, "d.csv", kamus=isi_kamus))
+    usia = hasil.kamus["usia"]
+    assert usia.nama_lengkap == "Usia nasabah"
+    assert usia.definisi == "Usia saat pengajuan kredit"
+    assert usia.satuan == "tahun"
+    assert usia.skala == km.RASIO
+    assert usia.peran == "prediktor"
+    assert usia.kode_hilang == [99]
+    assert usia.dikonfirmasi
+    assert hasil.kamus["segmen_usaha"].peran == "kelompok"
+
+
+def test_proyek_tanpa_kamus_tetap_sah(data):
+    hasil = pr.buka_proyek(pr.simpan_proyek(data, "d.csv"))
+    assert len(hasil.kamus) == 0
+
+
+def test_kamus_rusak_tidak_menggagalkan_pembukaan(data, isi_kamus):
+    """Satu keterangan variabel yang cacat tidak boleh menghanguskan seluruh proyek."""
+    berkas = pr.simpan_proyek(data, "d.csv", kamus=isi_kamus)
+    sumber = zipfile.ZipFile(io.BytesIO(berkas))
+    penampung = io.BytesIO()
+    with zipfile.ZipFile(penampung, "w", zipfile.ZIP_DEFLATED) as arsip:
+        for nama in sumber.namelist():
+            arsip.writestr(nama, b"{bukan json" if nama == "kamus.json" else sumber.read(nama))
+
+    hasil = pr.buka_proyek(penampung.getvalue())
+    assert not hasil.data.empty
+    # Kamus hilang, namun data dan sisanya tetap pulih.
+    assert len(hasil.kamus) == 0
+
+
+def test_kamus_diselaraskan_dengan_data_saat_dibuka(data, isi_kamus):
+    """Kamus yang memuat kolom yang tak ada di data akan menyesatkan penyaringan."""
+    isi_kamus.variabel["kolom_hantu"] = km.Variabel(nama="kolom_hantu")
+    hasil = pr.buka_proyek(pr.simpan_proyek(data, "d.csv", kamus=isi_kamus))
+    assert "kolom_hantu" not in hasil.kamus
+    assert hasil.kamus.kolom == list(data.columns)
+
+
+def test_ringkas_menyebut_kamus(data, isi_kamus):
+    hasil = pr.buka_proyek(pr.simpan_proyek(data, "d.csv", kamus=isi_kamus))
+    ringkas = hasil.ringkas().set_index("Keterangan")["Isi"]
+    assert ringkas["Kamus variabel"].startswith(f"{len(data.columns)} kolom")
+    assert "perlu diperiksa" in ringkas["Kamus variabel"]

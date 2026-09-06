@@ -10,6 +10,7 @@ Berkas proyek adalah arsip zip biasa berakhiran ``.nalardata``:
     proyek.json          manifest: format, versi, waktu, daftar isi
     data.csv             data aktif, selalu ada sebagai cadangan yang bisa dibaca
     data.parquet         salinan yang mempertahankan tipe data (bila engine tersedia)
+    kamus.json           skala, peran, dan definisi tiap variabel
     konfigurasi.json     pilihan variabel pada halaman laporan
     keranjang.json       daftar hasil yang disimpan pengguna
     keranjang/NN.csv     tabel tiap hasil
@@ -29,6 +30,7 @@ from datetime import datetime
 
 import pandas as pd
 
+from nalardata import kamus as km
 from nalardata import keranjang as kr
 
 FORMAT = "nalardata-proyek"
@@ -54,6 +56,7 @@ class Proyek:
     data: pd.DataFrame
     nama_data: str = "data"
     keranjang: kr.Keranjang = field(default_factory=kr.Keranjang)
+    kamus: km.Kamus = field(default_factory=km.Kamus)
     konfigurasi: dict = field(default_factory=dict)
     dibuat: str = ""
     versi: int = VERSI
@@ -70,6 +73,15 @@ class Proyek:
                 {
                     "Keterangan": "Hasil tersimpan",
                     "Isi": f"{len(self.keranjang.item)} objek",
+                },
+                {
+                    "Keterangan": "Kamus variabel",
+                    "Isi": (
+                        f"{len(self.kamus)} kolom, "
+                        f"{len(self.kamus.perlu_diperiksa())} perlu diperiksa"
+                        if len(self.kamus)
+                        else "belum ada"
+                    ),
                 },
                 {"Keterangan": "Dibuat", "Isi": self.dibuat or "-"},
                 {"Keterangan": "Versi proyek", "Isi": str(self.versi)},
@@ -103,6 +115,7 @@ def simpan_proyek(
     nama_data: str = "data",
     keranjang: kr.Keranjang | None = None,
     konfigurasi: dict | None = None,
+    kamus: km.Kamus | None = None,
 ) -> bytes:
     """Susun berkas proyek dari keadaan sesi saat ini."""
     if df is None or df.empty:
@@ -117,6 +130,7 @@ def simpan_proyek(
         "nama_data": str(nama_data),
         "berkas_data": ["data.csv"],
         "punya_keranjang": not isi.kosong(),
+        "punya_kamus": bool(kamus is not None and len(kamus)),
     }
 
     with zipfile.ZipFile(penampung, "w", zipfile.ZIP_DEFLATED) as arsip:
@@ -128,6 +142,15 @@ def simpan_proyek(
         arsip.writestr(
             "konfigurasi.json",
             json.dumps(konfigurasi or {}, ensure_ascii=False, indent=2, default=str),
+        )
+        arsip.writestr(
+            "kamus.json",
+            json.dumps(
+                kamus.ke_dict() if kamus is not None else {},
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            ),
         )
 
         if not isi.kosong():
@@ -258,6 +281,17 @@ def _baca_keranjang(arsip: zipfile.ZipFile, nama: set[str]) -> kr.Keranjang:
     return hasil
 
 
+def _baca_json(arsip: zipfile.ZipFile, nama: set[str], berkas: str) -> dict:
+    """Baca satu berkas JSON pendamping; isi yang rusak menjadi kosong, bukan galat."""
+    if berkas not in nama:
+        return {}
+    try:
+        isi = json.loads(arsip.read(berkas))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    return isi if isinstance(isi, dict) else {}
+
+
 def buka_proyek(isi: bytes) -> Proyek:
     """Baca berkas proyek dan kembalikan isinya.
 
@@ -296,17 +330,18 @@ def buka_proyek(isi: bytes) -> Proyek:
             if data.shape[1] == 0:
                 raise ValueError("Proyek tidak memuat satu kolom pun.")
 
-            konfigurasi = {}
-            if "konfigurasi.json" in nama:
-                try:
-                    konfigurasi = json.loads(arsip.read("konfigurasi.json")) or {}
-                except json.JSONDecodeError:
-                    konfigurasi = {}
+            konfigurasi = _baca_json(arsip, nama, "konfigurasi.json")
+            # Kamus yang rusak dipulihkan sebagian; menolak seluruh proyek karena
+            # satu keterangan variabel cacat akan menghukum pengguna terlalu keras.
+            kamus = km.Kamus.dari_dict(_baca_json(arsip, nama, "kamus.json"))
+            if len(kamus):
+                kamus = kamus.selaraskan(data)
 
             return Proyek(
                 data=data,
                 nama_data=str(manifest.get("nama_data") or "data"),
                 keranjang=_baca_keranjang(arsip, nama),
+                kamus=kamus,
                 konfigurasi=konfigurasi,
                 dibuat=str(manifest.get("dibuat") or ""),
                 versi=versi,

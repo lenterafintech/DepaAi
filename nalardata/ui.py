@@ -8,11 +8,13 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from nalardata import formatting, keranjang as kr, langganan, pengguna as pg, preprocessing
+from nalardata import formatting, kamus as km, keranjang as kr, langganan
+from nalardata import pengguna as pg, preprocessing
 
 DATA_KEY = "dataset"
 NAME_KEY = "dataset_name"
 KERANJANG_KEY = "keranjang_hasil"
+KAMUS_KEY = "kamus_variabel"
 SAMPLE_PATH = Path(__file__).resolve().parents[1] / "data" / "contoh_data_nasabah.csv"
 
 # Palet terang. Warna status sengaja terpisah dari aksen agar "berhasil" dan
@@ -338,9 +340,37 @@ def butuh_fitur(kode_fitur: str) -> None:
         st.stop()
 
 
-def set_dataset(df: pd.DataFrame, name: str) -> None:
+def set_dataset(df: pd.DataFrame, name: str, label_spss: dict | None = None) -> None:
+    """Pasang data aktif dan selaraskan kamus variabelnya.
+
+    Kamus diselaraskan, bukan disusun ulang: pengguna yang mengunggah data versi
+    perbaikan tidak boleh kehilangan definisi operasional yang sudah ia tulis.
+    """
     st.session_state[DATA_KEY] = df
     st.session_state[NAME_KEY] = name
+    lama = st.session_state.get(KAMUS_KEY)
+    if lama is None:
+        st.session_state[KAMUS_KEY] = km.Kamus.dari_data(df, label_spss)
+    else:
+        st.session_state[KAMUS_KEY] = lama.selaraskan(df)
+
+
+def kamus() -> km.Kamus:
+    """Kamus variabel untuk data aktif, dibuat saat pertama kali dipakai."""
+    df = get_dataset()
+    simpan = st.session_state.get(KAMUS_KEY)
+    if simpan is None:
+        simpan = km.Kamus() if df is None else km.Kamus.dari_data(df)
+        st.session_state[KAMUS_KEY] = simpan
+    elif df is not None and simpan.kolom != [str(k) for k in df.columns]:
+        # Data berganti tanpa lewat set_dataset (misalnya dipulihkan dari proyek).
+        simpan = simpan.selaraskan(df)
+        st.session_state[KAMUS_KEY] = simpan
+    return simpan
+
+
+def set_kamus(baru: km.Kamus) -> None:
+    st.session_state[KAMUS_KEY] = baru
 
 
 def get_dataset() -> pd.DataFrame | None:
