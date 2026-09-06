@@ -8,6 +8,7 @@ interpretasinya dalam bahasa Indonesia.
 
 | Kelompok | Metode |
 | --- | --- |
+| Proyek | Menyimpan data aktif, hasil pada Laporan Hasil, dan pengaturan cakupan analisis ke satu berkas `.lentera`, lalu membukanya kembali pada sesi berikutnya |
 | Entri data | Membuat tabel baru langsung di aplikasi (definisi kolom, skala Likert, butir kuesioner bernomor), menyunting data aktif, memeriksa kelengkapan isian, serta meringkas beberapa butir menjadi satu variabel konstruk (rata-rata, jumlah, atau skor baku) dengan aturan butir minimal terisi |
 | Instrumen | Alpha Cronbach dengan statistik per butir dan alpha-if-deleted, reliabilitas belah-dua Spearman-Brown, omega McDonald, composite reliability, AVE, serta validitas diskriminan Fornell-Larcker |
 | Eksplorasi | Statistik deskriptif, tabel frekuensi, uji normalitas (Shapiro-Wilk, D'Agostino, KS), normalitas multivariat Mardia, pencilan IQR & jarak Mahalanobis |
@@ -75,6 +76,32 @@ Pengaturan cakupan analisis (variabel, target, prediktor, kelompok) dibuat sekal
 berlaku untuk ketiga halaman; hasil perhitungan dipakai ulang sehingga berpindah
 halaman tidak menghitung ulang. Seluruh angka dihitung ulang dari data yang sedang
 aktif — tidak ada nilai contoh yang ditanam.
+
+### Menyimpan pekerjaan: berkas proyek
+
+Aplikasi ini **tidak menyimpan apa pun di server**. Data yang diunggah, hasil pada
+Laporan Hasil, dan pengaturan cakupan analisis semuanya hidup di dalam sesi, sehingga
+hilang ketika peramban ditutup atau layanan hosting menidurkan aplikasi.
+
+Berkas proyek `.lentera` menutup celah itu — satu arsip berisi:
+
+```
+proyek.json        manifest: format, versi, waktu pembuatan
+data.csv           data aktif, selalu ada dan dapat dibaca manusia
+data.parquet       salinan yang mempertahankan tipe data
+konfigurasi.json   pilihan variabel pada halaman laporan
+keranjang.json     daftar hasil yang disimpan
+keranjang/NN.csv   tabel tiap hasil
+```
+
+CSV selalu ditulis meski Parquet berhasil, sehingga proyek tetap terbuka di komputer
+tanpa engine Parquet. Simpan lewat panel di bawah halaman **Beranda & Data**, buka
+lewat tab **Buka proyek** di halaman yang sama.
+
+Berkas proyek berasal dari luar aplikasi, jadi diperiksa sebelum isinya dibaca: ukuran
+arsip maksimal 250 MB, ukuran setelah dibuka maksimal 500 MB, dan jumlah berkas
+internal maksimal 500. Batas kedua yang menahan *zip bomb* — arsip kecil yang
+mengembang menjadi raksasa dan menghabiskan memori server.
 
 ### Laporan Hasil — analisis yang Anda jalankan sendiri
 
@@ -207,6 +234,7 @@ lentera_mva/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   report_html.py       Laporan HTML mandiri yang dapat diunduh
   kesimpulan_ui.py     Komponen bersama ketiga halaman laporan
   keranjang.py         Keranjang hasil: kumpulan analisis yang disimpan pengguna
+  proyek.py            Simpan/buka berkas proyek .lentera beserta batas keamanannya
   plots.py             Visualisasi Plotly
   ui.py                Komponen antarmuka bersama
 data/                  Contoh data

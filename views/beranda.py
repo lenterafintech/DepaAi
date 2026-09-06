@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from lentera_mva import descriptive, formatting, io_utils, ui
+from lentera_mva import proyek as pr
 
 ui.page_setup(
     "Beranda & Data",
@@ -55,7 +56,9 @@ st.html(
 
 st.subheader("1. Muat data")
 
-tab_upload, tab_sample = st.tabs(["Unggah berkas", "Contoh data"])
+tab_upload, tab_sample, tab_proyek = st.tabs(
+    ["Unggah berkas", "Contoh data", "Buka proyek"]
+)
 
 with tab_upload:
     uploaded = st.file_uploader(
@@ -83,6 +86,31 @@ with tab_sample:
     if st.button("Muat contoh data nasabah", type="primary"):
         ui.set_dataset(ui.load_sample(), "contoh_data_nasabah.csv")
         st.success("Contoh data dimuat.")
+
+with tab_proyek:
+    st.markdown(
+        "Berkas proyek `.lentera` memuat data, hasil yang Anda simpan di **Laporan "
+        "Hasil**, dan pengaturan cakupan analisis sekaligus — sehingga pekerjaan dapat "
+        "dilanjutkan pada sesi berikutnya."
+    )
+    berkas_proyek = st.file_uploader(
+        "Berkas proyek", type=["lentera", "zip"], key="unggah_proyek"
+    )
+    if berkas_proyek is not None:
+        try:
+            proyek_dibuka = pr.buka_proyek(berkas_proyek.getvalue())
+        except ValueError as galat:
+            st.error(str(galat), icon=":material/error:")
+        else:
+            ui.show_table(proyek_dibuka.ringkas(), "isi_proyek.csv")
+            if st.button("Muat proyek ini", type="primary", key="muat_proyek"):
+                ui.set_dataset(proyek_dibuka.data, proyek_dibuka.nama_data)
+                st.session_state[ui.KERANJANG_KEY] = proyek_dibuka.keranjang
+                for kunci, nilai in (proyek_dibuka.konfigurasi or {}).items():
+                    # Kunci widget halaman laporan dipulihkan apa adanya.
+                    st.session_state[kunci] = nilai
+                st.success("Proyek dimuat. Data dan hasil tersimpan sudah pulih.")
+                st.rerun()
 
 df = ui.get_dataset()
 ui.sidebar_info()
@@ -165,3 +193,38 @@ with st.expander("Catatan mutu data"):
 
 if isinstance(df, pd.DataFrame) and df.empty:
     st.error("Data yang dimuat kosong.")
+
+st.divider()
+st.subheader("Simpan proyek")
+st.caption(
+    "Menyimpan data aktif, hasil yang sudah masuk **Laporan Hasil**, dan pengaturan "
+    "cakupan analisis ke dalam satu berkas. Aplikasi ini tidak menyimpan apa pun di "
+    "server, jadi berkas inilah satu-satunya cara melanjutkan pekerjaan nanti."
+)
+
+isi_keranjang = ui.keranjang()
+kunci_konfig = [k for k in st.session_state if str(k).startswith("kesimpulan_")]
+konfigurasi = {k: st.session_state[k] for k in kunci_konfig}
+
+try:
+    berkas = pr.simpan_proyek(
+        df, st.session_state.get(ui.NAME_KEY, "data"), isi_keranjang, konfigurasi
+    )
+except ValueError as galat:
+    st.info(str(galat))
+else:
+    kiri, kanan = st.columns([1, 2])
+    kiri.download_button(
+        "Unduh berkas proyek",
+        berkas,
+        file_name=pr.nama_berkas_proyek(st.session_state.get(ui.NAME_KEY, "data")),
+        mime="application/zip",
+        type="primary",
+        width="stretch",
+        key="unduh_proyek",
+    )
+    kanan.caption(
+        f"Berisi {len(df):,} baris data".replace(",", ".")
+        + f" · {len(isi_keranjang.item)} hasil tersimpan"
+        + (f" · {len(konfigurasi)} pengaturan" if konfigurasi else "")
+    )
