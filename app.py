@@ -69,6 +69,7 @@ PAGES = {
             icon=":material/engineering:",
         ),
         st.Page("views/laporan.py", title="Laporan Hasil", icon=":material/inventory_2:"),
+        st.Page("views/sidang.py", title="Simulasi Sidang", icon=":material/quiz:"),
     ],
     "Akun": [
         st.Page("views/masuk.py", title="Masuk / Daftar", icon=":material/login:"),
