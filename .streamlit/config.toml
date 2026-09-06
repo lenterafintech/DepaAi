@@ -1,7 +1,8 @@
-# Konfigurasi server aplikasi. Port 8501 dan 8502 kerap sudah dipakai aplikasi
-# Streamlit lain, jadi Lentera MVA memakai 8503 secara bawaan.
+# Konfigurasi untuk Streamlit Community Cloud.
 [server]
-port = 8503
+port = 8501
+headless = true
+address = "0.0.0.0"
 
 [browser]
 gatherUsageStats = false
