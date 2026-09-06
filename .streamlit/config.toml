@@ -1,10 +1,16 @@
-# Port sengaja TIDAK dikunci di berkas ini. Layanan hosting (Streamlit Community
-# Cloud, Hostinger VPS di balik proksi) memeriksa kesehatan aplikasi pada port
-# bawaannya sendiri; mengunci port di sini membuat aplikasi berjalan di port lain
-# daripada yang diperiksa, sehingga penerapan dinyatakan gagal.
+# Konfigurasi untuk Streamlit Community Cloud. Port 8501 dipertahankan di sini
+# karena layanan hosting memeriksa kesehatan aplikasi pada port itu; mengunci
+# 8503 membuat aplikasi berjalan di port yang tidak diperiksa, sehingga penerapan
+# gagal dengan pesan "dial tcp 127.0.0.1:8501: connect: connection refused".
 #
 # Untuk menjalankan di komputer sendiri pada port 8503 tanpa mengetik apa pun,
-# pakai skrip jalankan.cmd (Windows) atau jalankan.sh (Linux/macOS) di akar proyek.
+# pakai skrip jalankan.cmd (Windows) atau jalankan.sh (Linux/macOS) di akar
+# proyek. Keduanya memberi --server.port 8503 pada baris perintah, yang
+# mengalahkan berkas ini secara lokal tanpa mengganggu penerapan.
+[server]
+port = 8501
+headless = true
+address = "0.0.0.0"
 
 [browser]
 gatherUsageStats = false

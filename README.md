@@ -34,12 +34,13 @@ Sesudah pemasangan sekali itu, aplikasi cukup dijalankan lewat skrip di akar pro
 `jalankan.cmd` (Windows, dapat diklik dua kali) atau `./jalankan.sh` (Linux/macOS) —
 yang selalu membuka <http://localhost:8503> tanpa perlu diatur ulang.
 
-Port sengaja **tidak** dikunci di `.streamlit/config.toml`. Layanan hosting seperti
-Streamlit Community Cloud memeriksa kesehatan aplikasi pada port bawaannya sendiri
-(8501); mengunci 8503 di berkas konfigurasi membuat aplikasi berjalan di port yang
-tidak diperiksa, sehingga penerapan gagal dengan pesan
-`dial tcp 127.0.0.1:8501: connect: connection refused`. Karena itu 8503 ditetapkan
-oleh skrip peluncur, yang hanya berlaku di komputer sendiri.
+`.streamlit/config.toml` mencantumkan port **8501** karena berkas itu dipakai saat
+penerapan: Streamlit Community Cloud memeriksa kesehatan aplikasi pada port tersebut,
+dan mengunci 8503 di sana membuat aplikasi berjalan di port yang tidak diperiksa
+sehingga penerapan gagal dengan pesan
+`dial tcp 127.0.0.1:8501: connect: connection refused`. Port 8503 ditetapkan oleh
+skrip peluncur lewat `--server.port`, yang mengalahkan berkas konfigurasi di komputer
+sendiri tanpa mengganggu penerapan.
 
 Mulai dari halaman **Beranda & Data** untuk mengunggah berkas, atau tekan *Muat contoh
 data nasabah* untuk mencoba seluruh metode dengan data contoh.
