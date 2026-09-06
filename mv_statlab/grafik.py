@@ -17,7 +17,7 @@ import io
 import numpy as np
 import pandas as pd
 
-from lentera_mva.plots import ACUAN, GARIS, TINTA, TINTA_REDUP
+from mv_statlab.plots import ACUAN, GARIS, TINTA, TINTA_REDUP
 
 # Kutub warna untuk besaran yang punya arah. Bukan warna seri: biru berarti
 # menaikkan, oranye menurunkan, abu-abu berarti belum terbukti.
@@ -150,7 +150,7 @@ def peta_korelasi(matriks: pd.DataFrame, judul: str = "Matriks korelasi") -> byt
     from matplotlib.colors import LinearSegmentedColormap
 
     skala = LinearSegmentedColormap.from_list(
-        "lentera_divergen", [KUTUB_TURUN, "#eef0f2", KUTUB_NAIK]
+        "mvstatlab_divergen", [KUTUB_TURUN, "#eef0f2", KUTUB_NAIK]
     )
 
     nama = [str(k) for k in matriks.columns]

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from lentera_mva import (
+from mv_statlab import (
     assumptions,
     cca,
     clustering,

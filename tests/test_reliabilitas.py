@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from lentera_mva import reliability as rb
+from mv_statlab import reliability as rb
 
 
 @pytest.fixture(scope="module")

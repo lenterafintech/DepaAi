@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from lentera_mva import formatting, moderation as mo, plots, preprocessing, ui
+from mv_statlab import formatting, moderation as mo, plots, preprocessing, ui
 
 ui.butuh_fitur("regresi")
 ui.page_setup(

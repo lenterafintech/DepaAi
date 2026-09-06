@@ -1,4 +1,4 @@
-"""Lentera MVA - aplikasi web analisis multivariat.
+"""MV Statlab - aplikasi web analisis multivariat.
 
 Jalankan dengan: streamlit run app.py
 """
@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-st.set_page_config(page_title="Lentera MVA", page_icon="📊", layout="wide")
+st.set_page_config(page_title="MV Statlab", page_icon="📊", layout="wide")
 st.session_state["_page_configured"] = True
 
 PAGES = {

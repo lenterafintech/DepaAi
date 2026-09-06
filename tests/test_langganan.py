@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lentera_mva import langganan as lg
+from mv_statlab import langganan as lg
 
 
 def test_paket_tidak_dikenal_jatuh_ke_gratis():

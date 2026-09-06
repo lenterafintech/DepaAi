@@ -6,8 +6,8 @@ from datetime import timedelta
 
 import pytest
 
-from lentera_mva import langganan as lg
-from lentera_mva import pengguna as pg
+from mv_statlab import langganan as lg
+from mv_statlab import pengguna as pg
 
 
 @pytest.fixture

@@ -64,8 +64,8 @@ def _template() -> go.layout.Template:
     return tpl
 
 
-pio.templates["lentera"] = _template()
-LAYOUT = dict(template="lentera", margin=dict(l=60, r=30, t=60, b=60))
+pio.templates["mvstatlab"] = _template()
+LAYOUT = dict(template="mvstatlab", margin=dict(l=60, r=30, t=60, b=60))
 
 
 def _rapikan_peta(fig: go.Figure, judul_skala: str) -> go.Figure:

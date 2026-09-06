@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from lentera_mva import data_entry as de
+from mv_statlab import data_entry as de
 
 
 def test_bakukan_nama():

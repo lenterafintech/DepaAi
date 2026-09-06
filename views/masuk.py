@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import streamlit as st
 
-from lentera_mva import langganan, pengguna as pg, ui
+from mv_statlab import langganan, pengguna as pg, ui
 
 ui.page_setup(
-    "Masuk ke Lentera MVA",
+    "Masuk ke MV Statlab",
     "Akun",
     "Masuk untuk menyimpan paket dan melanjutkan analisis Anda. Akun baru langsung "
     f"mendapat {pg.HARI_UJI_COBA} hari uji coba dengan seluruh fitur terbuka.",

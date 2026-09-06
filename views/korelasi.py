@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from lentera_mva import assumptions, correlation, plots, ui
+from mv_statlab import assumptions, correlation, plots, ui
 
 ui.butuh_fitur("dasar")
 ui.page_setup(

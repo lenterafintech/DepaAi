@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Jalankan Lentera MVA di port 8503.
+# Jalankan MV Statlab di port 8503.
 #
 # Port tidak dikunci di .streamlit/config.toml karena layanan hosting memeriksa
 # port bawaannya sendiri; port ditetapkan di sini agar berlaku lokal saja.

@@ -23,10 +23,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from lentera_mva.keranjang import Keranjang
-from lentera_mva.narrative import AUDIENCE_LABELS, AUDIENCES, Laporan, tabel_markdown
-from lentera_mva.report_html import laporan_html, laporan_html_semua
-from lentera_mva.sintaks import bangkitkan
+from mv_statlab.keranjang import Keranjang
+from mv_statlab.narrative import AUDIENCE_LABELS, AUDIENCES, Laporan, tabel_markdown
+from mv_statlab.report_html import laporan_html, laporan_html_semua
+from mv_statlab.sintaks import bangkitkan
 
 # Padanan aman untuk lambang yang tidak tersedia pada huruf bawaan PDF.
 GANTI_LAMBANG = {
@@ -224,7 +224,7 @@ def susun_blok(laporan: Laporan, pembaca: str = "eksekutif", lengkap: bool = Fal
         Blok(
             "catatan",
             catatan=(
-                "Disusun otomatis oleh Lentera MVA. Kesimpulan statistik menunjukkan pola "
+                "Disusun otomatis oleh MV Statlab. Kesimpulan statistik menunjukkan pola "
                 "dalam data, bukan bukti sebab-akibat; keputusan akhir tetap memerlukan "
                 "pertimbangan konteks dan keahlian bidang."
             ),
@@ -301,7 +301,7 @@ def _dokumen(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> Dokum
 def _grafik(laporan: Laporan) -> list[tuple[str, bytes]]:
     """Grafik statis untuk laporan; kegagalannya tidak menggagalkan ekspor."""
     try:
-        from lentera_mva.grafik import grafik_laporan
+        from mv_statlab.grafik import grafik_laporan
 
         return grafik_laporan(laporan)
     except Exception:  # noqa: BLE001 - matplotlib tak ada atau render gagal
@@ -452,19 +452,19 @@ def ke_pdf(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
 
     dasar = getSampleStyleSheet()
     gaya_judul = ParagraphStyle(
-        "JudulLentera", parent=dasar["Title"], fontName=font_tebal, fontSize=18,
+        "JudulStatlab", parent=dasar["Title"], fontName=font_tebal, fontSize=18,
         textColor=colors.HexColor("#131a2b"), alignment=TA_LEFT, spaceAfter=6,
     )
     gaya_sub = ParagraphStyle(
-        "SubLentera", parent=dasar["Heading2"], fontName=font_tebal, fontSize=13,
+        "SubStatlab", parent=dasar["Heading2"], fontName=font_tebal, fontSize=13,
         textColor=colors.HexColor("#26356b"), spaceBefore=14, spaceAfter=6,
     )
     gaya_isi = ParagraphStyle(
-        "IsiLentera", parent=dasar["BodyText"], fontName=font, fontSize=10, leading=15,
+        "IsiStatlab", parent=dasar["BodyText"], fontName=font, fontSize=10, leading=15,
         textColor=colors.HexColor("#1f2937"), spaceAfter=6,
     )
     gaya_meta = ParagraphStyle(
-        "MetaLentera", parent=gaya_isi, fontSize=8.5,
+        "MetaStatlab", parent=gaya_isi, fontSize=8.5,
         textColor=colors.HexColor("#6f7a91"),
     )
 
@@ -473,7 +473,7 @@ def ke_pdf(sumber, pembaca: str = "eksekutif", lengkap: bool = False) -> bytes:
         penampung, pagesize=A4,
         leftMargin=20 * mm, rightMargin=18 * mm, topMargin=18 * mm, bottomMargin=18 * mm,
         title=konten.judul,
-        author="Lentera MVA",
+        author="MV Statlab",
     )
     isi: list = []
     for blok in konten.blok:
@@ -585,7 +585,7 @@ def _petunjuk_sintaks() -> str:
         "dengan salah satu cara berikut, lalu letakkan sebagai data.csv di folder yang\n"
         "sama:\n\n"
         "  - Unduh dari halaman Beranda & Data pada aplikasi, atau\n"
-        "  - Buka berkas proyek .lentera Anda; data.csv ada di dalamnya.\n\n"
+        "  - Buka berkas proyek .mvstatlab Anda; data.csv ada di dalamnya.\n\n"
         "Perbedaan kecil antar perangkat adalah hal wajar. Sebelum membandingkan,\n"
         "samakan lebih dulu penanganan nilai hilang, standardisasi, pengkodean\n"
         "kategori, dan tipe jumlah kuadrat.\n"
@@ -973,6 +973,6 @@ def nama_berkas(
         ragam = (
             f"laporan_lengkap_{pembaca}" if lengkap else f"ringkasan_{pembaca}"
         )
-    dasar = str(getattr(sumber, "dataset", "lentera")).rsplit(".", 1)[0]
+    dasar = str(getattr(sumber, "dataset", "mvstatlab")).rsplit(".", 1)[0]
     bersih = "".join(c if c.isalnum() or c in "-_" else "_" for c in dasar)[:40].strip("_")
     return f"{bersih or 'lentera'}_{ragam}.{FORMAT[kode_format].ekstensi}"

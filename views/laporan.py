@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from lentera_mva import ekspor, formatting, ui
+from mv_statlab import ekspor, formatting, ui
 
 ui.butuh_fitur("keranjang")
 ui.page_setup(
@@ -19,11 +19,11 @@ ui.sidebar_info()
 isi = ui.keranjang()
 
 if isi.kosong():
-    st.info(
-        "Belum ada hasil yang disimpan. Jalankan analisis di halaman mana pun — "
-        "Regresi, CFA, Uji Non-parametrik, dan lainnya — lalu tekan tombol "
-        "**Simpan ke laporan** di bawah tabel hasilnya.",
-        icon=":material/inbox:",
+    ui.keadaan_kosong(
+        "Belum ada hasil yang disimpan",
+        "Jalankan analisis di halaman mana pun — Regresi, CFA, Uji Non-parametrik, "
+        "dan lainnya — lalu tekan tombol Simpan ke laporan di bawah tabel hasilnya.",
+        ikon="＋",
     )
     st.stop()
 
@@ -55,14 +55,18 @@ with st.expander("Judul dan penyusun", expanded=False):
         placeholder="opsional — dicantumkan pada halaman muka",
     )
 
-st.subheader("Daftar isi")
+ui.judul_bagian("Daftar isi", kicker="Isi laporan")
 ui.show_table(isi.daftar_isi(), "daftar_isi_laporan.csv")
 
 # --------------------------------------------------------------------------- #
 # Isi per bagian
 # --------------------------------------------------------------------------- #
 
-st.subheader("Isi laporan")
+ui.judul_bagian(
+    "Rincian per bagian",
+    "Setiap hasil dapat dihapus sendiri bila tidak jadi dipakai.",
+    kicker="Isi laporan",
+)
 tanda_sekarang = ui.tanda_data()
 
 for nama, butir in isi.per_bagian().items():
@@ -95,7 +99,11 @@ for nama, butir in isi.per_bagian().items():
 # Ekspor
 # --------------------------------------------------------------------------- #
 
-st.subheader("Ekspor laporan")
+ui.judul_bagian(
+    "Ekspor laporan",
+    "Seluruh format disusun dari isi yang sama, sehingga angkanya identik.",
+    kicker="Unduh",
+)
 
 if not ui.paket_aktif().punya("unduh_laporan"):
     st.info(

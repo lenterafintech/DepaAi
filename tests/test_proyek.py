@@ -10,8 +10,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from lentera_mva import keranjang as kr
-from lentera_mva import proyek as pr
+from mv_statlab import keranjang as kr
+from mv_statlab import proyek as pr
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -96,8 +96,8 @@ def test_ringkas_menyebut_isi_utama(data, isi_keranjang):
 
 
 def test_nama_berkas_proyek_dibersihkan():
-    assert pr.nama_berkas_proyek("contoh data/nasabah.csv") == "contoh_data_nasabah.lentera"
-    assert pr.nama_berkas_proyek("") == "lentera.lentera"
+    assert pr.nama_berkas_proyek("contoh data/nasabah.csv") == "contoh_data_nasabah.mvstatlab"
+    assert pr.nama_berkas_proyek("") == "mvstatlab.mvstatlab"
 
 
 # --------------------------------------------------------------------------- #
@@ -230,3 +230,26 @@ def test_konfigurasi_rusak_tidak_menggagalkan_pembukaan(data):
                 nama, b"{bukan json" if nama == "konfigurasi.json" else sumber.read(nama)
             )
     assert pr.buka_proyek(penampung.getvalue()).konfigurasi == {}
+
+
+def test_proyek_dari_nama_aplikasi_lama_tetap_terbuka(data):
+    """Berkas yang disimpan sebelum aplikasi berganti nama tidak boleh ditolak."""
+    berkas = pr.simpan_proyek(data, "d.csv")
+    sumber = zipfile.ZipFile(io.BytesIO(berkas))
+    penampung = io.BytesIO()
+    with zipfile.ZipFile(penampung, "w", zipfile.ZIP_DEFLATED) as arsip:
+        for nama in sumber.namelist():
+            isi = sumber.read(nama)
+            if nama == "proyek.json":
+                manifest = json.loads(isi)
+                manifest["format"] = "lentera-mva-proyek"  # nama format lama
+                isi = json.dumps(manifest).encode("utf-8")
+            arsip.writestr(nama, isi)
+
+    hasil = pr.buka_proyek(penampung.getvalue())
+    assert hasil.data.shape == data.shape
+
+
+def test_ekstensi_berkas_mengikuti_nama_aplikasi():
+    assert pr.EKSTENSI == "mvstatlab"
+    assert pr.nama_berkas_proyek("data.csv").endswith(".mvstatlab")

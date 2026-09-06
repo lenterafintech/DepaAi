@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from lentera_mva import audit
-from lentera_mva import reliability as rb
+from mv_statlab import audit
+from mv_statlab import reliability as rb
 
 ROOT = Path(__file__).resolve().parents[1]
 

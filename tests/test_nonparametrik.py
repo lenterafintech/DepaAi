@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 from scipy import stats
 
-from lentera_mva import nonparametrik as npar
+from mv_statlab import nonparametrik as npar
 
 ROOT = Path(__file__).resolve().parents[1]
 

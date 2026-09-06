@@ -5,8 +5,8 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from lentera_mva import data_entry as de
-from lentera_mva import formatting, reliability as rb, ui
+from mv_statlab import data_entry as de
+from mv_statlab import formatting, reliability as rb, ui
 
 ui.butuh_fitur("entri_data")
 ui.page_setup(

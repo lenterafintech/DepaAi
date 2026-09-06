@@ -21,8 +21,8 @@ from sklearn.metrics import (
 from statsmodels.stats.diagnostic import het_breuschpagan, het_white
 from statsmodels.stats.stattools import durbin_watson, jarque_bera
 
-from lentera_mva.assumptions import vif
-from lentera_mva.preprocessing import design_matrix
+from mv_statlab.assumptions import vif
+from mv_statlab.preprocessing import design_matrix
 
 # Jenis galat baku yang disediakan. Pilihan ini tidak mengubah koefisien B sama
 # sekali — yang berubah hanya galat baku, nilai t, p, dan selang kepercayaannya.

@@ -5,9 +5,9 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from lentera_mva import kesimpulan_ui as kui
-from lentera_mva import narrative as nr
-from lentera_mva import ui
+from mv_statlab import kesimpulan_ui as kui
+from mv_statlab import narrative as nr
+from mv_statlab import ui
 
 analisis, laporan, lengkap = kui.buka_ringkasan(
     "Laporan Profesional",

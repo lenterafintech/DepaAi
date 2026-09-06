@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from lentera_mva import formatting, nonparametrik as npar, preprocessing, ui
+from mv_statlab import formatting, nonparametrik as npar, preprocessing, ui
 
 ui.butuh_fitur("nonparametrik")
 ui.page_setup(

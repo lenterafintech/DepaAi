@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 from sklearn.decomposition import FactorAnalysis
 
-from lentera_mva import preprocessing
+from mv_statlab import preprocessing
 
 AMBANG_ALPHA = 0.70
 AMBANG_CR = 0.70

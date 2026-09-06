@@ -16,7 +16,7 @@ address = "0.0.0.0"
 gatherUsageStats = false
 
 # Palet laporan keuangan: netral berbias biru dengan aksen navy. Warna status
-# (hijau/amber/merah bata) didefinisikan di lentera_mva/ui.py karena Streamlit
+# (hijau/amber/merah bata) didefinisikan di mv_statlab/ui.py karena Streamlit
 # hanya menyediakan satu warna aksen di sini.
 [theme]
 base = "light"

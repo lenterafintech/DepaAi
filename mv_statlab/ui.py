@@ -2,24 +2,29 @@
 
 from __future__ import annotations
 
+from html import escape
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from lentera_mva import formatting, keranjang as kr, langganan, pengguna as pg, preprocessing
+from mv_statlab import formatting, keranjang as kr, langganan, pengguna as pg, preprocessing
 
 DATA_KEY = "dataset"
 NAME_KEY = "dataset_name"
 KERANJANG_KEY = "keranjang_hasil"
 SAMPLE_PATH = Path(__file__).resolve().parents[1] / "data" / "contoh_data_nasabah.csv"
 
-# Palet laporan: netral berbias biru, aksen navy, warna status terpisah dari aksen.
+# Palet terang. Warna status sengaja terpisah dari aksen agar "berhasil" dan
+# "aksen merek" tidak pernah tertukar maknanya.
 WARNA = {
     "tinta": "#131a2b",
     "tinta2": "#3d4860",
     "redup": "#6f7a91",
     "garis": "#dde3ee",
+    "garis2": "#eef1f6",
+    "kertas": "#ffffff",
+    "kertas2": "#f6f8fc",
     "aksen": "#26356b",
     "aksen2": "#3b4ea0",
     "aksenSamar": "#eef1f8",
@@ -31,63 +36,233 @@ WARNA = {
     "kritisSamar": "#f7e7e4",
 }
 
-_GAYA = f"""
+# Palet gelap: bukan pembalikan otomatis, melainkan langkah yang dipilih sendiri.
+# Tinta dan kertas bertukar peran, sementara aksen dinaikkan terangnya agar tetap
+# terbaca di atas dasar gelap.
+WARNA_GELAP = {
+    "tinta": "#e9edf6",
+    "tinta2": "#b3bccf",
+    "redup": "#8b96ac",
+    "garis": "#2a344c",
+    "garis2": "#212a3e",
+    "kertas": "#141b2c",
+    "kertas2": "#1a2235",
+    "aksen": "#93a6ea",
+    "aksen2": "#8098e0",
+    "aksenSamar": "#1d2740",
+    "baik": "#5cbb8c",
+    "baikSamar": "#162b22",
+    "perhatian": "#d8a53f",
+    "perhatianSamar": "#2e2513",
+    "kritis": "#e08074",
+    "kritisSamar": "#331b18",
+}
+
+
+def gelap() -> bool:
+    """Apakah Streamlit sedang memakai tema gelap?
+
+    Tema Streamlit yang menentukan, bukan ``prefers-color-scheme`` peramban:
+    pengguna dapat memilih tema di dalam aplikasi, dan pilihan itu tidak selalu
+    sama dengan pengaturan sistem operasinya.
+    """
+    return getattr(getattr(st, "context", None), "theme", None) is not None and (
+        getattr(st.context.theme, "type", "light") == "dark"
+    )
+
+
+def palet() -> dict[str, str]:
+    return WARNA_GELAP if gelap() else WARNA
+
+
+def _token(warna: dict[str, str]) -> str:
+    """Palet menjadi custom property CSS, sehingga warna hidup di satu tempat."""
+    return "\n".join(f"  --{nama}: {nilai};" for nama, nilai in warna.items())
+
+
+def _gaya() -> str:
+    """Lembar gaya halaman, disusun dari token palet yang sedang berlaku."""
+    p = palet()
+    return f"""
 <style>
+:root {{
+{_token(p)}
+}}
+
 /* Lebar halaman dibatasi agar baris teks tidak membentang terlalu panjang. */
-.block-container {{max-width: 1200px; padding-top: 2.2rem; padding-bottom: 4rem}}
+/* Bilah header Streamlit melayang di atas isi halaman; padding ini menjaga
+   kicker tidak tersembunyi di baliknya. */
+.block-container {{max-width: 1240px; padding-top: 4rem; padding-bottom: 4rem}}
 .block-container [data-testid="stMarkdownContainer"] p,
 .block-container [data-testid="stMarkdownContainer"] li {{max-width: 76ch}}
 
-/* Kepala halaman: kicker kecil, judul, deskripsi, lalu garis pemisah. */
-.mva-head {{margin: 0 0 1.4rem}}
-.mva-head .kicker {{font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
-  color: {WARNA['aksen2']}; font-weight: 700; margin-bottom: .45rem}}
+/* ---- Kepala halaman ---- */
+.mva-head {{margin: 0 0 1.3rem}}
+.mva-head .kicker {{display: inline-flex; align-items: center; gap: .5rem;
+  font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--aksen2); font-weight: 700; margin-bottom: .5rem}}
+.mva-head .tanda {{display: grid; place-items: center; width: 20px; height: 20px;
+  border-radius: 6px; background: var(--aksen); color: #fff; font-size: .62rem;
+  font-weight: 800; letter-spacing: 0}}
 .mva-head h1 {{font-size: 1.85rem; line-height: 1.2; font-weight: 700; margin: 0;
-  letter-spacing: -.015em; color: {WARNA['tinta']}}}
-.mva-head .desc {{font-size: .95rem; line-height: 1.6; color: {WARNA['tinta2']};
+  letter-spacing: -.015em; color: var(--tinta)}}
+.mva-head .desc {{font-size: .95rem; line-height: 1.6; color: var(--tinta2);
   margin: .5rem 0 0; max-width: 76ch}}
-.mva-head hr {{border: 0; border-top: 1px solid {WARNA['garis']}; margin: 1.1rem 0 0}}
+.mva-head hr {{border: 0; border-top: 1px solid var(--garis); margin: 1.1rem 0 0}}
 
-/* Kotak "cara membaca" dibuat tenang, bukan biru menyala bawaan. */
-.mva-baca {{border-left: 3px solid {WARNA['aksen2']}; background: {WARNA['aksenSamar']};
+/* ---- Bilah status data aktif, di atas halaman bukan tersembunyi di sidebar ---- */
+.mva-strip {{display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  border: 1px solid var(--garis); border-radius: 11px; background: var(--kertas2);
+  margin: 0 0 1.25rem; overflow: hidden}}
+.mva-strip .sel {{padding: .6rem .9rem; min-width: 0}}
+.mva-strip .sel + .sel {{border-left: 1px solid var(--garis)}}
+.mva-strip .lb {{display: block; font-size: .63rem; font-weight: 750;
+  letter-spacing: .09em; text-transform: uppercase; color: var(--redup);
+  margin-bottom: .15rem}}
+.mva-strip .nl {{display: block; font-size: .85rem; font-weight: 700;
+  color: var(--tinta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis}}
+.mva-strip .titik {{display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  margin-right: .4rem; background: var(--baik)}}
+.mva-strip .titik.sepi {{background: var(--redup)}}
+
+/* ---- Judul bagian dengan batang aksen ---- */
+.mva-bagian {{display: flex; align-items: flex-start; gap: .7rem; margin: 1.7rem 0 .7rem}}
+.mva-bagian .batang {{width: 3px; align-self: stretch; min-height: 34px;
+  border-radius: 3px; background: var(--aksen2)}}
+.mva-bagian .kicker {{font-size: .62rem; font-weight: 800; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--aksen2); margin-bottom: .15rem}}
+.mva-bagian .jd {{font-size: 1.06rem; font-weight: 700; color: var(--tinta);
+  letter-spacing: -.012em; line-height: 1.3}}
+.mva-bagian .ket {{font-size: .81rem; color: var(--redup); line-height: 1.5;
+  margin-top: .2rem; max-width: 76ch}}
+
+/* ---- Keadaan kosong: mengarahkan, bukan sekadar memberi tahu ---- */
+.mva-kosong {{text-align: center; border: 1px dashed var(--garis);
+  border-radius: 14px; padding: 2rem 1.4rem; margin: 1rem 0;
+  background: var(--kertas2); color: var(--tinta2)}}
+.mva-kosong .ikon {{display: grid; place-items: center; width: 44px; height: 44px;
+  margin: 0 auto .7rem; border-radius: 13px; background: var(--aksenSamar);
+  color: var(--aksen2); font-size: 1.2rem}}
+.mva-kosong b {{display: block; color: var(--tinta); font-size: 1rem;
+  margin-bottom: .3rem}}
+.mva-kosong .ket {{font-size: .86rem; line-height: 1.6; max-width: 56ch;
+  margin: 0 auto}}
+
+/* ---- Kotak "cara membaca" ---- */
+.mva-baca {{border-left: 3px solid var(--aksen2); background: var(--aksenSamar);
   padding: .8rem 1rem; border-radius: 0 8px 8px 0; margin: .6rem 0 1rem;
-  font-size: .88rem; line-height: 1.6; color: {WARNA['tinta2']}; max-width: 82ch}}
-.mva-baca b {{color: {WARNA['tinta']}}}
+  font-size: .88rem; line-height: 1.6; color: var(--tinta2); max-width: 82ch}}
+.mva-baca b {{color: var(--tinta)}}
 
-/* Panel data aktif pada sidebar. */
-.mva-data {{border: 1px solid {WARNA['garis']}; border-radius: 9px; padding: .6rem .75rem;
-  background: {WARNA['aksenSamar']}}}
-.mva-data .nama {{font-size: .82rem; font-weight: 650; color: {WARNA['tinta']};
-  overflow-wrap: anywhere}}
+/* ---- Panel sidebar ---- */
+.mva-data, .mva-akun {{border: 1px solid var(--garis); border-radius: 9px;
+  padding: .6rem .75rem}}
+.mva-data {{background: var(--aksenSamar)}}
+.mva-akun {{margin-bottom: .5rem}}
+.mva-data .nama, .mva-akun .nm {{font-size: .83rem; font-weight: 650;
+  color: var(--tinta); overflow-wrap: anywhere}}
 .mva-data .rinci {{font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .72rem; color: {WARNA['redup']}; margin-top: .2rem}}
-.mva-akun {{border: 1px solid {WARNA['garis']}; border-radius: 9px; padding: .6rem .75rem;
-  margin-bottom: .5rem}}
-.mva-akun .nm {{font-size: .85rem; font-weight: 650; color: {WARNA['tinta']};
-  overflow-wrap: anywhere}}
+  font-size: .72rem; color: var(--redup); margin-top: .2rem}}
 .mva-akun .pk {{font-size: .74rem; font-weight: 700; letter-spacing: .04em;
-  text-transform: uppercase; color: {WARNA['aksen2']}; margin-top: .2rem}}
-.mva-akun .al {{font-size: .72rem; color: {WARNA['redup']}; margin-top: .25rem;
+  text-transform: uppercase; color: var(--aksen2); margin-top: .2rem}}
+.mva-akun .al {{font-size: .72rem; color: var(--redup); margin-top: .25rem;
   line-height: 1.4}}
+
+/* ---- Komponen bawaan Streamlit ---- */
+[data-testid="stMetric"] {{border: 1px solid var(--garis); border-radius: 11px;
+  padding: .8rem .9rem; background: var(--kertas2)}}
+[data-testid="stExpander"] {{border: 1px solid var(--garis); border-radius: 11px}}
+[data-testid="stDataFrame"] {{border: 1px solid var(--garis); border-radius: 10px;
+  overflow: hidden}}
+.stButton > button, .stDownloadButton > button {{border-radius: 8px; font-weight: 650}}
+
+/* Gerak dihentikan bagi yang memintanya lewat pengaturan sistem. */
+@media (prefers-reduced-motion: reduce) {{
+  * {{transition: none !important; animation: none !important}}
+}}
+@media (max-width: 800px) {{
+  .block-container {{padding-left: .8rem; padding-right: .8rem}}
+  .mva-head h1 {{font-size: 1.5rem}}
+  .mva-strip .sel + .sel {{border-left: 0; border-top: 1px solid var(--garis)}}
+}}
 </style>
 """
 
 
-def page_setup(title: str, kicker: str = "Lentera MVA", description: str = "") -> None:
+def strip_status() -> None:
+    """Bilah status data aktif di atas halaman.
+
+    Sebelumnya keterangan ini hanya ada di sidebar, yang mudah terlewat dan tertutup
+    pada layar sempit. Menaruhnya di atas membuat pengguna selalu tahu data mana yang
+    sedang dianalisis — kekeliruan yang paling mahal adalah menganalisis data yang
+    salah tanpa menyadarinya.
+    """
+    df = get_dataset()
+    paket = paket_aktif()
+
+    if df is None:
+        sel = [
+            ("Data aktif", '<span class="titik sepi"></span>Belum ada'),
+            ("Paket", escape(paket.nama)),
+        ]
+    else:
+        nama = str(st.session_state.get(NAME_KEY, "data"))
+        numerik = len(preprocessing.numeric_columns(df))
+        sel = [
+            ("Data aktif", f'<span class="titik"></span>{escape(nama)}'),
+            ("Ukuran", f"{formatting.num(len(df))} baris × {df.shape[1]} kolom"),
+            ("Numerik", f"{numerik} kolom"),
+            ("Paket", escape(paket.nama)),
+        ]
+
+    isi = "".join(
+        f'<div class="sel"><span class="lb">{label}</span>'
+        f'<span class="nl">{nilai}</span></div>'
+        for label, nilai in sel
+    )
+    st.html(f'<div class="mva-strip">{isi}</div>')
+
+
+def judul_bagian(judul: str, keterangan: str = "", kicker: str = "") -> None:
+    """Judul bagian dengan batang aksen, seragam di seluruh halaman."""
+    bagian = [
+        f'<div class="kicker">{escape(kicker)}</div>' if kicker else "",
+        f'<div class="jd">{escape(judul)}</div>',
+        f'<div class="ket">{escape(keterangan)}</div>' if keterangan else "",
+    ]
+    st.html(
+        '<div class="mva-bagian"><div class="batang"></div><div>'
+        + "".join(bagian)
+        + "</div></div>"
+    )
+
+
+def keadaan_kosong(judul: str, keterangan: str, ikon: str = "○") -> None:
+    """Keadaan kosong yang mengarahkan langkah berikutnya, bukan sekadar memberi tahu."""
+    st.html(
+        f'<div class="mva-kosong"><div class="ikon">{escape(ikon)}</div>'
+        f"<b>{escape(judul)}</b>"
+        f'<div class="ket">{escape(keterangan)}</div></div>'
+    )
+
+
+def page_setup(title: str, kicker: str = "MV Statlab", description: str = "") -> None:
     """Kepala halaman standar: kicker, judul, deskripsi, garis pemisah.
 
     Ikon sengaja tidak dipakai di sini — penanda visual tiap halaman sudah ada pada
     menu sisi kiri, sehingga judul cukup berupa teks dan tidak menyaingi isi halaman.
     """
     if not st.session_state.get("_page_configured"):
-        st.set_page_config(page_title="Lentera MVA", page_icon="📊", layout="wide")
+        st.set_page_config(page_title="MV Statlab", page_icon="📊", layout="wide")
         st.session_state["_page_configured"] = True
-    st.html(_GAYA)
+    st.html(_gaya())
     deskripsi = f'<p class="desc">{description}</p>' if description else ""
     st.html(
-        f'<div class="mva-head"><div class="kicker">{kicker}</div>'
-        f"<h1>{title}</h1>{deskripsi}<hr></div>"
+        f'<div class="mva-head"><div class="kicker">'
+        f'<span class="tanda">MV</span>{escape(kicker)}</div>'
+        f"<h1>{escape(title)}</h1>{deskripsi}<hr></div>"
     )
+    strip_status()
 
 
 PAKET_KEY = "paket_langganan"

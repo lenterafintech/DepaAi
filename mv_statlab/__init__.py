@@ -1,10 +1,10 @@
-"""Lentera MVA - pustaka analisis multivariat.
+"""MV Statlab - pustaka analisis multivariat.
 
 Seluruh fungsi di paket ini murni komputasi (DataFrame masuk, hasil keluar)
 sehingga dapat diuji tanpa menjalankan antarmuka Streamlit.
 """
 
-from lentera_mva import (
+from mv_statlab import (
     assumptions,
     cca,
     clustering,

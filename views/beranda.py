@@ -5,12 +5,12 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from lentera_mva import descriptive, formatting, io_utils, ui
-from lentera_mva import proyek as pr
+from mv_statlab import descriptive, formatting, io_utils, ui
+from mv_statlab import proyek as pr
 
 ui.page_setup(
     "Beranda & Data",
-    "Lentera MVA",
+    "Data",
     "Muat data Anda di sini, lalu pilih metode analisis atau langsung baca "
     "ringkasan kesimpulannya pada menu di sisi kiri.",
 )
@@ -90,12 +90,12 @@ with tab_sample:
 
 with tab_proyek:
     st.markdown(
-        "Berkas proyek `.lentera` memuat data, hasil yang Anda simpan di **Laporan "
+        "Berkas proyek `.mvstatlab` memuat data, hasil yang Anda simpan di **Laporan "
         "Hasil**, dan pengaturan cakupan analisis sekaligus — sehingga pekerjaan dapat "
         "dilanjutkan pada sesi berikutnya."
     )
     berkas_proyek = st.file_uploader(
-        "Berkas proyek", type=["lentera", "zip"], key="unggah_proyek"
+        "Berkas proyek", type=["mvstatlab", "zip"], key="unggah_proyek"
     )
     if berkas_proyek is not None:
         try:

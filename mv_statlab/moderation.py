@@ -18,7 +18,7 @@ import pandas as pd
 import statsmodels.api as sm
 from scipy import stats
 
-from lentera_mva import preprocessing
+from mv_statlab import preprocessing
 
 
 @dataclass

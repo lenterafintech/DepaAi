@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from lentera_mva import assumptions, descriptive, mancova, manova, plots, preprocessing, ui
+from mv_statlab import assumptions, descriptive, mancova, manova, plots, preprocessing, ui
 
 ui.butuh_fitur("uji_beda")
 ui.page_setup(

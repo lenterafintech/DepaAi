@@ -98,16 +98,22 @@ def test_halaman_masuk_menawarkan_pendaftaran():
     assert any("Paket yang tersedia" in str(s.value) for s in app.subheader)
 
 
+def _html(app) -> str:
+    """Seluruh isi st.html pada halaman, digabung menjadi satu teks."""
+    return " ".join(str(e.body) for e in app.get("html"))
+
+
 def test_laporan_hasil_tanpa_keranjang_menjelaskan_caranya():
-    """Halaman Laporan Hasil harus berguna sekalipun belum ada yang disimpan."""
+    """Keadaan kosong harus mengarahkan langkah berikutnya, bukan sekadar memberi tahu."""
     app = _run(ROOT / "views" / "laporan.py", None)
     assert not app.exception
-    pesan = " ".join(i.value for i in app.info)
-    assert "Simpan ke laporan" in pesan
+    isi = _html(app)
+    assert "mva-kosong" in isi  # memakai komponen keadaan kosong, bukan kotak bawaan
+    assert "Simpan ke laporan" in isi
 
 
 def test_laporan_hasil_menampilkan_isi_keranjang(sample):
-    from lentera_mva import keranjang as kr
+    from mv_statlab import keranjang as kr
 
     isi = kr.Keranjang()
     isi.tambah_tabel("Regresi linear", "Koefisien regresi", sample.head(3))
@@ -116,5 +122,27 @@ def test_laporan_hasil_menampilkan_isi_keranjang(sample):
     app.session_state["keranjang_hasil"] = isi
     app.run()
     assert not app.exception
-    tajuk = " ".join(h.value for h in app.subheader)
-    assert "Daftar isi" in tajuk and "Ekspor laporan" in tajuk
+    isi = _html(app)
+    assert "Daftar isi" in isi and "Ekspor laporan" in isi
+    # Judul bagian memakai komponen bersama, bukan subheader polos.
+    assert "mva-bagian" in isi
+
+
+def test_bilah_status_menyebut_data_aktif(sample):
+    """Bilah status di atas halaman mencegah keliru menganalisis data yang salah."""
+    app = _run(ROOT / "views" / "eksplorasi.py", sample)
+    isi = _html(app)
+    assert "mva-strip" in isi
+    assert "contoh_data_nasabah.csv" in isi
+    assert "400" in isi  # jumlah baris ikut ditampilkan
+
+
+def test_token_warna_mengikuti_tema():
+    """Palet terang dan gelap harus punya kunci yang sama persis."""
+    from mv_statlab import ui
+
+    assert set(ui.WARNA) == set(ui.WARNA_GELAP)
+    gaya = ui._gaya()
+    # Token benar-benar tertulis sebagai custom property, bukan menyatu satu baris.
+    assert gaya.count("\n  --") == len(ui.WARNA)
+    assert "prefers-reduced-motion" in gaya

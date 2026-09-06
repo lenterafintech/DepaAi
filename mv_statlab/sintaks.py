@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from lentera_mva.narrative import Konfigurasi
+from mv_statlab.narrative import Konfigurasi
 
 # Padanan pustaka R untuk tiap langkah, ditulis apa adanya agar pembaca tahu
 # mana yang identik dan mana yang sekadar sepadan.
@@ -41,7 +41,7 @@ def _daftar_r(nilai: list[str]) -> str:
 def _kepala(konfig: Konfigurasi, bahasa: str, komentar: str) -> list[str]:
     judul = "Python" if bahasa == "py" else "R"
     return [
-        f"{komentar} Sintaks {judul} — Lentera MVA",
+        f"{komentar} Sintaks {judul} — MV Statlab",
         f"{komentar} Dibangkitkan otomatis pada {date.today().strftime('%d-%m-%Y')}",
         f"{komentar} Sumber data: {konfig.nama_data}",
         f"{komentar}",
@@ -234,7 +234,7 @@ def sintaks_python(konfig: Konfigurasi) -> str:
         "# ------------------------------------------------------------------ #",
         "# Catatan",
         "# ------------------------------------------------------------------ #",
-        "# Skrip ini memakai pustaka yang sama dengan aplikasi Lentera MVA",
+        "# Skrip ini memakai pustaka yang sama dengan aplikasi MV Statlab",
         "# (pandas, numpy, scipy, scikit-learn, statsmodels), sehingga angkanya",
         "# identik dengan yang ditampilkan di layar.",
         "",
@@ -426,7 +426,7 @@ def _deklarasi_spss(kolom: list[str], numerik: set[str]) -> str:
 
 def _kepala_spss(konfig: Konfigurasi, kolom: list[str], numerik: set[str]) -> str:
     return (
-        f"* Sintaks SPSS - Lentera MVA.\n"
+        f"* Sintaks SPSS - MV Statlab.\n"
         f"* Dibangkitkan otomatis pada {date.today().strftime('%d-%m-%Y')}.\n"
         f"* Sumber data: {konfig.nama_data}.\n"
         "*\n"
@@ -518,7 +518,7 @@ def sintaks_amos(konfig: Konfigurasi) -> str:
     bukan berkas yang langsung dibuka.
     """
     b = [
-        "Spesifikasi model untuk AMOS - Lentera MVA",
+        "Spesifikasi model untuk AMOS - MV Statlab",
         f"Dibangkitkan otomatis pada {date.today().strftime('%d-%m-%Y')}",
         f"Sumber data: {konfig.nama_data}",
         "",
@@ -602,7 +602,7 @@ def sintaks_mplus(konfig: Konfigurasi) -> str:
     diubah = [(asli, pendek) for asli, pendek in peta.items() if asli != pendek]
 
     b = [
-        "TITLE: Analisis Lentera MVA;",
+        "TITLE: Analisis MV Statlab;",
         "",
         "DATA:",
         "    FILE = data.csv;",

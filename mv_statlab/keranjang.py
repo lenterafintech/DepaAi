@@ -7,7 +7,7 @@ yang ia tulis, uji non-parametrik tertentu. Modul ini menampung hasil-hasil itu
 sehingga ikut terbawa ke berkas ekspor.
 
 Modul ini sengaja tidak menyentuh Streamlit agar dapat diuji tanpa menjalankan
-aplikasi; penyimpanannya di sesi diurus ``lentera_mva.ui``.
+aplikasi; penyimpanannya di sesi diurus ``mv_statlab.ui``.
 """
 
 from __future__ import annotations

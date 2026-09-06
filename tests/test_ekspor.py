@@ -10,8 +10,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from lentera_mva import ekspor, sintaks
-from lentera_mva import narrative as nr
+from mv_statlab import ekspor, sintaks
+from mv_statlab import narrative as nr
 
 ROOT = Path(__file__).resolve().parents[1]
 NUMERIK = [
@@ -308,4 +308,4 @@ def test_paket_zip_memuat_seluruh_sintaks_dan_petunjuknya(laporan):
     # Petunjuk harus menjelaskan bahwa data.csv tidak ikut dan cara mendapatkannya.
     petunjuk = arsip.read("sintaks/BACA_DULU.txt").decode("utf-8")
     assert "TIDAK disertakan" in petunjuk
-    assert ".lentera" in petunjuk
+    assert ".mvstatlab" in petunjuk
