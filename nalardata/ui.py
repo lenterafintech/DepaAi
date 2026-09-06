@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from html import escape
 from pathlib import Path
 
@@ -15,6 +16,7 @@ DATA_KEY = "dataset"
 NAME_KEY = "dataset_name"
 KERANJANG_KEY = "keranjang_hasil"
 KAMUS_KEY = "kamus_variabel"
+CONTOH_KEY = "data_adalah_contoh"
 SAMPLE_PATH = Path(__file__).resolve().parents[1] / "data" / "contoh_data_nasabah.csv"
 
 # Palet terang. Warna status sengaja terpisah dari aksen agar "berhasil" dan
@@ -261,7 +263,7 @@ def page_setup(title: str, kicker: str = "NalarData", description: str = "") -> 
     deskripsi = f'<p class="desc">{description}</p>' if description else ""
     st.html(
         f'<div class="mva-head"><div class="kicker">'
-        f'<span class="tanda">MV</span>{escape(kicker)}</div>'
+        f'<span class="tanda">ND</span>{escape(kicker)}</div>'
         f"<h1>{escape(title)}</h1>{deskripsi}<hr></div>"
     )
     strip_status()
@@ -340,7 +342,12 @@ def butuh_fitur(kode_fitur: str) -> None:
         st.stop()
 
 
-def set_dataset(df: pd.DataFrame, name: str, label_spss: dict | None = None) -> None:
+def set_dataset(
+    df: pd.DataFrame,
+    name: str,
+    label_spss: dict | None = None,
+    contoh: bool = False,
+) -> None:
     """Pasang data aktif dan selaraskan kamus variabelnya.
 
     Kamus diselaraskan, bukan disusun ulang: pengguna yang mengunggah data versi
@@ -348,6 +355,7 @@ def set_dataset(df: pd.DataFrame, name: str, label_spss: dict | None = None) -> 
     """
     st.session_state[DATA_KEY] = df
     st.session_state[NAME_KEY] = name
+    st.session_state[CONTOH_KEY] = bool(contoh)
     lama = st.session_state.get(KAMUS_KEY)
     if lama is None:
         st.session_state[KAMUS_KEY] = km.Kamus.dari_data(df, label_spss)
@@ -390,13 +398,18 @@ def require_dataset() -> pd.DataFrame:
             "CSV/Excel atau memuat contoh data."
         )
         if st.button("Muat contoh data nasabah", type="primary"):
-            set_dataset(load_sample(), "contoh_data_nasabah.csv")
+            set_dataset(load_sample(), "contoh_data_nasabah.csv", contoh=True)
             st.rerun()
         st.stop()
-    pelanggaran = langganan.periksa_ukuran(paket_aktif(), len(df), df.shape[1])
-    if pelanggaran is not None:
-        _ajakan_naik(pelanggaran)
-        st.stop()
+    # Contoh data bawaan dikecualikan dari batas ukuran paket. Ia lebih besar
+    # daripada batas paket Gratis, sehingga tanpa pengecualian ini tombol
+    # "Muat contoh data" milik aplikasi sendiri justru mengantar pengguna baru
+    # ke dinding berbayar sebelum ia sempat melihat apa pun.
+    if not st.session_state.get(CONTOH_KEY):
+        pelanggaran = langganan.periksa_ukuran(paket_aktif(), len(df), df.shape[1])
+        if pelanggaran is not None:
+            _ajakan_naik(pelanggaran)
+            st.stop()
     return df
 
 
@@ -572,8 +585,30 @@ def show_table(
         simpan_ke_keranjang(bagian, judul or _judul_dari_berkas(filename), df, catatan)
 
 
+# Penanda markdown sederhana yang dipakai pada teks tafsiran. Urutannya penting:
+# ** harus diproses sebelum * agar tebal tidak terbaca sebagai dua miring.
+_MARKDOWN_RINGKAS = (
+    (re.compile(r"`([^`]+)`"), r"<code>\1</code>"),
+    (re.compile(r"\*\*([^*]+)\*\*"), r"<b>\1</b>"),
+    (re.compile(r"(?<!\*)\*([^*]+)\*(?!\*)"), r"<i>\1</i>"),
+)
+
+
+def _markdown_ringkas(teks: str) -> str:
+    """Ubah tebal, miring, dan kode menjadi HTML setelah isinya diamankan.
+
+    ``st.html`` tidak memproses markdown, sehingga ``**penting**`` sebelumnya tampil
+    sebagai bintang harfiah di layar. Teks diamankan lebih dulu agar tanda kurung
+    sudut pada nama variabel tidak pernah menjadi tag.
+    """
+    hasil = escape(teks)
+    for pola, ganti in _MARKDOWN_RINGKAS:
+        hasil = pola.sub(ganti, hasil)
+    return hasil
+
+
 def interpretation(text: str, bagian: str | None = None) -> None:
-    st.html(f'<div class="mva-baca"><b>Cara membaca:</b> {text}</div>')
+    st.html(f'<div class="mva-baca"><b>Cara membaca:</b> {_markdown_ringkas(text)}</div>')
     if bagian:
         simpan_ke_keranjang(bagian, "Cara membaca", teks=text, jenis="tafsiran")
 

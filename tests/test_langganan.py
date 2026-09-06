@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from nalardata import langganan as lg
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_paket_tidak_dikenal_jatuh_ke_gratis():
@@ -79,3 +83,23 @@ def test_ringkas_paket_memakai_format_rupiah():
     assert ringkas["Harga"] == "Rp 149.000/bulan"
     assert "100.000 baris" in ringkas["Batas data"]
     assert dict(lg.ringkas_paket(lg.PAKET["gratis"]))["Harga"] == "Gratis"
+
+
+# --------------------------------------------------------------------------- #
+# Contoh data bawaan
+# --------------------------------------------------------------------------- #
+
+
+def test_contoh_data_bawaan_melebihi_batas_paket_gratis():
+    """Fakta yang mendasari pengecualian di ``ui.require_dataset``.
+
+    Contoh data sengaja dibuat cukup besar agar seluruh metode dapat dijalankan
+    di atasnya. Akibatnya ia melewati batas paket Gratis — dan bila batas itu
+    ditegakkan, tombol "Muat contoh data" milik aplikasi sendiri akan mengantar
+    pengguna baru ke ajakan berlangganan sebelum ia melihat satu hasil pun.
+    """
+    import pandas as pd
+
+    df = pd.read_csv(ROOT / "data" / "contoh_data_nasabah.csv")
+    gratis = lg.ambil_paket("gratis")
+    assert lg.periksa_ukuran(gratis, len(df), df.shape[1]) is not None

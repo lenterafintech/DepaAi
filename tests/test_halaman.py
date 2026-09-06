@@ -146,3 +146,53 @@ def test_token_warna_mengikuti_tema():
     # Token benar-benar tertulis sebagai custom property, bukan menyatu satu baris.
     assert gaya.count("\n  --") == len(ui.WARNA)
     assert "prefers-reduced-motion" in gaya
+
+
+def test_contoh_data_tetap_terbuka_pada_paket_gratis(sample):
+    """Onboarding tidak boleh terbentur dinding berbayar.
+
+    Contoh data bawaan lebih besar daripada batas paket Gratis. Halaman analisis
+    tetap harus berjalan atasnya, karena tombol "Muat contoh data" adalah jalan
+    masuk pertama pengguna baru ke aplikasi.
+    """
+    app = AppTest.from_file(str(ROOT / "views" / "eksplorasi.py"), default_timeout=180)
+    app.session_state["paket_langganan"] = "gratis"
+    app.session_state["dataset"] = sample
+    app.session_state["dataset_name"] = "contoh_data_nasabah.csv"
+    app.session_state["data_adalah_contoh"] = True
+    app.run()
+    assert not app.exception
+    assert not any("membatasi" in w.value for w in app.warning)
+
+
+def test_data_pengguna_tetap_dibatasi_paket(sample):
+    """Pengecualian hanya berlaku bagi contoh bawaan, bukan data pengguna."""
+    app = AppTest.from_file(str(ROOT / "views" / "eksplorasi.py"), default_timeout=180)
+    app.session_state["paket_langganan"] = "gratis"
+    app.session_state["dataset"] = sample
+    app.session_state["dataset_name"] = "data_saya.csv"
+    app.run()
+    assert not app.exception
+    assert any("membatasi" in w.value for w in app.warning)
+
+
+# --------------------------------------------------------------------------- #
+# Teks tafsiran
+# --------------------------------------------------------------------------- #
+
+
+def test_tafsiran_merender_markdown_bukan_bintang_harfiah():
+    """st.html tidak memproses markdown, sehingga ** perlu diubah sendiri."""
+    from nalardata import ui
+
+    assert ui._markdown_ringkas("**tebal**") == "<b>tebal</b>"
+    assert ui._markdown_ringkas("*miring*") == "<i>miring</i>"
+    assert ui._markdown_ringkas("`kode`") == "<code>kode</code>"
+
+
+def test_tafsiran_mengamankan_tanda_kurung_sudut():
+    """Nama variabel seperti <NA> tidak boleh berubah menjadi tag."""
+    from nalardata import ui
+
+    assert ui._markdown_ringkas("nilai <NA> pada kolom") == "nilai &lt;NA&gt; pada kolom"
+    assert "<script>" not in ui._markdown_ringkas("<script>alert(1)</script>")

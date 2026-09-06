@@ -85,7 +85,7 @@ with tab_sample:
         "seluruh metode."
     )
     if st.button("Muat contoh data nasabah", type="primary"):
-        ui.set_dataset(ui.load_sample(), "contoh_data_nasabah.csv")
+        ui.set_dataset(ui.load_sample(), "contoh_data_nasabah.csv", contoh=True)
         st.success("Contoh data dimuat.")
 
 with tab_proyek:
