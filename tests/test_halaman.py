@@ -9,7 +9,11 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 ROOT = Path(__file__).resolve().parents[1]
-PAGES = sorted(p for p in (ROOT / "views").glob("*.py") if p.stem != "beranda")
+# Beranda dan halaman entri sengaja tetap berguna tanpa data aktif: keduanya
+# justru tempat data dibuat, jadi tidak ikut diuji sebagai halaman yang menuntut data.
+MANDIRI = {"beranda", "entri_data"}
+PAGES = sorted(p for p in (ROOT / "views").glob("*.py") if p.stem not in MANDIRI)
+SEMUA = sorted((ROOT / "views").glob("*.py"))
 SAMPLE = ROOT / "data" / "contoh_data_nasabah.csv"
 
 
@@ -37,7 +41,7 @@ def test_beranda_dengan_data(sample):
     assert any("Pratinjau data" in md.value for md in app.markdown)
 
 
-@pytest.mark.parametrize("page", PAGES, ids=lambda p: p.stem)
+@pytest.mark.parametrize("page", SEMUA, ids=lambda p: p.stem)
 def test_halaman_berjalan_dengan_data(page: Path, sample: pd.DataFrame):
     app = _run(page, sample)
     assert not app.exception, f"{page.name}: {app.exception}"
@@ -49,3 +53,11 @@ def test_halaman_meminta_data_saat_kosong(page: Path):
     app = _run(page, None)
     assert not app.exception
     assert any("Belum ada data" in w.value for w in app.warning)
+
+
+def test_entri_data_berjalan_tanpa_data():
+    """Halaman entri harus tetap dapat dipakai justru saat belum ada data."""
+    app = _run(ROOT / "views" / "entri_data.py", None)
+    assert not app.exception
+    assert not app.error
+    assert any("Tentukan kolom" in str(sub.value) for sub in app.subheader)

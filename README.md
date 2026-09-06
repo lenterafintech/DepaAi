@@ -8,6 +8,7 @@ interpretasinya dalam bahasa Indonesia.
 
 | Kelompok | Metode |
 | --- | --- |
+| Entri data | Membuat tabel baru langsung di aplikasi (definisi kolom, skala Likert, butir kuesioner bernomor), menyunting data aktif, dan memeriksa kelengkapan isian |
 | Eksplorasi | Statistik deskriptif, tabel frekuensi, uji normalitas (Shapiro-Wilk, D'Agostino, KS), normalitas multivariat Mardia, pencilan IQR & jarak Mahalanobis |
 | Korelasi & asumsi | Korelasi Pearson/Spearman/Kendall dengan uji signifikansi, korelasi parsial, KMO, Bartlett's test of sphericity, VIF, Box's M, Levene |
 | Reduksi dimensi | PCA (scree plot, biplot, komunalitas, analisis paralel Horn), analisis faktor eksploratori (principal / principal axis factoring / maximum likelihood) dengan rotasi varimax & promax |
@@ -74,6 +75,7 @@ lentera_mva/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   discriminant.py      LDA/QDA, fungsi kanonik, Wilks' lambda
   manova.py            MANOVA satu jalur, Hotelling's T²
   cca.py               Korelasi kanonik
+  data_entry.py        Pembuatan dan pembersihan data hasil entri manual
   narrative.py         Penyusun kesimpulan naratif tiga register pembaca
   report_html.py       Laporan HTML mandiri yang dapat diunduh
   kesimpulan_ui.py     Komponen bersama ketiga halaman ringkasan

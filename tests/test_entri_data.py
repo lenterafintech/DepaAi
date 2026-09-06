@@ -1,0 +1,89 @@
+"""Uji pembuatan dan pembersihan data hasil entri manual."""
+
+from __future__ import annotations
+
+import pandas as pd
+import pytest
+
+from lentera_mva import data_entry as de
+
+
+def test_bakukan_nama():
+    assert de.bakukan_nama("Skor Kredit") == "skor_kredit"
+    assert de.bakukan_nama("  Rasio Utang / Pendapatan ") == "rasio_utang_pendapatan"
+    assert de.bakukan_nama("KUAL-1") == "kual_1"
+
+
+def test_validasi_menolak_nama_ganda_dan_kosong():
+    ganda = [de.KolomBaru("usia"), de.KolomBaru("Usia")]
+    assert any("terduplikasi" in m for m in de.validasi_kolom(ganda))
+    assert any("tanpa nama" in m for m in de.validasi_kolom([de.KolomBaru("")]))
+    assert de.validasi_kolom([]) == ["Belum ada kolom yang didefinisikan."]
+
+
+def test_kategori_wajib_punya_pilihan():
+    kurang = [de.KolomBaru("segmen", "Kategori", ["Mikro"])]
+    assert any("minimal 2 pilihan" in m for m in de.validasi_kolom(kurang))
+    cukup = [de.KolomBaru("segmen", "Kategori", ["Mikro", "Kecil"])]
+    assert de.validasi_kolom(cukup) == []
+
+
+def test_buat_kerangka_menghasilkan_tipe_yang_benar():
+    kolom = [
+        de.KolomBaru("Nama Responden", "Teks"),
+        de.KolomBaru("Usia", "Angka bulat"),
+        de.KolomBaru("Kepuasan", "Skala Likert 1–5"),
+    ]
+    df = de.buat_kerangka(kolom, 5)
+    assert list(df.columns) == ["nama_responden", "usia", "kepuasan"]
+    assert len(df) == 5
+    assert df["usia"].dtype.name == "float64"  # sel kosong tampil kosong, bukan "None"
+    assert df.isna().all().all()
+
+
+def test_buat_kerangka_menolak_definisi_bermasalah():
+    with pytest.raises(ValueError):
+        de.buat_kerangka([de.KolomBaru("")], 3)
+
+
+def test_kolom_kuesioner_menomori_butir():
+    kolom = de.kolom_kuesioner({"Kualitas layanan": 3, "Harga": 2})
+    assert [k.nama for k in kolom] == ["KUALIT1", "KUALIT2", "KUALIT3", "HARGA1", "HARGA2"]
+    assert all(k.tipe == "Skala Likert 1–5" for k in kolom)
+
+
+def test_rapikan_membuang_baris_kosong_dan_mengubah_angka():
+    df = pd.DataFrame({"a": ["1", "2", None], "b": ["x", "y", None], "c": [None, None, None]})
+    hasil = de.rapikan(df)
+    assert len(hasil) == 2  # baris yang seluruhnya kosong dibuang
+    assert pd.api.types.is_numeric_dtype(hasil["a"])
+    assert not pd.api.types.is_numeric_dtype(hasil["b"])
+
+
+def test_rapikan_menyimpan_angka_bulat_sebagai_bilangan_bulat():
+    df = pd.DataFrame({"likert": [1.0, 4.0, 5.0], "rasio": [0.5, 1.25, 2.0]})
+    hasil = de.rapikan(df)
+    assert hasil["likert"].dtype.name == "Int64"
+    assert hasil["rasio"].dtype.name == "float64"
+
+
+def test_rapikan_tidak_memaksa_kolom_campuran_jadi_angka():
+    df = pd.DataFrame({"a": ["1", "dua"]})
+    assert not pd.api.types.is_numeric_dtype(de.rapikan(df)["a"])
+
+
+def test_periksa_rentang_menandai_isian_di_luar_skala():
+    kolom = [de.KolomBaru("kepuasan", "Skala Likert 1–5")]
+    df = pd.DataFrame({"kepuasan": [1, 5, 9]})
+    peringatan = de.periksa_rentang(df, kolom)
+    assert peringatan and "1 isian di luar rentang" in peringatan[0]
+    assert de.periksa_rentang(pd.DataFrame({"kepuasan": [1, 3, 5]}), kolom) == []
+
+
+def test_ringkas_kelengkapan():
+    df = pd.DataFrame({"a": [1, None, 3], "b": [1, 2, 3]})
+    ringkas = de.ringkas_kelengkapan(df)
+    assert list(ringkas["Kolom"]) == ["a", "b"]
+    assert list(ringkas["Terisi"]) == [2, 3]
+    assert ringkas.loc[0, "% Terisi"] == pytest.approx(66.7)
+    assert de.ringkas_kelengkapan(pd.DataFrame()).empty

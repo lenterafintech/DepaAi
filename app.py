@@ -13,6 +13,7 @@ st.session_state["_page_configured"] = True
 PAGES = {
     "Data": [
         st.Page("views/beranda.py", title="Beranda & Data", icon=":material/database:", default=True),
+        st.Page("views/entri_data.py", title="Buat & Entri Data", icon=":material/edit_note:"),
         st.Page("views/eksplorasi.py", title="Eksplorasi Data", icon=":material/search_insights:"),
         st.Page("views/korelasi.py", title="Korelasi & Asumsi", icon=":material/linked_services:"),
     ],
