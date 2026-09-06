@@ -35,7 +35,7 @@ with tab_audit:
         "perbaikan tetap keputusan Anda."
     )
 
-    hasil_audit = ad.jalankan_audit(df)
+    hasil_audit = ad.jalankan_audit(df, ui.kamus())
     ringkas_audit = hasil_audit.ringkas()
     kolom_audit = st.columns(4)
     for slot, (label, nilai) in zip(kolom_audit, ringkas_audit.items()):

@@ -289,3 +289,30 @@ def test_batas_rancangan_ikut_ke_halaman(sample):
         "bukan sebab-akibat" in k
         for k in app.session_state["kesimpulan_laporan"].keterbatasan
     )
+
+
+# --------------------------------------------------------------------------- #
+# Rapor Data
+# --------------------------------------------------------------------------- #
+
+
+def test_rapor_data_menampilkan_temuan_dan_pilihan_tindakan(sample):
+    import pandas as pd
+
+    kotor = sample.copy()
+    kotor["nama_responden"] = [f"R{i}" for i in range(len(kotor))]
+
+    app = _run(ROOT / "views" / "rapor_data.py", kotor)
+    assert not app.exception
+    teks = " ".join(md.value for md in app.markdown)
+    assert "Apa yang ditemukan" in teks
+    assert "Akibatnya pada analisis" in teks
+    assert "Yang sebaiknya dilakukan" in teks
+    assert "Pilihan tindakan" in teks
+
+
+def test_rapor_data_tidak_mengubah_data_saat_hanya_dibuka(sample):
+    """Aplikasi melaporkan; pengguna yang memutuskan."""
+    app = _run(ROOT / "views" / "rapor_data.py", sample)
+    assert not app.exception
+    assert app.session_state["dataset"].shape == sample.shape

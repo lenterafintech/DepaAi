@@ -37,7 +37,7 @@ st.info(
 # Audit lebih dulu: memilih uji di atas data yang cacat tidak ada gunanya
 # --------------------------------------------------------------------------- #
 
-hasil_audit = ad.jalankan_audit(df)
+hasil_audit = ad.jalankan_audit(df, kamus)
 kritis = [t for t in hasil_audit.temuan if t.tingkat == ad.KRITIS]
 if kritis:
     st.error(

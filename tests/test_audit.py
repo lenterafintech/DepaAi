@@ -262,3 +262,264 @@ def test_htmt_diurutkan_dari_pasangan_paling_bermasalah():
 def test_htmt_menolak_masukan_cacat(konstruk, pesan):
     with pytest.raises(ValueError, match=pesan):
         rb.htmt(_dua_konstruk(0.5), konstruk)
+
+
+# --------------------------------------------------------------------------- #
+# Pemeriksaan lanjutan
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture(scope="module")
+def rng() -> np.random.Generator:
+    return np.random.default_rng(20260906)
+
+
+def _kamus_likert(df, butir):
+    from nalardata import kamus as km
+
+    k = km.Kamus.dari_data(df)
+    for kolom in butir:
+        k.tetapkan(kolom, skala=km.ORDINAL)
+    return k
+
+
+def _temuan(hasil, perkara: str):
+    cocok = [t for t in hasil.temuan if t.perkara == perkara]
+    return cocok[0] if cocok else None
+
+
+def test_nilai_hilang_yang_berkaitan_dengan_jawaban_lain_ditandai(rng):
+    """Nilai hilang acak boleh diabaikan; yang berpola menggeser kesimpulan."""
+    n = 300
+    skor = rng.normal(600, 60, n)
+    df = pd.DataFrame(
+        {
+            "skor_kredit": skor,
+            "usia": rng.normal(40, 9, n),
+            "pendapatan": skor * 8000 + rng.normal(0, 3e5, n),
+        }
+    )
+    df.loc[df["pendapatan"] > df["pendapatan"].quantile(0.75), "pendapatan"] = np.nan
+
+    temuan = _temuan(audit.jalankan_audit(df), "Nilai hilang tidak acak")
+    assert temuan is not None
+    assert "skor_kredit" in temuan.rincian
+    assert temuan.n_baris == 75
+
+
+def test_nilai_hilang_yang_benar_benar_acak_tidak_ditandai(rng):
+    n = 300
+    df = pd.DataFrame({"a": rng.normal(0, 1, n), "b": rng.normal(0, 1, n)})
+    df.loc[rng.choice(n, 60, replace=False), "b"] = np.nan
+    assert _temuan(audit.jalankan_audit(df), "Nilai hilang tidak acak") is None
+
+
+def test_kolom_cacahan_yang_didominasi_nol_dilaporkan(rng):
+    df = pd.DataFrame(
+        {
+            "komplain": np.r_[np.zeros(140, int), rng.integers(1, 6, 60)],
+            "usia": rng.normal(40, 9, 200),
+        }
+    )
+    temuan = _temuan(audit.jalankan_audit(df), "Nol berlebih")
+    assert temuan is not None
+    assert temuan.kolom == "komplain"
+    assert "berinflasi nol" in temuan.saran
+
+
+def test_kolom_pecahan_biasa_tidak_dianggap_nol_berlebih(rng):
+    df = pd.DataFrame({"rasio": rng.normal(0.5, 0.2, 200)})
+    assert _temuan(audit.jalankan_audit(df), "Nol berlebih") is None
+
+
+def test_jawaban_seragam_pada_butir_ordinal_terdeteksi(rng):
+    n = 200
+    butir = [f"b{i}" for i in range(6)]
+    df = pd.DataFrame({k: rng.integers(1, 6, n) for k in butir})
+    df.loc[:19, butir] = 4  # dua puluh responden menjawab sama persis
+
+    hasil = audit.jalankan_audit(df, _kamus_likert(df, butir))
+    temuan = _temuan(hasil, "Jawaban seragam")
+    assert temuan is not None
+    assert temuan.n_baris >= 20
+    assert "alpha Cronbach" in temuan.dampak
+    assert {p.kode for p in temuan.penanganan} == {"hapus_baris", "tandai"}
+
+
+def test_jawaban_seragam_dilewati_tanpa_kamus(rng):
+    """Tanpa kamus, aplikasi tidak tahu butir mana yang ordinal — dan tidak menebak."""
+    butir = [f"b{i}" for i in range(6)]
+    df = pd.DataFrame({k: rng.integers(1, 6, 200) for k in butir})
+    df.loc[:19, butir] = 4
+    assert _temuan(audit.jalankan_audit(df), "Jawaban seragam") is None
+
+
+def test_bias_metode_tunggal_terdeteksi_saat_satu_faktor_mendominasi(rng):
+    n = 300
+    dasar = rng.normal(0, 1, n)
+    butir = [f"b{i}" for i in range(8)]
+    df = pd.DataFrame(
+        {k: np.clip((dasar * 1.6 + rng.normal(0, 0.4, n)).round() + 3, 1, 5) for k in butir}
+    )
+    temuan = _temuan(audit.jalankan_audit(df, _kamus_likert(df, butir)), "Indikasi bias metode tunggal")
+    assert temuan is not None
+    assert "Harman" in temuan.rincian
+    assert "lemah dan hanya memberi isyarat" in temuan.saran
+
+
+def test_butir_yang_benar_benar_berbeda_tidak_ditandai_bias_metode(rng):
+    n = 300
+    butir = [f"b{i}" for i in range(8)]
+    df = pd.DataFrame({k: rng.integers(1, 6, n) for k in butir})
+    hasil = audit.jalankan_audit(df, _kamus_likert(df, butir))
+    assert _temuan(hasil, "Indikasi bias metode tunggal") is None
+
+
+def test_pasangan_unit_dan_waktu_yang_berulang_dinilai_kritis():
+    from nalardata import kamus as km
+
+    df = pd.DataFrame(
+        {
+            "id_unit": ["A", "A", "B", "B", "A"],
+            "tahun": [2021, 2022, 2021, 2022, 2022],
+            "nilai": [1.0, 2, 3, 4, 5],
+        }
+    )
+    k = km.Kamus.dari_data(df)
+    k.tetapkan("id_unit", peran="id")
+    k.tetapkan("tahun", peran="waktu")
+
+    temuan = _temuan(audit.jalankan_audit(df, k), "Unit dan waktu berulang")
+    assert temuan is not None
+    assert temuan.tingkat == audit.KRITIS
+    assert "galat baku terlalu kecil" in temuan.dampak
+
+
+def test_panel_tidak_seimbang_dilaporkan_sebagai_catatan():
+    from nalardata import kamus as km
+
+    df = pd.DataFrame(
+        {
+            "id_unit": ["A", "A", "A", "B", "C"],
+            "tahun": [2021, 2022, 2023, 2021, 2021],
+            "nilai": [1.0, 2, 3, 4, 5],
+        }
+    )
+    k = km.Kamus.dari_data(df)
+    k.tetapkan("id_unit", peran="id")
+    k.tetapkan("tahun", peran="waktu")
+
+    temuan = _temuan(audit.jalankan_audit(df, k), "Panel tidak seimbang")
+    assert temuan is not None
+    assert temuan.tingkat == audit.CATATAN
+
+
+def test_kolom_bernama_seperti_data_pribadi_ditandai(rng):
+    df = pd.DataFrame(
+        {
+            "nama_responden": [f"R{i}" for i in range(50)],
+            "no_hp": [f"08{i:09d}" for i in range(50)],
+            "skor": rng.normal(0, 1, 50),
+        }
+    )
+    temuan = _temuan(audit.jalankan_audit(df), "Kemungkinan data pribadi")
+    assert temuan is not None
+    assert "nama_responden" in temuan.kolom
+    assert "hapus_kolom" in {p.kode for p in temuan.penanganan}
+
+
+def test_kolom_analisis_biasa_tidak_disangka_data_pribadi(bersih):
+    assert _temuan(audit.jalankan_audit(bersih), "Kemungkinan data pribadi") is None
+
+
+# --------------------------------------------------------------------------- #
+# Struktur temuan enam bagian
+# --------------------------------------------------------------------------- #
+
+
+def test_setiap_penanganan_menyebutkan_akibatnya(rng):
+    """Akibat harus disebut sebelum tindakan dijalankan, bukan sesudahnya."""
+    df = pd.DataFrame(
+        {
+            "nama": [f"R{i}" for i in range(60)],
+            "email": [f"r{i}@contoh.id" for i in range(60)],
+            "skor": rng.normal(0, 1, 60),
+        }
+    )
+    for temuan in audit.jalankan_audit(df).temuan:
+        for pilihan in temuan.penanganan:
+            assert pilihan.label.strip()
+            assert len(pilihan.akibat) > 15
+
+
+def test_ringkas_baris_tidak_menumpahkan_seluruh_indeks():
+    temuan = audit.Temuan(
+        tingkat=audit.CATATAN, perkara="x", kolom="y", rincian="", dampak="", saran="",
+        baris=list(range(80)),
+    )
+    ringkas = temuan.ringkas_baris()
+    assert "80 baris" in ringkas
+    assert len(ringkas) < 60
+
+
+def test_ringkas_baris_menyebut_nomor_baris_yang_dilihat_pengguna():
+    """Pengguna membaca nomor baris mulai dari satu, bukan dari nol."""
+    temuan = audit.Temuan(
+        tingkat=audit.CATATAN, perkara="x", kolom="y", rincian="", dampak="", saran="",
+        baris=[0, 4],
+    )
+    assert temuan.ringkas_baris() == "baris 1, 5"
+
+
+# --------------------------------------------------------------------------- #
+# Penerapan penanganan
+# --------------------------------------------------------------------------- #
+
+
+def test_hapus_baris_mengembalikan_salinan_dan_catatannya(rng):
+    n = 200
+    butir = [f"b{i}" for i in range(6)]
+    df = pd.DataFrame({k: rng.integers(1, 6, n) for k in butir})
+    df.loc[:19, butir] = 4
+
+    temuan = _temuan(audit.jalankan_audit(df, _kamus_likert(df, butir)), "Jawaban seragam")
+    hasil, catatan = audit.terapkan(df, temuan, "hapus_baris")
+
+    assert len(hasil) == len(df) - temuan.n_baris
+    assert len(df) == n, "data asli tidak boleh ikut berubah"
+    assert "dihapus" in catatan and str(len(hasil)) in catatan
+
+
+def test_hapus_kolom_membuang_kolom_identitas(rng):
+    df = pd.DataFrame(
+        {
+            "nama_responden": [f"R{i}" for i in range(50)],
+            "no_hp": [f"08{i:09d}" for i in range(50)],
+            "skor": rng.normal(0, 1, 50),
+        }
+    )
+    temuan = _temuan(audit.jalankan_audit(df), "Kemungkinan data pribadi")
+    hasil, catatan = audit.terapkan(df, temuan, "hapus_kolom")
+
+    assert list(hasil.columns) == ["skor"]
+    assert "nama_responden" in catatan
+    assert df.shape[1] == 3, "data asli tidak boleh ikut berubah"
+
+
+def test_tandai_tidak_mengubah_data_sama_sekali(rng):
+    df = pd.DataFrame(
+        {"nama": [f"R{i}" for i in range(50)], "skor": rng.normal(0, 1, 50)}
+    )
+    temuan = _temuan(audit.jalankan_audit(df), "Kemungkinan data pribadi")
+    hasil, catatan = audit.terapkan(df, temuan, "tandai")
+    pd.testing.assert_frame_equal(hasil, df)
+    assert "tanpa mengubah data" in catatan
+
+
+def test_penanganan_yang_tidak_ditawarkan_ditolak(rng):
+    df = pd.DataFrame(
+        {"nama": [f"R{i}" for i in range(50)], "skor": rng.normal(0, 1, 50)}
+    )
+    temuan = _temuan(audit.jalankan_audit(df), "Kemungkinan data pribadi")
+    with pytest.raises(ValueError, match="tidak tersedia"):
+        audit.terapkan(df, temuan, "isi_median")
