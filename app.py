@@ -17,6 +17,7 @@ from views import (
     akun,
     analisis_faktor,
     beranda,
+    deret_waktu,
     diskriminan,
     eksplorasi,
     entri_data,
@@ -29,6 +30,7 @@ from views import (
     moderasi,
     muat_data,
     nonparametrik,
+    panel,
     pca,
     penanganan_data,
     proyek,
@@ -76,6 +78,10 @@ KELOMPOK_METODE: dict[str, list[tuple[str, object]]] = {
     ],
     "Instrumen": [
         ("Reliabilitas & Validitas", reliabilitas.render),
+    ],
+    "Data Lanjutan": [
+        ("Regresi Panel", panel.render),
+        ("Deret Waktu (ARIMA)", deret_waktu.render),
     ],
 }
 RENDER_METODE = {nama: fn for grup in KELOMPOK_METODE.values() for nama, fn in grup}

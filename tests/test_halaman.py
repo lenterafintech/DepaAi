@@ -25,6 +25,7 @@ KELOMPOK_METODE = {
     "Pemodelan": ["Regresi", "Regresi Moderasi (MRA)", "Analisis Diskriminan", "CFA, Jalur & SEM"],
     "Reduksi & Kelompok": ["PCA", "Analisis Faktor", "Analisis Klaster", "Korelasi Kanonik"],
     "Instrumen": ["Reliabilitas & Validitas"],
+    "Data Lanjutan": ["Regresi Panel", "Deret Waktu (ARIMA)"],
 }
 
 
@@ -219,6 +220,26 @@ def test_metode_terbuka_pada_paket_profesional(sample):
     app.radio(key="analisis_mode").set_value("Pilih metode sendiri").run()
     app.selectbox(key="analisis_grup").set_value("Uji Beda & Hubungan").run()
     app.selectbox(key="analisis_metode").set_value("MANOVA").run()
+    assert not app.exception
+    assert not any("tidak termasuk dalam paket" in w.value for w in app.warning)
+
+
+def test_regresi_panel_terkunci_pada_paket_mahasiswa(sample):
+    """Panel & ARIMA ('lanjutan') hanya masuk paket Profesional ke atas — bukan
+    Mahasiswa, berbeda dari MANOVA/SEM yang sudah masuk paket itu."""
+    app = _run(sample, paket="mahasiswa")
+    app.radio(key="analisis_mode").set_value("Pilih metode sendiri").run()
+    app.selectbox(key="analisis_grup").set_value("Data Lanjutan").run()
+    app.selectbox(key="analisis_metode").set_value("Regresi Panel").run()
+    assert not app.exception
+    assert any("tidak termasuk dalam paket" in w.value for w in app.warning)
+
+
+def test_regresi_panel_terbuka_pada_paket_profesional(sample):
+    app = _run(sample, paket="profesional")
+    app.radio(key="analisis_mode").set_value("Pilih metode sendiri").run()
+    app.selectbox(key="analisis_grup").set_value("Data Lanjutan").run()
+    app.selectbox(key="analisis_metode").set_value("Regresi Panel").run()
     assert not app.exception
     assert not any("tidak termasuk dalam paket" in w.value for w in app.warning)
 
@@ -798,6 +819,28 @@ def test_pemandu_mediasi_menyarankan_sem(sample):
     app.selectbox(key="pemandu_m_medmod").set_value("pendapatan_bulanan (rasio)").run()
     assert not app.exception
     assert any("CFA / Analisis Jalur / SEM" in s.value for s in app.success)
+
+
+def test_pemandu_panel_menyarankan_regresi_panel(sample):
+    """Langkah 7: tujuan baru 'menganalisis_panel' menyambungkan halaman Regresi
+    Panel — mesin baru yang dibangun sebagai pengecualian yang disetujui pengguna."""
+    app = _run(sample)
+    app.radio(key="pemandu_tujuan").set_value("menganalisis_panel").run()
+    app.selectbox(key="pemandu_entitas_panel").set_value("segmen_usaha (nominal)").run()
+    app.selectbox(key="pemandu_outcome_panel").set_value("skor_kredit (rasio)").run()
+    app.multiselect(key="pemandu_prediktor_panel").set_value(["pendapatan_bulanan (rasio)"]).run()
+    assert not app.exception
+    assert any(s.value.startswith("**Regresi Panel**") for s in app.success)
+
+
+def test_pemandu_arima_menyarankan_deret_waktu(sample):
+    """Langkah 7: tujuan baru 'meramalkan_waktu' menyambungkan halaman Deret
+    Waktu (ARIMA)."""
+    app = _run(sample)
+    app.radio(key="pemandu_tujuan").set_value("meramalkan_waktu").run()
+    app.selectbox(key="pemandu_outcome_arima").set_value("skor_kredit (rasio)").run()
+    assert not app.exception
+    assert any(s.value.startswith("**ARIMA**") for s in app.success)
 
 
 def test_kesesuaian_hasil_menyebut_yang_belum_divalidasi():

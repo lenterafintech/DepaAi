@@ -262,6 +262,47 @@ def render(df, kamus, penelitian) -> None:
             help="Variabel yang Anda duga ikut menentukan naik-turunnya nilai di atas.",
         )
 
+    elif tujuan == "menganalisis_panel":
+        # Kolom entitas panel (mis. kode perusahaan) sengaja diambil dari SELURUH
+        # kolom, bukan ``semua`` — kolom berperan "id" yang dikecualikan di tempat
+        # lain justru lazim menjadi penanda entitas di sini. Entitas harus muncul
+        # berulang (nunique < jumlah baris); kolom bernilai unik per baris bukan
+        # entitas panel sama sekali.
+        kandidat_entitas = [c for c in df.columns if 2 <= df[c].nunique(dropna=True) < len(df)]
+        kelompok = st.selectbox(
+            "Kolom entitas (unit yang diamati berulang, mis. kode perusahaan)",
+            [None] + kandidat_entitas,
+            format_func=lambda k: "— pilih —" if k is None else _label(k),
+            key="pemandu_entitas_panel",
+            help="Kolom yang menandai unit yang sama diamati berulang sepanjang waktu.",
+        )
+        kandidat_y = [k for k in numerik if k != kelompok]
+        kiri, kanan = st.columns([1, 2])
+        outcome = kiri.selectbox(
+            "Variabel hasil (Y)",
+            [None] + kandidat_y,
+            index=_indeks(kandidat_y, _prasi_tunggal(kandidat_y, kamus, "outcome")),
+            format_func=lambda k: "— pilih —" if k is None else _label(k),
+            key="pemandu_outcome_panel",
+        )
+        kandidat_x = [k for k in numerik if k not in {outcome, kelompok}]
+        prediktor = kanan.multiselect(
+            "Prediktor (X)",
+            kandidat_x,
+            key="pemandu_prediktor_panel",
+            format_func=_label,
+        )
+
+    elif tujuan == "meramalkan_waktu":
+        outcome = st.selectbox(
+            "Variabel yang diramalkan",
+            [None] + numerik,
+            index=_indeks(numerik, _prasi_tunggal(numerik, kamus, "outcome")),
+            format_func=lambda k: "— pilih —" if k is None else _label(k),
+            key="pemandu_outcome_arima",
+            help="Deret angka yang ingin diramalkan nilainya di masa depan.",
+        )
+
     else:
         label, bantuan, peran_disukai = {
             "meringkas": (

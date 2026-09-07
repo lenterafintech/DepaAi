@@ -55,6 +55,8 @@ TUJUAN = {
     "mengelompokkan": "Mengelompokkan responden yang mirip",
     "menguji_model": "Menguji model teoretis antar konstruk",
     "mutu_instrumen": "Memeriksa mutu kuesioner",
+    "menganalisis_panel": "Menganalisis data panel (entitas x waktu)",
+    "meramalkan_waktu": "Meramalkan deret waktu",
 }
 
 PERTANYAAN_TUJUAN = {
@@ -69,6 +71,8 @@ PERTANYAAN_TUJUAN = {
     "mengelompokkan": "Ada berapa tipe responden dalam data ini?",
     "menguji_model": "Apakah model hubungan antar konstruk saya didukung data?",
     "mutu_instrumen": "Apakah kuesioner saya valid dan reliabel?",
+    "menganalisis_panel": "Bagaimana pengaruh X terhadap Y bila unit yang sama diamati berulang kali?",
+    "meramalkan_waktu": "Bagaimana kemungkinan nilainya di masa depan, dari pola masa lalunya sendiri?",
 }
 
 TERPENUHI = "terpenuhi"
@@ -147,6 +151,8 @@ METODE_TERSEDIA: dict[str, str] = {
     "Analisis klaster": "Analisis Klaster",
     "CFA / Analisis Jalur / SEM": "CFA, Jalur & SEM",
     "Uji validitas dan reliabilitas": "Reliabilitas & Validitas",
+    "Regresi Panel": "Regresi Panel",
+    "ARIMA": "Deret Waktu (ARIMA)",
 }
 
 
@@ -621,6 +627,8 @@ def sarankan(
         "mengelompokkan": _mengelompokkan,
         "menguji_model": _menguji_model,
         "mutu_instrumen": _mutu_instrumen,
+        "menganalisis_panel": _panel,
+        "meramalkan_waktu": _arima,
     }
     hasil = penanganan[tujuan](df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian)
 
@@ -1885,6 +1893,120 @@ def _mutu_instrumen(df, kamus, outcome, prediktor, kelompok, berpasangan, peneli
             ditolak_karena=(
                 "CFA menguji struktur yang sudah Anda tetapkan dan memberi AVE serta "
                 "CR. Pakai sesudah alpha, bila strukturnya sudah jelas dari teori."
+            ),
+        )
+    )
+    return hasil
+
+
+# --------------------------------------------------------------------------- #
+# Data panel dan deret waktu
+# --------------------------------------------------------------------------- #
+
+
+def _panel(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
+    """Data panel: ``kelompok`` menjadi entitas (unit yang diamati berulang),
+    bukan penanda kelompok pembanding seperti pada tujuan 'membandingkan'."""
+    hasil = Rekomendasi()
+    if not kelompok:
+        hasil.belum_terjawab.append(
+            "Kolom mana yang menandai entitas (unit) yang diamati berulang, "
+            "misalnya kode perusahaan atau nama individu?"
+        )
+    if not outcome:
+        hasil.belum_terjawab.append("Angka mana yang menjadi hasil (Y)?")
+    if not prediktor:
+        hasil.belum_terjawab.append("Variabel mana yang menjadi prediktor (X)?")
+    if hasil.belum_terjawab:
+        return hasil
+
+    bersih = _bersih(df, [outcome, kelompok, *prediktor])
+    n_entitas = int(bersih[kelompok].nunique()) if not bersih.empty else 0
+    if n_entitas < 2:
+        hasil.catatan.append(
+            f"Kolom '{kelompok}' hanya memuat {n_entitas} entitas, sehingga bukan data panel."
+        )
+        return hasil
+
+    ulangan = bersih.groupby(kelompok).size()
+    terkecil = int(ulangan.min()) if not ulangan.empty else 0
+    ulang_syarat = Syarat(
+        "Pengamatan berulang per entitas",
+        TERPENUHI if terkecil >= 2 else DILANGGAR,
+        f"Entitas dengan pengamatan tersedikit punya {terkecil} baris."
+        + ("" if terkecil >= 2 else " Data panel menuntut tiap entitas diamati lebih dari sekali."),
+    )
+    syarat = [ulang_syarat]
+
+    hasil.utama = Saran(
+        metode="Regresi Panel",
+        halaman="Regresi Panel",
+        alasan=(
+            f"'{kelompok}' diamati berulang sepanjang waktu, sehingga pengamatan pada "
+            "entitas yang sama cenderung lebih mirip satu sama lain — melanggar "
+            "independensi yang dituntut OLS biasa. Regresi panel (pengaruh tetap "
+            "atau pengaruh acak, dipilih lewat uji Hausman) mengendalikan hal itu."
+        ),
+        syarat=syarat,
+        lanjutan=(
+            "Uji Hausman pada halaman Regresi Panel memutuskan antara pengaruh tetap "
+            "dan pengaruh acak berdasarkan data Anda sendiri, bukan ditetapkan di sini."
+        ),
+        pembanding="Stata: xtreg, fe / xtreg, re, xtoverid — atau paket plm/lme4 di R",
+    )
+    hasil.alternatif.append(
+        Saran(
+            metode="Regresi linear berganda",
+            halaman="Regresi",
+            alasan="",
+            ditolak_karena=(
+                "Regresi biasa mengabaikan bahwa pengamatan dari entitas yang sama "
+                "saling berkorelasi, sehingga galat baku dan p-value-nya dapat "
+                "menyesatkan — tampak lebih meyakinkan daripada seharusnya."
+            ),
+        )
+    )
+    return hasil
+
+
+def _arima(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
+    hasil = Rekomendasi()
+    if not outcome:
+        hasil.belum_terjawab.append("Angka mana yang ingin diramalkan?")
+        return hasil
+
+    nilai = pd.to_numeric(df[outcome], errors="coerce").dropna() if outcome in df.columns else pd.Series(dtype=float)
+    n = len(nilai)
+    panjang = Syarat(
+        "Panjang deret",
+        TERPENUHI if n >= 15 else DILANGGAR,
+        f"{n} titik waktu yang valid." + ("" if n >= 15 else " ARIMA menuntut sekurang-kurangnya 15."),
+    )
+
+    hasil.utama = Saran(
+        metode="ARIMA",
+        halaman="Deret Waktu (ARIMA)",
+        alasan=(
+            f"'{outcome}' diramalkan dari polanya sendiri di masa lalu, bukan dari "
+            "variabel lain. Deret diuji stasioner (Augmented Dickey-Fuller) dan "
+            "di-differencing otomatis bila belum, sebelum order ARIMA dicari lewat AIC."
+        ),
+        syarat=[panjang],
+        lanjutan=(
+            "Periksa Ljung-Box pada residual setelah model terpasang: p ≥ 0,05 "
+            "berarti pola pada deret sudah cukup tertangkap."
+        ),
+        pembanding="EViews, Minitab, atau fungsi auto.arima() pada paket forecast di R",
+    )
+    hasil.alternatif.append(
+        Saran(
+            metode="Regresi linear berganda",
+            halaman="Regresi",
+            alasan="",
+            ditolak_karena=(
+                "Regresi biasa menuntut variabel penjelas terpisah dan mengasumsikan "
+                "pengamatan saling bebas — asumsi yang dilanggar oleh deret waktu, "
+                "yang nilainya justru berkorelasi dengan dirinya sendiri di masa lalu."
             ),
         )
     )

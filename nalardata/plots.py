@@ -455,6 +455,48 @@ def line_comparison(df: pd.DataFrame, x: str, y_columns: list[str], title: str) 
     return fig
 
 
+def time_series_forecast(
+    historis: pd.Series, ramalan: pd.DataFrame, label_y: str = "Nilai"
+) -> go.Figure:
+    """Deret historis lalu ramalan ARIMA menyambung di sumbu x yang sama, dengan
+    pita interval kepercayaan pada bagian ramalannya saja."""
+    x_hist = list(range(len(historis)))
+    x_ramal = list(range(len(historis) - 1, len(historis) - 1 + len(ramalan) + 1))
+
+    fig = go.Figure()
+    fig.add_scatter(
+        x=x_hist,
+        y=historis.to_numpy(),
+        mode="lines",
+        name="Historis",
+        line=dict(color=QUALITATIVE[0], width=2),
+    )
+    # Titik terakhir data historis diulang di awal ramalan agar dua garis menyambung.
+    y_ramal = [historis.iloc[-1], *ramalan["Perkiraan"].to_numpy()]
+    fig.add_scatter(
+        x=x_ramal,
+        y=y_ramal,
+        mode="lines+markers",
+        name="Ramalan",
+        line=dict(color=QUALITATIVE[1], width=2, dash="dash"),
+    )
+    bawah = [historis.iloc[-1], *ramalan["IK 95% Bawah"].to_numpy()]
+    atas = [historis.iloc[-1], *ramalan["IK 95% Atas"].to_numpy()]
+    fig.add_scatter(
+        x=x_ramal + x_ramal[::-1],
+        y=atas + bawah[::-1],
+        fill="toself",
+        fillcolor="rgba(235,104,52,0.15)",
+        line=dict(width=0),
+        name="IK 95%",
+        hoverinfo="skip",
+    )
+    fig.update_layout(
+        **LAYOUT, title="Deret Historis dan Ramalan", height=440, yaxis_title=label_y
+    )
+    return fig
+
+
 def moderation_plot(
     data: pd.DataFrame, x: str, y: str, group: str = "Tingkat moderator"
 ) -> go.Figure:

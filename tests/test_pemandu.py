@@ -834,3 +834,87 @@ def test_moderasi_perlu_x_dan_moderator(acak):
     hasil = _sarankan(df, tujuan="menguji_moderasi", outcome="y", prediktor=["x"])
     assert hasil.utama is None
     assert hasil.belum_terjawab
+
+
+# --------------------------------------------------------------------------- #
+# Data panel dan deret waktu (poin 5 — mesin baru dengan pengecualian yang
+# disetujui pengguna, disambungkan lewat METODE_TERSEDIA dan tujuan baru)
+# --------------------------------------------------------------------------- #
+
+
+def test_panel_dan_arima_terdaftar_di_metode_tersedia():
+    assert pmd.METODE_TERSEDIA["Regresi Panel"] == "Regresi Panel"
+    assert pmd.METODE_TERSEDIA["ARIMA"] == "Deret Waktu (ARIMA)"
+
+
+def _panel_df(acak, n_entitas=8, n_waktu=6) -> pd.DataFrame:
+    baris = []
+    for e in range(n_entitas):
+        for t in range(n_waktu):
+            baris.append(
+                {
+                    "firm": f"F{e}",
+                    "x1": float(acak.normal(5, 2)),
+                    "y": float(acak.normal(50, 8)),
+                }
+            )
+    return pd.DataFrame(baris)
+
+
+def test_panel_menyarankan_regresi_panel(acak):
+    df = _panel_df(acak)
+    hasil = _sarankan(df, tujuan="menganalisis_panel", outcome="y", prediktor=["x1"], kelompok="firm")
+    assert hasil.utama.metode == "Regresi Panel"
+    assert hasil.utama.halaman == "Regresi Panel"
+    assert hasil.utama.tersedia
+    ulangan = [s for s in hasil.utama.syarat if s.nama == "Pengamatan berulang per entitas"][0]
+    assert ulangan.terpenuhi
+
+
+def test_panel_menandai_entitas_tanpa_pengulangan(acak):
+    """Tiap baris entitasnya unik: bukan data panel sungguhan, harus ditandai
+    dilanggar, bukan diam-diam dianggap layak."""
+    df = pd.DataFrame(
+        {"firm": [f"F{i}" for i in range(30)], "x1": acak.normal(0, 1, 30), "y": acak.normal(0, 1, 30)}
+    )
+    hasil = _sarankan(df, tujuan="menganalisis_panel", outcome="y", prediktor=["x1"], kelompok="firm")
+    ulangan = [s for s in hasil.utama.syarat if s.nama == "Pengamatan berulang per entitas"][0]
+    assert ulangan.dilanggar
+
+
+def test_panel_perlu_entitas_outcome_dan_prediktor(acak):
+    df = _panel_df(acak)
+    hasil = _sarankan(df, tujuan="menganalisis_panel", outcome="y", prediktor=["x1"])
+    assert hasil.utama is None
+    assert hasil.belum_terjawab
+
+
+def test_panel_entitas_tunggal_tidak_disarankan(acak):
+    df = pd.DataFrame({"firm": ["F0"] * 20, "x1": acak.normal(0, 1, 20), "y": acak.normal(0, 1, 20)})
+    hasil = _sarankan(df, tujuan="menganalisis_panel", outcome="y", prediktor=["x1"], kelompok="firm")
+    assert hasil.utama is None
+    assert hasil.catatan
+
+
+def test_arima_menyarankan_arima(acak):
+    df = pd.DataFrame({"nilai": acak.normal(0, 1, 60)})
+    hasil = _sarankan(df, tujuan="meramalkan_waktu", outcome="nilai")
+    assert hasil.utama.metode == "ARIMA"
+    assert hasil.utama.halaman == "Deret Waktu (ARIMA)"
+    assert hasil.utama.tersedia
+    panjang = [s for s in hasil.utama.syarat if s.nama == "Panjang deret"][0]
+    assert panjang.terpenuhi
+
+
+def test_arima_menandai_deret_terlalu_pendek(acak):
+    df = pd.DataFrame({"nilai": acak.normal(0, 1, 8)})
+    hasil = _sarankan(df, tujuan="meramalkan_waktu", outcome="nilai")
+    panjang = [s for s in hasil.utama.syarat if s.nama == "Panjang deret"][0]
+    assert panjang.dilanggar
+
+
+def test_arima_perlu_outcome(acak):
+    df = pd.DataFrame({"nilai": acak.normal(0, 1, 60)})
+    hasil = _sarankan(df, tujuan="meramalkan_waktu")
+    assert hasil.utama is None
+    assert hasil.belum_terjawab
