@@ -721,6 +721,26 @@ def test_pemandu_konfirmasi_menyimpan_peran_tanpa_mengubah_status_skala(sample):
     assert hasil["skor_kredit"].dikonfirmasi == status_awal
 
 
+def test_pemandu_menampilkan_banner_saat_rencana_belum_lengkap(sample):
+    app = _run(sample)
+    assert not app.exception
+    assert any("Rencana penelitian belum lengkap" in i.value for i in app.info)
+
+
+def test_pemandu_tidak_menampilkan_banner_saat_rencana_lengkap(sample):
+    from nalardata import proyek_penelitian as pp
+
+    proyek = pp.ProyekPenelitian(
+        judul="Pengaruh promosi terhadap penjualan",
+        pertanyaan=["Apakah promosi memengaruhi penjualan?"],
+        populasi="Nasabah aktif",
+        unit_analisis="Nasabah",
+    )
+    app = _run(sample, proyek_penelitian=proyek)
+    assert not app.exception
+    assert not any("Rencana penelitian belum lengkap" in i.value for i in app.info)
+
+
 def test_kesesuaian_hasil_menyebut_yang_belum_divalidasi():
     """Daftar yang menyembunyikan lubangnya sendiri tidak dapat dipercaya."""
     app = _run(None)

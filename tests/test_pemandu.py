@@ -16,6 +16,7 @@ import pytest
 
 from nalardata import kamus as km
 from nalardata import pemandu as pmd
+from nalardata import proyek_penelitian as pp
 
 N = 120
 
@@ -275,6 +276,39 @@ def test_dua_variabel_normal_menghasilkan_pearson(acak):
     assert hasil.utama.metode == "Korelasi Pearson"
 
 
+def test_bahasa_hubungan_mengikuti_rencana_penelitian(acak):
+    """Poin 3: Rencana penelitian memengaruhi BAHASA rekomendasi, bukan METODE-nya.
+    Desain cross-sectional (potong lintang) tidak boleh menghasilkan bahasa kausal;
+    eksperimen dengan penugasan acak boleh."""
+    x = acak.normal(0, 1, 300)
+    df = pd.DataFrame({"x": x * 10 + 50, "y": x * 6 + acak.normal(0, 4, 300) + 30})
+
+    tanpa_rencana = _sarankan(df, tujuan="menghubungkan", outcome="x", prediktor=["y"])
+    asosiatif = _sarankan(
+        df,
+        tujuan="menghubungkan",
+        outcome="x",
+        prediktor=["y"],
+        penelitian=pp.ProyekPenelitian(desain="potong_lintang"),
+    )
+    kausal = _sarankan(
+        df,
+        tujuan="menghubungkan",
+        outcome="x",
+        prediktor=["y"],
+        penelitian=pp.ProyekPenelitian(desain="eksperimen", penugasan_acak=True),
+    )
+
+    # Metode tidak boleh berubah — hanya kalimatnya.
+    assert tanpa_rencana.utama.metode == asosiatif.utama.metode == kausal.utama.metode
+
+    assert "berhubungan dengan" in asosiatif.utama.alasan
+    assert "berpengaruh terhadap" not in asosiatif.utama.alasan
+    assert "berpengaruh terhadap" in kausal.utama.alasan
+    # Tanpa Rencana sama sekali, pemandu paling berhati-hati (asosiatif).
+    assert "berhubungan dengan" in tanpa_rencana.utama.alasan
+
+
 def test_variabel_menceng_menghasilkan_spearman(acak):
     df = pd.DataFrame({"x": acak.lognormal(2, 1, 300), "y": acak.lognormal(2, 1, 300)})
     hasil = _sarankan(df, tujuan="menghubungkan", outcome="x", prediktor=["y"])
@@ -311,6 +345,29 @@ def test_outcome_angka_menghasilkan_regresi_linear(acak):
     hasil = _sarankan(df, tujuan="memperkirakan_nilai", outcome="y", prediktor=["x1", "x2"])
     assert hasil.utama.metode == "Regresi linear berganda"
     assert "asumsi klasik" in hasil.utama.lanjutan
+
+
+def test_regresi_kata_benda_mengikuti_rencana_penelitian(acak):
+    x1, x2 = acak.normal(0, 1, 300), acak.normal(0, 1, 300)
+    df = pd.DataFrame({"y": 3 * x1 - 2 * x2 + acak.normal(0, 1, 300), "x1": x1, "x2": x2})
+
+    asosiatif = _sarankan(
+        df,
+        tujuan="memperkirakan_nilai",
+        outcome="y",
+        prediktor=["x1", "x2"],
+        penelitian=pp.ProyekPenelitian(desain="potong_lintang"),
+    )
+    kausal = _sarankan(
+        df,
+        tujuan="memperkirakan_nilai",
+        outcome="y",
+        prediktor=["x1", "x2"],
+        penelitian=pp.ProyekPenelitian(desain="eksperimen", penugasan_acak=True),
+    )
+    assert asosiatif.utama.metode == kausal.utama.metode == "Regresi linear berganda"
+    assert "besar hubungannya" in asosiatif.utama.alasan
+    assert "besar pengaruhnya" in kausal.utama.alasan
 
 
 def test_regresi_memeriksa_normalitas_residual_bukan_outcome_mentah(acak):

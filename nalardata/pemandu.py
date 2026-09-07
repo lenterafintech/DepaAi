@@ -35,6 +35,8 @@ import pandas as pd
 from scipy import stats
 
 from nalardata import kamus as km
+from nalardata import pagar
+from nalardata import proyek_penelitian as pp
 
 # --------------------------------------------------------------------------- #
 # Kosakata
@@ -538,12 +540,19 @@ def sarankan(
     prediktor: list[str] | None = None,
     kelompok: str | None = None,
     berpasangan: bool = False,
+    penelitian: pp.ProyekPenelitian | None = None,
 ) -> Rekomendasi:
     """Sarankan metode dengan memeriksa data yang sungguh ada.
 
     ``berpasangan`` adalah satu-satunya hal yang ditanyakan dan tidak dihitung:
     tidak ada cara membaca dari angka apakah dua kolom berasal dari orang yang sama
     diukur dua kali atau dari dua orang berbeda.
+
+    ``penelitian`` (Rencana/Ruang Proyek) bersifat opsional dan tidak pernah
+    mengubah METODE yang disarankan — bentuk data yang memutuskan itu, bukan
+    desain penelitian. Yang dipengaruhi hanyalah BAHASA alasannya (kata kerja
+    "berpengaruh terhadap" vs "berhubungan dengan", lewat ``pagar.kata_hubungan``)
+    pada tujuan yang benar-benar menyusun kalimat hubungan sebab-akibat/asosiatif.
     """
     if tujuan not in TUJUAN:
         raise ValueError(f"Tujuan '{tujuan}' tidak dikenal. Pilih dari {list(TUJUAN)}.")
@@ -564,7 +573,7 @@ def sarankan(
         "menguji_model": _menguji_model,
         "mutu_instrumen": _mutu_instrumen,
     }
-    hasil = penanganan[tujuan](df, kamus, outcome, prediktor, kelompok, berpasangan)
+    hasil = penanganan[tujuan](df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian)
 
     # Penetapan variabel diikutkan pada hasil agar halaman metode dapat terbuka
     # sudah terisi. Tanpa ini, pengguna yang baru saja memberi tahu pemandu
@@ -599,7 +608,7 @@ def _ordinal(kamus: km.Kamus, nama: str | None) -> bool:
 # --------------------------------------------------------------------------- #
 
 
-def _membandingkan(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Rekomendasi:
+def _membandingkan(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
     hasil = Rekomendasi()
 
     if berpasangan:
@@ -1099,7 +1108,7 @@ def _berpasangan_banyak_nonparametrik(hasil, jumlah_kolom, syarat, alasan):
 # --------------------------------------------------------------------------- #
 
 
-def _menghubungkan(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Rekomendasi:
+def _menghubungkan(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
     hasil = Rekomendasi()
     kolom = [k for k in ([outcome] if outcome else []) + list(prediktor) if k]
     kolom = list(dict.fromkeys(kolom))
@@ -1107,6 +1116,9 @@ def _menghubungkan(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Reko
     if len(kolom) < 2:
         hasil.belum_terjawab.append("Dua variabel mana yang ingin Anda hubungkan?")
         return hasil
+
+    kata = pagar.kata_hubungan(penelitian)
+    kalimat_hubungan = f" Laporkan sebagai '{kolom[0]} {kata} {kolom[1]}'."
 
     semua_numerik = all(_numerik(kamus, k) for k in kolom)
     ada_ordinal = any(_ordinal(kamus, k) for k in kolom)
@@ -1117,7 +1129,7 @@ def _menghubungkan(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Reko
         hasil.utama = Saran(
             metode="Chi-square" if not sel.dilanggar else "Uji eksak Fisher",
             halaman="Uji Non-parametrik",
-            alasan="Kedua variabel berskala kategori tanpa urutan.",
+            alasan="Kedua variabel berskala kategori tanpa urutan." + kalimat_hubungan,
             syarat=[sel],
             lanjutan="Laporkan Cramér's V sebagai ukuran kekuatan hubungannya.",
             pembanding="SPSS: Analyze ▸ Descriptive Statistics ▸ Crosstabs",
@@ -1146,7 +1158,7 @@ def _menghubungkan(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Reko
         hasil.utama = Saran(
             metode="Korelasi Spearman",
             halaman="Korelasi & Asumsi",
-            alasan=f"Hubungan diukur atas peringkat, bukan nilai mentah. {alasan}",
+            alasan=f"Hubungan diukur atas peringkat, bukan nilai mentah. {alasan}{kalimat_hubungan}",
             syarat=[normal],
             pembanding="SPSS: Analyze ▸ Correlate ▸ Bivariate ▸ Spearman",
         )
@@ -1174,7 +1186,7 @@ def _menghubungkan(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Reko
     hasil.utama = Saran(
         metode="Korelasi Pearson",
         halaman="Korelasi & Asumsi",
-        alasan="Kedua variabel berskala angka dan sebarannya normal.",
+        alasan=f"Kedua variabel berskala angka dan sebarannya normal.{kalimat_hubungan}",
         syarat=[normal],
         lanjutan="Periksa diagram pencar: Pearson hanya menangkap hubungan yang lurus.",
         pembanding="SPSS: Analyze ▸ Correlate ▸ Bivariate ▸ Pearson",
@@ -1230,7 +1242,7 @@ def _periksa_normalitas_residual(regression, df, outcome, prediktor) -> Syarat:
     )
 
 
-def _memperkirakan_nilai(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Rekomendasi:
+def _memperkirakan_nilai(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
     from nalardata import regression
 
     hasil = Rekomendasi()
@@ -1272,12 +1284,14 @@ def _memperkirakan_nilai(df, kamus, outcome, prediktor, kelompok, berpasangan) -
     if jenis != "nonrobust":
         peringatan = f"Pakai galat baku {jenis.upper()}. {alasan_galat}"
 
+    kata_benda = pagar.kata_benda_hubungan(penelitian)
     hasil.utama = Saran(
         metode="Regresi linear berganda",
         halaman="Regresi",
         alasan=(
             f"'{outcome}' berskala angka dan dijelaskan oleh {len(prediktor)} prediktor "
-            "sekaligus."
+            f"sekaligus. Laporkan koefisien tiap prediktor sebagai besar {kata_benda}nya "
+            f"terhadap '{outcome}'."
         ),
         syarat=syarat,
         lanjutan=(
@@ -1321,7 +1335,7 @@ def _memperkirakan_nilai(df, kamus, outcome, prediktor, kelompok, berpasangan) -
 # --------------------------------------------------------------------------- #
 
 
-def _memperkirakan_kategori(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Rekomendasi:
+def _memperkirakan_kategori(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
     hasil = Rekomendasi()
     if not outcome:
         hasil.belum_terjawab.append("Kategori mana yang ingin Anda perkirakan?")
@@ -1410,7 +1424,7 @@ def _memperkirakan_kategori(df, kamus, outcome, prediktor, kelompok, berpasangan
 # --------------------------------------------------------------------------- #
 
 
-def _meringkas(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Rekomendasi:
+def _meringkas(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
     hasil = Rekomendasi()
     variabel = [v for v in prediktor if v in df.columns]
     if len(variabel) < 3:
@@ -1453,7 +1467,7 @@ def _meringkas(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Rekomend
     return hasil
 
 
-def _mengelompokkan(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Rekomendasi:
+def _mengelompokkan(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
     hasil = Rekomendasi()
     variabel = [v for v in prediktor if _numerik(kamus, v)]
     if len(variabel) < 2:
@@ -1499,7 +1513,7 @@ def _mengelompokkan(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Rek
     return hasil
 
 
-def _menguji_model(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Rekomendasi:
+def _menguji_model(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
     from nalardata import sem_analysis
 
     hasil = Rekomendasi()
@@ -1563,7 +1577,7 @@ def _menguji_model(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Reko
     return hasil
 
 
-def _mutu_instrumen(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Rekomendasi:
+def _mutu_instrumen(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
     hasil = Rekomendasi()
     butir = [v for v in prediktor if v in df.columns]
     if len(butir) < 3:

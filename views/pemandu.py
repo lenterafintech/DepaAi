@@ -76,6 +76,16 @@ def render(df, kamus, penelitian) -> None:
             icon=":material/help:",
         )
 
+    if penelitian is None or penelitian.kosong() or not penelitian.lengkap():
+        st.info(
+            "Rencana penelitian belum lengkap. Pemandu tetap dapat dipakai penuh — "
+            "yang berubah hanya bahasa rekomendasi (boleh atau tidaknya kata "
+            "'pengaruh'/'menyebabkan') dan batas kesimpulan yang ditampilkan di kartu "
+            "hasil. Isi di tab **Rencana** kapan saja, termasuk setelah melihat saran "
+            "di sini.",
+            icon=":material/assignment:",
+        )
+
     # --------------------------------------------------------------------------- #
     # Tujuan penelitian
     # --------------------------------------------------------------------------- #
@@ -238,6 +248,7 @@ def render(df, kamus, penelitian) -> None:
         prediktor=prediktor,
         kelompok=kelompok,
         berpasangan=berpasangan,
+        penelitian=penelitian,
     )
 
     ui.judul_bagian("Yang disarankan", kicker="Langkah 3")
