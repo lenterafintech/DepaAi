@@ -156,8 +156,35 @@ def _normalitas_mtcars() -> dict[str, float]:
     return {"Shapiro-W": float(baris["Shapiro-W"]), "p": float(baris["p (Shapiro)"])}
 
 
+def _regresi_logistik_mtcars() -> dict[str, float]:
+    from nalardata import regression
+
+    hasil = regression.logistic_regression(_muat("mtcars.csv"), "am", ["hp", "wt"])
+    koef = hasil.coefficients.set_index("Variabel")["B"]
+    return {
+        "Intersep": float(koef["const"]),
+        "B hp": float(koef["hp"]),
+        "B wt": float(koef["wt"]),
+    }
+
+
+def _pca_mtcars() -> dict[str, float]:
+    from nalardata import pca_analysis
+
+    kolom = ["mpg", "disp", "hp", "wt", "qsec"]
+    hasil = pca_analysis.run_pca(_muat("mtcars.csv")[kolom], standardize=True)
+    tabel = hasil.variance_table().set_index("Komponen")
+    return {
+        "Eigenvalue PC1": float(tabel.loc["PC1", "Eigenvalue"]),
+        "Eigenvalue PC2": float(tabel.loc["PC2", "Eigenvalue"]),
+        "% Varians PC1": float(tabel.loc["PC1", "% Varians"]),
+    }
+
+
 PERHITUNGAN = {
     "regresi_mtcars": _regresi_mtcars,
+    "regresi_logistik_mtcars": _regresi_logistik_mtcars,
+    "pca_mtcars": _pca_mtcars,
     "welch_anova_plantgrowth": _welch_anova_plantgrowth,
     "uji_t_sleep": _uji_t_sleep,
     "tukey_plantgrowth": _tukey_plantgrowth,
@@ -258,26 +285,62 @@ DAFTAR: dict[str, Acuan] = {
         data="mtcars.csv",
         butir=[Butir("Shapiro-W", 0.94756, TOLERANSI_LONGGAR), Butir("p", 0.1229, TOLERANSI_LONGGAR)],
     ),
+    "regresi_logistik_mtcars": Acuan(
+        metode="Regresi logistik",
+        fitur="regresi",
+        pembanding="scikit-learn — LogisticRegression(penalty=None) pada am ~ hp + wt",
+        sumber=(
+            "Dihitung langsung dari scikit-learn 1.9, bukan R. Regresi logistik NalarData "
+            "sendiri memakai statsmodels (algoritma IRLS), sehingga ini pembanding lintas "
+            "pustaka yang genuinely independen, tetapi lebih lemah daripada acuan R yang "
+            "diterbitkan — disebutkan apa adanya, mengikuti pola acuan Welch ANOVA di atas."
+        ),
+        data="mtcars.csv",
+        butir=[
+            Butir("Intersep", 18.866299, TOLERANSI_LONGGAR),
+            Butir("B hp", 0.036256, TOLERANSI_LONGGAR),
+            Butir("B wt", -8.083475, TOLERANSI_LONGGAR),
+        ],
+    ),
+    "pca_mtcars": Acuan(
+        metode="PCA",
+        fitur="reduksi",
+        pembanding="scikit-learn — PCA() pada data terstandardisasi (mpg, disp, hp, wt, qsec)",
+        sumber=(
+            "Dihitung langsung dari scikit-learn 1.9, bukan R. PCA NalarData sendiri memakai "
+            "dekomposisi eigen manual (numpy), bukan SVD sklearn, sehingga ini pembanding "
+            "lintas algoritma yang genuinely independen — tetap lebih lemah daripada acuan "
+            "R (prcomp) yang diterbitkan, disebutkan apa adanya."
+        ),
+        data="mtcars.csv",
+        butir=[
+            Butir("Eigenvalue PC1", 3.696824, TOLERANSI_LONGGAR),
+            Butir("Eigenvalue PC2", 0.961017, TOLERANSI_LONGGAR),
+            Butir("% Varians PC1", 73.936484, TOLERANSI_LONGGAR),
+        ],
+    ),
 }
 
 # Metode aplikasi yang belum punya acuan. Disebutkan agar cakupan validasi
 # terbaca apa adanya, bukan tersirat dari daftar yang tampak lengkap.
 BELUM_DIVALIDASI = {
-    "Regresi logistik": (
-        "Perlu acuan glm binomial di R beserta dataset yang boleh ikut disertakan."
-    ),
     "Games-Howell": (
         "Perlu acuan paket rstatix di R; belum ada nilai terbit pada dataset bawaan."
     ),
     "MANOVA": "Perlu acuan SPSS; keluaran R memakai parameterisasi berbeda.",
     "Analisis diskriminan": (
-        "Perlu acuan SPSS; keluaran MASS::lda di R tidak menyertakan uji Wilks."
+        "Perlu acuan SPSS; keluaran MASS::lda di R tidak menyertakan uji Wilks. "
+        "scikit-learn tidak dipakai sebagai pembanding di sini karena NalarData sendiri "
+        "sudah memakai scikit-learn (sklearn.discriminant_analysis) — membandingkannya "
+        "hanya akan menguji dirinya sendiri, bukan verifikasi yang independen."
     ),
     "Analisis faktor (EFA)": "Hasil bergantung metode rotasi; acuan harus menyebut rotasinya.",
-    "PCA": (
-        "Perlu acuan prcomp di R; tanda komponen dapat berbeda dan harus dibakukan."
+    "Analisis klaster": (
+        "K-Means bergantung benih acak; acuan harus mengunci benihnya. scikit-learn tidak "
+        "dipakai sebagai pembanding di sini karena NalarData sendiri sudah memakai "
+        "scikit-learn (sklearn.cluster.KMeans) — membandingkannya hanya akan menguji "
+        "dirinya sendiri, bukan verifikasi yang independen."
     ),
-    "Analisis klaster": "K-Means bergantung benih acak; acuan harus mengunci benihnya.",
     "CFA / SEM": (
         "Perlu acuan lavaan atau Mplus beserta datanya, dan estimatornya harus disebut."
     ),
