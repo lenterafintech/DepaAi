@@ -290,6 +290,14 @@ BELUM_DIVALIDASI = {
     "Regresi moderasi (MRA)": (
         "Perlu acuan PROCESS macro Hayes, yang keluarannya tidak diterbitkan bebas."
     ),
+    "PLS-SEM": (
+        "Perlu acuan SmartPLS, plspm, atau seminr di R/Python beserta datanya; skema "
+        "pembobotan dan penanganan tanda bobot berbeda-beda antar implementasi."
+    ),
+    "ANOVA pengukuran berulang": (
+        "Perlu acuan rstatix::anova_test atau ez::ezANOVA di R untuk uji Mauchly dan "
+        "koreksi Greenhouse-Geisser/Huynh-Feldt; belum ada nilai terbit yang dapat dikutip."
+    ),
 }
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from nalardata import formatting, plots, preprocessing, reliability as rb
+from nalardata import formatting, plots, pls_sem as pls, preprocessing, reliability as rb
 from nalardata import sem_analysis as sem
 from nalardata import ui
 
@@ -134,8 +134,8 @@ def render(df, kamus, penelitian) -> None:
             )
 
 
-    tab_cfa, tab_jalur, tab_sem, tab_sintaks = st.tabs(
-        ["CFA (model pengukuran)", "Analisis jalur", "SEM penuh", "Sintaks sendiri"]
+    tab_cfa, tab_jalur, tab_sem, tab_pls, tab_sintaks = st.tabs(
+        ["CFA (model pengukuran)", "Analisis jalur", "SEM penuh", "PLS-SEM", "Sintaks sendiri"]
     )
 
     # --------------------------------------------------------------------------- #
@@ -309,6 +309,108 @@ def render(df, kamus, penelitian) -> None:
                 else:
                     tampilkan_hasil(hasil, "sem")
 
+    # --------------------------------------------------------------------------- #
+    # PLS-SEM
+    # --------------------------------------------------------------------------- #
+
+    with tab_pls:
+        st.caption(
+            "Pelengkap SEM penuh di atas (CB-SEM/lavaan-style), bukan penggantinya. "
+            "PLS-SEM memaksimalkan varians yang dijelaskan alih-alih kecocokan matriks "
+            "kovarians, sehingga tetap dapat diestimasi pada sampel kecil — dengan harga "
+            "tidak ada uji kecocokan model keseluruhan (chi-square, CFI, RMSEA). Hanya "
+            "indikator **reflektif** yang didukung."
+        )
+        tebakan_pls = rb.tebak_konstruk(numerik) or {"konstruk1": numerik[:3]}
+        dipakai_pls = st.multiselect(
+            "Konstruk laten",
+            list(tebakan_pls),
+            default=list(tebakan_pls)[: min(2, len(tebakan_pls))],
+            key="pls_konstruk",
+        )
+        konstruk_pls: dict[str, list[str]] = {}
+        for nama in dipakai_pls:
+            butir = st.multiselect(
+                f"Indikator konstruk {nama}",
+                numerik,
+                default=[b for b in tebakan_pls[nama] if b in numerik],
+                key=f"pls_butir_{nama}",
+            )
+            if butir:
+                konstruk_pls[nama] = butir
+
+        if len(konstruk_pls) < 2:
+            st.info("Definisikan minimal 2 konstruk untuk menyusun jalur antar keduanya.")
+        else:
+            nama_konstruk_pls = list(konstruk_pls)
+            kiri, kanan = st.columns([1, 2])
+            terikat_pls = kiri.selectbox(
+                "Konstruk terikat", nama_konstruk_pls, index=len(nama_konstruk_pls) - 1, key="pls_y"
+            )
+            penjelas_pls = kanan.multiselect(
+                f"Konstruk yang memengaruhi {terikat_pls}",
+                [k for k in nama_konstruk_pls if k != terikat_pls],
+                default=[k for k in nama_konstruk_pls if k != terikat_pls],
+                key="pls_x",
+            )
+            if not penjelas_pls:
+                st.info("Pilih minimal satu konstruk penjelas.")
+            else:
+                jalur_pls = {terikat_pls: penjelas_pls}
+                try:
+                    hasil_pls = pls.jalankan(df, konstruk_pls, jalur_pls)
+                except Exception as exc:  # noqa: BLE001 - kegagalan estimasi ditampilkan apa adanya
+                    st.error(f"Model gagal diestimasi: {exc}")
+                else:
+                    if not hasil_pls.konvergen:
+                        st.warning(
+                            f"Algoritma belum konvergen dalam {hasil_pls.iterasi} iterasi; "
+                            "hasil di bawah adalah taksiran terakhir sebelum berhenti."
+                        )
+                    st.subheader("Model pengukuran (outer model)")
+                    ui.show_table(hasil_pls.muatan, "pls_muatan.csv")
+                    ui.interpretation(
+                        "Muatan (loading) ≥ 0,708 berarti indikator menjelaskan lebih dari "
+                        "separuh varians konstruknya (Hair dkk., 2019). Muatan di bawah 0,4 "
+                        "sebaiknya dibuang; antara 0,4-0,7 dipertimbangkan bila membuang "
+                        "butir tidak menaikkan reliabilitas atau validitasnya."
+                    )
+
+                    st.subheader("Reliabilitas komposit dan AVE")
+                    ui.show_table(hasil_pls.cr_ave(), "pls_cr_ave.csv")
+
+                    st.subheader("Model struktural (jalur)")
+                    n_boot_pls = st.slider(
+                        "Jumlah resample bootstrap", 100, 1000, 300, 100, key="pls_boot"
+                    )
+                    if st.button("Uji signifikansi dengan bootstrap", key="pls_jalan_boot"):
+                        with st.spinner("Menjalankan bootstrap…"):
+                            tabel_jalur = pls.bootstrap_jalur(
+                                df, konstruk_pls, jalur_pls, n_boot=int(n_boot_pls)
+                            )
+                        ui.show_table(
+                            tabel_jalur,
+                            "pls_jalur.csv",
+                            bagian="PLS-SEM",
+                            judul="Koefisien jalur PLS-SEM (bootstrap)",
+                        )
+                    else:
+                        ui.show_table(hasil_pls.jalur_koefisien, "pls_jalur_titik.csv")
+                        st.caption(
+                            "Ini taksiran titik saja. Tekan tombol di atas untuk selang "
+                            "kepercayaan dan nilai p lewat bootstrap — PLS-SEM tidak "
+                            "mengasumsikan sebaran tertentu sehingga tidak punya uji-t analitik."
+                        )
+                    ui.show_table(
+                        hasil_pls.r2.rename("R²").reset_index().rename(columns={"index": "Konstruk"}),
+                        "pls_r2.csv",
+                    )
+                    ui.interpretation(
+                        "R² ≥ 0,75 kuat, ≥ 0,50 moderat, ≥ 0,25 lemah (Hair dkk., 2019). "
+                        "Koefisien jalur PLS cenderung sedikit lebih rendah daripada korelasi "
+                        "laten sesungguhnya dibanding CB-SEM — ini ciri estimasi berbasis "
+                        "komposit, bukan tanda model yang keliru."
+                    )
 
     # --------------------------------------------------------------------------- #
     # Sintaks yang diketik sendiri

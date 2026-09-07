@@ -33,6 +33,27 @@ def sample() -> pd.DataFrame:
     return pd.read_csv(SAMPLE)
 
 
+@pytest.fixture(scope="module")
+def sample_survei() -> pd.DataFrame:
+    """Data kuesioner sintetis (butir bernama berpola) untuk menguji CFA/PLS-SEM."""
+    import numpy as np
+
+    rng = np.random.default_rng(9)
+    n = 200
+    kual = rng.normal(0, 1, n)
+    puas = 0.5 * kual + rng.normal(0, 1, n)
+    return pd.DataFrame(
+        {
+            "KUAL1": kual * 0.8 + rng.normal(0, 0.5, n),
+            "KUAL2": kual * 0.75 + rng.normal(0, 0.5, n),
+            "KUAL3": kual * 0.7 + rng.normal(0, 0.5, n),
+            "PUAS1": puas * 0.8 + rng.normal(0, 0.5, n),
+            "PUAS2": puas * 0.75 + rng.normal(0, 0.5, n),
+            "PUAS3": puas * 0.7 + rng.normal(0, 0.5, n),
+        }
+    )
+
+
 def _run(sample: pd.DataFrame | None, paket: str = "profesional", **tambahan) -> AppTest:
     app = AppTest.from_file(str(APP), default_timeout=300)
     # Aplikasi diuji pada paket penuh secara bawaan; pembatasan paket diuji terpisah.
@@ -95,6 +116,20 @@ def test_manova_pengukuran_berulang_berjalan(sample):
     app.radio(key="manova_mode").set_value("Pengukuran berulang (dalam-subjek)").run()
     ms = app.multiselect(key="rm_kondisi")
     ms.set_value(ms.options[:3]).run()
+    assert not app.exception
+    assert not app.error
+
+
+def test_pls_sem_berjalan_sampai_bootstrap(sample_survei):
+    """Tab PLS-SEM: pemilihan 2 konstruk, jalur, dan bootstrap harus berjalan tanpa galat."""
+    app = _run(sample_survei)
+    app.radio(key="analisis_mode").set_value("Pilih metode sendiri").run()
+    app.selectbox(key="analisis_grup").set_value("Pemodelan").run()
+    app.selectbox(key="analisis_metode").set_value("CFA, Jalur & SEM").run()
+    ms = app.multiselect(key="pls_konstruk")
+    ms.set_value(list(ms.options)).run()
+    assert not app.exception
+    app.button(key="pls_jalan_boot").click().run()
     assert not app.exception
     assert not app.error
 

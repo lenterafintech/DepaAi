@@ -20,7 +20,7 @@ interpretasinya dalam bahasa Indonesia.
 | Pemodelan | Regresi linear berganda (koefisien baku, ANOVA, VIF, uji asumsi klasik termasuk Breusch-Pagan dan White, galat baku robust HC0–HC3 dengan anjuran otomatis, stepwise), regresi logistik biner (odds ratio, ROC/AUC, matriks konfusi), dan regresi moderasi/MRA (suku interaksi, ΔR², simple slopes, Johnson-Neyman) |
 | Uji non-parametrik | Mann-Whitney U, Kolmogorov-Smirnov dua sampel, median Mood, Kruskal-Wallis dengan uji lanjutan Dunn (koreksi Holm/Bonferroni), Wilcoxon peringkat bertanda, uji tanda, Friedman + Kendall's W, chi-square kebebasan + Cramér's V, uji eksak Fisher, korelasi Spearman & Kendall — seluruhnya dilaporkan bersama ukuran efek dan padanan parametriknya |
 | Uji beda & hubungan | Analisis diskriminan linear/kuadratik (fungsi kanonik, Wilks' lambda), MANOVA satu jalur + Hotelling's T², MANCOVA dengan rata-rata terkoreksi dan uji homogenitas kemiringan, ANOVA pengukuran berulang dengan uji sphericity Mauchly dan koreksi Greenhouse-Geisser/Huynh-Feldt, korelasi kanonik dengan indeks redundansi |
-| Model struktural | CFA (muatan terstandardisasi, CR/AVE, indeks kecocokan termasuk SRMR), analisis jalur dengan dekomposisi efek langsung/tidak langsung, SEM penuh, uji mediasi bootstrap dengan VAF, pilihan estimator ML / FIML / DWLS / ULS / GLS beserta saran otomatis sesuai ciri data, serta spesifikasi model bebas bergaya lavaan lengkap dengan pemeriksaan sintaks |
+| Model struktural | CFA (muatan terstandardisasi, CR/AVE, indeks kecocokan termasuk SRMR), analisis jalur dengan dekomposisi efek langsung/tidak langsung, SEM penuh, uji mediasi bootstrap dengan VAF, pilihan estimator ML / FIML / DWLS / ULS / GLS beserta saran otomatis sesuai ciri data, spesifikasi model bebas bergaya lavaan lengkap dengan pemeriksaan sintaks, serta **PLS-SEM** (model reflektif, skema pembobotan jalur, bootstrap signifikansi) untuk sampel kecil atau model yang tidak menuntut uji kecocokan CB-SEM |
 | Ekspor & reproduksi | Laporan Lengkap maupun Ringkasan diekspor ke Word, PDF, Excel, PowerPoint, HTML, Markdown, JSON, atau satu paket ZIP; disertai sintaks Python, R, SPSS, AMOS, dan Mplus yang menjalankan ulang analisis yang sama |
 | Laporan analisis | Tiga halaman menurut pembaca — Umum, Mahasiswa & Pengajar, Profesional — masing-masing tersedia dalam dua bentuk: **Ringkasan** dan **Laporan Lengkap**. Ditambah **Laporan Hasil**, yang mengumpulkan analisis yang benar-benar dijalankan pengguna |
 
@@ -324,6 +324,7 @@ nalardata/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   moderation.py        Regresi moderasi: interaksi, simple slopes, Johnson-Neyman
   mancova.py           MANCOVA, ANCOVA univariat, rata-rata terkoreksi
   sem_analysis.py      CFA, analisis jalur, SEM, estimator ML/FIML/DWLS, SRMR, mediasi bootstrap
+  pls_sem.py           PLS-SEM: model reflektif, skema pembobotan jalur, bootstrap jalur
   nonparametrik.py     Uji non-parametrik, uji lanjutan Dunn, dan koreksi ganda
   ekspor.py            Ekspor laporan ke Word, PDF, Excel, PPT, HTML, MD, JSON, ZIP
   sintaks.py           Pembangkit sintaks Python dan R yang dapat dijalankan ulang
