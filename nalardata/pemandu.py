@@ -28,6 +28,7 @@ penelitiannya sudah tepat.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -154,6 +155,21 @@ class Saran:
     peringatan: str = ""
     ditolak_karena: str = ""
     konfig: dict = field(default_factory=dict)
+    # Ruas struktur tambahan — semua berdefault aman (kosong) supaya pemanggilan
+    # Saran(...) yang sudah ada di seluruh berkas ini tidak wajib diubah, hanya
+    # diisi di titik yang relevan. Lihat sarankan() untuk status_bukti dan
+    # keterbatasan_desain (diisi dari Rencana penelitian bila tersedia).
+    method_key: str = ""
+    variant: str = ""
+    status_bukti: str = ""
+    keterbatasan_desain: list[str] = field(default_factory=list)
+    ukuran_efek: str = ""
+    tidak_dapat_diperiksa: list[str] = field(
+        default_factory=lambda: [
+            "Independensi antar-pengamatan",
+            "Validitas konstruk yang diukur",
+        ]
+    )
 
     def __post_init__(self) -> None:
         # Halaman diambil dari daftar metode, bukan dituliskan ulang di tiap
@@ -161,6 +177,8 @@ class Saran:
         # yang tersebar akan menunjuk tempat yang sudah tidak ada.
         if self.metode in METODE_TERSEDIA:
             self.halaman = METODE_TERSEDIA[self.metode]
+        if not self.method_key:
+            self.method_key = _slugify(self.metode)
 
     @property
     def dipilih(self) -> bool:
@@ -206,6 +224,18 @@ class Rekomendasi:
                 }
             )
         return pd.DataFrame(baris)
+
+
+def _slugify(teks: str) -> str:
+    """Slug stabil dari nama metode, mis. 'Uji-t Welch' -> 'uji_t_welch'.
+
+    Dipakai sebagai kunci mesin (method_key) yang tidak berubah walau label
+    tampilannya disunting redaksinya — beda dari ``metode`` yang boleh berubah
+    kata-katanya kapan saja untuk kejelasan pembaca.
+    """
+    huruf = [c.lower() if c.isalnum() else "_" for c in teks]
+    slug = re.sub(r"_+", "_", "".join(huruf)).strip("_")
+    return slug
 
 
 # --------------------------------------------------------------------------- #
@@ -595,6 +625,13 @@ def sarankan(
     }
     if hasil.utama is not None:
         hasil.utama.konfig = dict(hasil.konfig, metode=hasil.utama.metode)
+        # Dipindah dari lapisan tampilan (views/pemandu.py) supaya jadi bagian
+        # struktur hasil, bukan dihitung ulang di titik render — pagar.py dan
+        # penelitian.batas_kesimpulan() sudah ada dan sudah teruji, di sini
+        # hanya disambungkan.
+        hasil.utama.status_bukti = pagar.label_eksploratori(hasil.utama.metode, penelitian)
+        if penelitian is not None:
+            hasil.utama.keterbatasan_desain = penelitian.batas_kesimpulan()
 
     # Status informasi: seberapa bisa diandalkan rekomendasi ini, terpisah dari
     # metode yang dipilih. Hanya variabel yang BENAR-BENAR dipakai yang diperiksa —

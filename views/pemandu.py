@@ -10,7 +10,7 @@ from __future__ import annotations
 import streamlit as st
 
 from nalardata import audit as ad
-from nalardata import formatting, kamus as km, pagar, pemandu as pmd, ui
+from nalardata import formatting, kamus as km, pemandu as pmd, ui
 
 
 def _prasi_tunggal(kandidat: list[str], kamus: km.Kamus, *peran: str) -> str | None:
@@ -287,9 +287,8 @@ def render(df, kamus, penelitian) -> None:
     if utama.peringatan:
         st.info(utama.peringatan, icon=":material/tune:")
 
-    label_eksploratori = pagar.label_eksploratori(utama.metode, penelitian)
-    if label_eksploratori:
-        st.caption(f":material/science: {label_eksploratori}")
+    if utama.status_bukti:
+        st.caption(f":material/science: {utama.status_bukti}")
 
     kiri, kanan = st.columns([3, 2])
 

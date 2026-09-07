@@ -702,3 +702,56 @@ def test_rekomendasi_membawa_penetapan_variabelnya(acak):
     assert hasil.konfig["outcome"] == "y"
     assert hasil.konfig["kelompok"] == "g"
     assert hasil.utama.konfig["metode"] == hasil.utama.metode
+
+
+# --------------------------------------------------------------------------- #
+# Struktur hasil rekomendasi (poin 7)
+# --------------------------------------------------------------------------- #
+
+
+def test_method_key_disi_otomatis_dari_nama_metode():
+    """Slug stabil dipakai sebagai kunci mesin, tidak bergantung redaksi label."""
+    saran = pmd.Saran(metode="Uji-t Welch", halaman="", alasan="contoh")
+    assert saran.method_key == "uji_t_welch"
+
+
+def test_method_key_eksplisit_tidak_ditimpa():
+    saran = pmd.Saran(metode="Uji-t Welch", halaman="", alasan="contoh", method_key="kunci_khusus")
+    assert saran.method_key == "kunci_khusus"
+
+
+def test_status_bukti_menandai_eksploratori_tanpa_praregistrasi(acak):
+    """Tanpa praregistrasi, seluruh analisis jujur ditandai eksploratori (nalardata/pagar.py)."""
+    df = _dua_kelompok(acak.normal(50, 8, N), acak.normal(54, 8, N))
+    hasil = _sarankan(df, tujuan="membandingkan", outcome="y", kelompok="g")
+    assert "eksploratori" in hasil.utama.status_bukti.lower()
+
+
+def test_status_bukti_kosong_saat_uji_sesuai_praregistrasi(acak):
+    df = _dua_kelompok(acak.normal(50, 8, N), acak.normal(54, 8, N))
+    penelitian = pp.ProyekPenelitian(
+        praregistrasi=pp.Praregistrasi(uji_direncanakan=["uji-t"]),
+    )
+    hasil = _sarankan(df, tujuan="membandingkan", outcome="y", kelompok="g", penelitian=penelitian)
+    assert hasil.utama.status_bukti == ""
+
+
+def test_keterbatasan_desain_kosong_tanpa_rencana(acak):
+    df = _dua_kelompok(acak.normal(50, 8, N), acak.normal(54, 8, N))
+    hasil = _sarankan(df, tujuan="membandingkan", outcome="y", kelompok="g")
+    assert hasil.utama.keterbatasan_desain == []
+
+
+def test_keterbatasan_desain_terisi_dari_rencana(acak):
+    """Batas kesimpulan (poin 3) ikut menempel pada Saran, bukan cuma ditampilkan lepas."""
+    df = _dua_kelompok(acak.normal(50, 8, N), acak.normal(54, 8, N))
+    penelitian = pp.ProyekPenelitian(desain="potong_lintang", teknik_sampling="purposif")
+    hasil = _sarankan(df, tujuan="membandingkan", outcome="y", kelompok="g", penelitian=penelitian)
+    assert hasil.utama.keterbatasan_desain == penelitian.batas_kesimpulan()
+    assert hasil.utama.keterbatasan_desain != []
+
+
+def test_tidak_dapat_diperiksa_berisi_asumsi_yang_memang_tak_teruji(acak):
+    df = _dua_kelompok(acak.normal(50, 8, N), acak.normal(54, 8, N))
+    hasil = _sarankan(df, tujuan="membandingkan", outcome="y", kelompok="g")
+    assert hasil.utama.tidak_dapat_diperiksa != []
