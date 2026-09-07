@@ -310,6 +310,28 @@ def test_dua_variabel_normal_menghasilkan_pearson(acak):
     assert hasil.utama.metode == "Korelasi Pearson"
 
 
+def test_rekomendasi_korelasi_tidak_bergantung_urutan_klik(acak):
+    """Bug nyata (ditemukan lewat audit): dulu hanya kolom PERTAMA yang diperiksa
+    normalitasnya, sehingga Pearson-vs-Spearman berubah semata karena urutan
+    variabel diklik di widget — padahal UI menjanjikan 'urutan tidak penting'."""
+    normal = acak.normal(0, 1, 300) * 10 + 50
+    menceng = acak.lognormal(2, 1, 300)
+    df = pd.DataFrame({"a": normal, "b": menceng})
+
+    urutan_1 = _sarankan(df, tujuan="menghubungkan", outcome="a", prediktor=["b"])
+    urutan_2 = _sarankan(df, tujuan="menghubungkan", outcome="b", prediktor=["a"])
+    assert urutan_1.utama.metode == urutan_2.utama.metode == "Korelasi Spearman"
+
+
+def test_rekomendasi_pearson_tidak_bergantung_urutan_klik(acak):
+    x = acak.normal(0, 1, 300)
+    df = pd.DataFrame({"a": x * 10 + 50, "b": x * 6 + acak.normal(0, 4, 300) + 30})
+
+    urutan_1 = _sarankan(df, tujuan="menghubungkan", outcome="a", prediktor=["b"])
+    urutan_2 = _sarankan(df, tujuan="menghubungkan", outcome="b", prediktor=["a"])
+    assert urutan_1.utama.metode == urutan_2.utama.metode == "Korelasi Pearson"
+
+
 def test_bahasa_hubungan_mengikuti_rencana_penelitian(acak):
     """Poin 3: Rencana penelitian memengaruhi BAHASA rekomendasi, bukan METODE-nya.
     Desain cross-sectional (potong lintang) tidak boleh menghasilkan bahasa kausal;

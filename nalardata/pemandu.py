@@ -312,6 +312,36 @@ def periksa_normalitas(df: pd.DataFrame, outcome: str, kelompok: str | None) -> 
     )
 
 
+def _periksa_normalitas_pasangan(df: pd.DataFrame, kolom_a: str, kolom_b: str) -> Syarat:
+    """Normalitas KEDUA variabel pada uji korelasi, bukan hanya salah satunya.
+
+    Korelasi Pearson mensyaratkan (kurang lebih) normalitas kedua variabel yang
+    dihubungkan, bukan cuma satu — memeriksa hanya kolom pertama membuat
+    rekomendasi Pearson-vs-Spearman bergantung pada urutan pengguna mengklik
+    dua variabel di widget, padahal keduanya sama-sama data yang sama.
+    """
+    a = periksa_normalitas(df, kolom_a, None)
+    b = periksa_normalitas(df, kolom_b, None)
+    if a.status == TIDAK_DIUJI and b.status == TIDAK_DIUJI:
+        return Syarat(
+            "Normalitas", TIDAK_DIUJI, "Kedua variabel terlalu kecil untuk diuji normalitas."
+        )
+    if not a.dilanggar and not b.dilanggar:
+        return Syarat(
+            "Normalitas",
+            TERPENUHI,
+            f"Shapiro-Wilk tidak menolak normalitas pada '{kolom_a}' maupun '{kolom_b}'.",
+        )
+    bermasalah = [k for k, s in ((kolom_a, a), (kolom_b, b)) if s.dilanggar]
+    return Syarat(
+        "Normalitas",
+        DILANGGAR,
+        "Shapiro-Wilk menolak normalitas pada "
+        + " dan ".join(f"'{k}'" for k in bermasalah)
+        + ".",
+    )
+
+
 def periksa_homogenitas(df: pd.DataFrame, outcome: str, kelompok: str) -> Syarat:
     """Uji Levene: apakah ragam antar kelompok cukup seragam."""
     bersih = _bersih(df, [outcome, kelompok])
@@ -1312,7 +1342,7 @@ def _menghubungkan(df, kamus, outcome, prediktor, kelompok, berpasangan, penelit
         )
         return hasil
 
-    normal = periksa_normalitas(df, kolom[0], None)
+    normal = _periksa_normalitas_pasangan(df, kolom[0], kolom[1])
     if ada_ordinal or normal.dilanggar or not semua_numerik:
         alasan = (
             "Salah satu variabel berskala ordinal, sehingga yang dibandingkan adalah "
