@@ -35,9 +35,9 @@ WARNA = {
     "kertas": "#ffffff",
     "kertas2": "#ffffff",
     "dasar": "#f8fafc",
-    "aksen": "#2563eb",
-    "aksen2": "#3b82f6",
-    "aksenSamar": "#eff6ff",
+    "aksen": "#4f46e5",
+    "aksen2": "#7c6cf0",
+    "aksenSamar": "#eef0ff",
     "baik": "#15803d",
     "baikSamar": "#dcfce7",
     "perhatian": "#b45309",
@@ -58,9 +58,9 @@ WARNA_GELAP = {
     "kertas": "#1e293b",
     "kertas2": "#1e293b",
     "dasar": "#0f172a",
-    "aksen": "#60a5fa",
-    "aksen2": "#3b82f6",
-    "aksenSamar": "#1e2b4d",
+    "aksen": "#818cf8",
+    "aksen2": "#6366f1",
+    "aksenSamar": "#1e2244",
     "baik": "#4ade80",
     "baikSamar": "#14251b",
     "perhatian": "#fbbf24",
@@ -101,18 +101,28 @@ def _gaya() -> str:
     p = palet()
     return f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
 
 :root {{
 {_token(p)}
-  --bayang: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
-  --bayang-hover: 0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --bayang: 0 1px 2px rgba(79, 70, 229, 0.05), 0 6px 20px -10px rgba(79, 70, 229, 0.18);
+  --bayang-hover: 0 10px 26px -10px rgba(79, 70, 229, 0.32);
 }}
 
 html, body, [class*="css"], .stApp {{
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }}
 .stApp {{background: var(--dasar)}}
+
+/* ---- Judul & angka besar: serif Fraunces, sisanya tetap Plus Jakarta Sans ---- */
+.mva-head h1, .mva-bagian .jd, .mva-langkah .jd,
+[data-testid="stMetricValue"] {{font-family: 'Fraunces', serif}}
+
+/* ---- Label kapital kecil (kicker, status strip, metric label): gaya data monospace ---- */
+.mva-head .kicker, .mva-bagian .kicker, .mva-strip .lb,
+[data-testid="stMetricLabel"] {{
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+}}
 
 /* Lebar halaman dibatasi agar baris teks tidak membentang terlalu panjang. */
 /* Bilah header Streamlit melayang di atas isi halaman; padding ini menjaga
@@ -122,7 +132,11 @@ html, body, [class*="css"], .stApp {{
 .block-container [data-testid="stMarkdownContainer"] li {{max-width: 76ch}}
 
 /* ---- Kepala halaman ---- */
-.mva-head {{margin: 0 0 1.3rem}}
+.mva-head {{margin: 0 0 1.3rem; position: relative}}
+.mva-head::after {{content: ""; position: absolute; top: -2.5rem; right: -4rem;
+  width: 22rem; height: 16rem; pointer-events: none; z-index: -1;
+  background: radial-gradient(circle at 60% 30%, var(--aksenSamar), transparent 70%);
+  opacity: .7}}
 .mva-head .kicker {{display: inline-flex; align-items: center; gap: .5rem;
   font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
   color: var(--aksen2); font-weight: 700; margin-bottom: .5rem}}
@@ -176,16 +190,20 @@ html, body, [class*="css"], .stApp {{
 /* ---- Kartu umum: dasar bagi grid langkah, KPI, dan kartu kustom lainnya ---- */
 .mva-kartu2 {{background: var(--kertas); border: 1px solid var(--garis);
   border-radius: 12px; padding: 1.1rem 1.2rem; box-shadow: var(--bayang);
-  transition: transform .15s ease, box-shadow .15s ease}}
+  transition: transform .15s ease, box-shadow .15s ease; position: relative; overflow: hidden}}
 .mva-kartu2:hover {{transform: translateY(-2px); box-shadow: var(--bayang-hover)}}
+.mva-kartu2::before {{content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--aksen), var(--aksen2))}}
 
 /* ---- Grid langkah bernomor (alur kerja, wizard) ---- */
 .mva-langkah {{display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: .8rem; margin: .6rem 0 1rem}}
 .mva-langkah .k {{background: var(--kertas); border: 1px solid var(--garis);
   border-radius: 12px; padding: 1rem 1.1rem; box-shadow: var(--bayang);
-  transition: transform .15s ease, box-shadow .15s ease}}
+  transition: transform .15s ease, box-shadow .15s ease; position: relative; overflow: hidden}}
 .mva-langkah .k:hover {{transform: translateY(-2px); box-shadow: var(--bayang-hover)}}
+.mva-langkah .k::before {{content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--aksen), var(--aksen2))}}
 .mva-langkah .no {{display: inline-grid; place-items: center; width: 26px; height: 26px;
   border-radius: 999px; background: var(--aksenSamar); color: var(--aksen);
   font-size: .74rem; font-weight: 800; margin-bottom: .55rem}}
@@ -224,16 +242,23 @@ html, body, [class*="css"], .stApp {{
   background: transparent; transition: color .15s ease}}
 .stTabs [data-baseweb="tab"]:hover {{color: var(--tinta2)}}
 .stTabs [aria-selected="true"] {{background: var(--kertas) !important;
-  color: var(--aksen) !important; box-shadow: var(--bayang)}}
+  color: var(--aksen) !important;
+  box-shadow: var(--bayang), 0 0 0 1px var(--aksenSamar)}}
 .stTabs [data-baseweb="tab-highlight"] {{background: transparent}}
 .stTabs [data-baseweb="tab-border"] {{display: none}}
 
 /* ---- Komponen bawaan Streamlit ---- */
 [data-testid="stMetric"] {{border: 1px solid var(--garis); border-radius: 12px;
   padding: 1rem 1.1rem; background: var(--kertas); box-shadow: var(--bayang);
-  transition: transform .15s ease, box-shadow .15s ease}}
+  transition: transform .15s ease, box-shadow .15s ease; position: relative; overflow: hidden}}
+[data-testid="stMetric"]::before {{content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--aksen), var(--aksen2))}}
 [data-testid="stMetric"]:hover {{transform: translateY(-2px); box-shadow: var(--bayang-hover)}}
 [data-testid="stMetricValue"] {{font-weight: 800; letter-spacing: -.01em}}
+[data-testid="stMetricValue"] [data-testid="stMarkdownContainer"],
+[data-testid="stMetricValue"] p {{
+  white-space: normal !important; overflow: visible !important;
+  text-overflow: clip !important; line-height: 1.15}}
 [data-testid="stExpander"] {{border: 1px solid var(--garis); border-radius: 12px;
   background: var(--kertas); box-shadow: var(--bayang); overflow: hidden}}
 [data-testid="stExpander"] summary {{font-weight: 600}}
@@ -243,9 +268,9 @@ html, body, [class*="css"], .stApp {{
 .stButton > button, .stDownloadButton > button {{border-radius: 8px; font-weight: 600;
   transition: background .15s ease, box-shadow .15s ease}}
 .stButton > button[kind="primary"], .stDownloadButton > button[kind="primary"] {{
-  background: var(--aksen); border-color: var(--aksen)}}
+  background: linear-gradient(135deg, var(--aksen), var(--aksen2)); border-color: var(--aksen)}}
 .stButton > button[kind="primary"]:hover, .stDownloadButton > button[kind="primary"]:hover {{
-  background: var(--aksen2); border-color: var(--aksen2)}}
+  background: linear-gradient(135deg, var(--aksen2), var(--aksen)); border-color: var(--aksen2)}}
 
 div[data-testid="stTextInput"] input, div[data-testid="stTextArea"] textarea,
 div[data-testid="stNumberInput"] input {{border-radius: 8px; border-color: var(--garis)}}
@@ -262,7 +287,7 @@ div[data-testid="stNumberInput"] input:focus {{border-color: var(--aksen) !impor
 div[data-testid="stAlertContainer"] {{border-radius: 10px !important; border: 1px solid transparent}}
 div[data-testid="stAlertContainer"] p {{font-size: .92rem}}
 div[data-testid="stAlertContainer"]:has(> div[data-testid="stAlertContentInfo"]) {{
-  background: var(--aksenSamar) !important; color: var(--aksen) !important; border-color: #bfdbfe !important}}
+  background: var(--aksenSamar) !important; color: var(--aksen) !important; border-color: #d8d4fa !important}}
 div[data-testid="stAlertContainer"]:has(> div[data-testid="stAlertContentSuccess"]) {{
   background: var(--baikSamar) !important; color: var(--baik) !important; border-color: #bbf7d0 !important}}
 div[data-testid="stAlertContainer"]:has(> div[data-testid="stAlertContentWarning"]) {{
@@ -614,7 +639,7 @@ def pesan_data_diperlukan(df: pd.DataFrame | None) -> None:
     if df is None:
         keadaan_kosong(
             "Perlu data terlebih dahulu",
-            "Muat data pada tab 📁 Data — unggah berkas, coba data contoh, atau buka "
+            "Muat data pada tab Data — unggah berkas, coba data contoh, atau buka "
             "proyek yang tersimpan.",
             ikon="📁",
         )

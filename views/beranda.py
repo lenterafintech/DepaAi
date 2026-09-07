@@ -33,13 +33,13 @@ METODE = [
 ]
 
 PETA = [
-    ("Belum tahu harus mulai dari mana", "🏠 Beranda — ikuti tombol tindakan berikutnya"),
-    ("Menentukan sebab-akibat/populasi berlaku ke siapa", "📋 Rencana"),
-    ("Memuat atau mengganti data, entri manual, kamus variabel", "📁 Data"),
-    ("Memeriksa nilai kosong, pencilan, normalitas", "🔍 Mutu Data"),
-    ("Menjalankan uji statistik", "🧭 Analisis"),
-    ("Membaca hasil dengan interpretasinya, mengunduh naskah", "📄 Laporan"),
-    ("Berlatih menjawab pertanyaan penguji/atasan", "🎓 Simulasi Sidang"),
+    ("Belum tahu harus mulai dari mana", "Beranda — ikuti tombol tindakan berikutnya"),
+    ("Menentukan sebab-akibat/populasi berlaku ke siapa", "Rencana"),
+    ("Memuat atau mengganti data, entri manual, kamus variabel", "Data"),
+    ("Memeriksa nilai kosong, pencilan, normalitas", "Mutu Data"),
+    ("Menjalankan uji statistik", "Analisis"),
+    ("Membaca hasil dengan interpretasinya, mengunduh naskah", "Laporan"),
+    ("Berlatih menjawab pertanyaan penguji/atasan", "Simulasi Sidang"),
 ]
 
 
@@ -95,20 +95,20 @@ def _dashboard(df, kamus, penelitian) -> None:
     st.divider()
     if status == "kritis" or (status == "peringatan" and not sudah_dijalankan):
         st.info(
-            "👉 **Langkah berikutnya:** buka tab **🔍 Mutu Data** di atas untuk "
+            "**Langkah berikutnya:** buka tab **Mutu Data** di atas untuk "
             "memeriksa dan menindaklanjuti temuannya.",
             icon=":material/arrow_forward:",
         )
     elif not sudah_dijalankan:
         st.info(
-            "👉 **Langkah berikutnya:** buka tab **🧭 Analisis** di atas, lalu pilih "
+            "**Langkah berikutnya:** buka tab **Analisis** di atas, lalu pilih "
             "**Dipandu aplikasi** agar NalarData menyarankan metode yang cocok "
             "dengan data Anda.",
             icon=":material/arrow_forward:",
         )
     else:
         st.info(
-            f"👉 **Langkah berikutnya:** buka tab **📄 Laporan** di atas — "
+            f"**Langkah berikutnya:** buka tab **Laporan** di atas — "
             f"{len(sudah_dijalankan)} metode sudah punya hasil yang siap dibaca "
             "lengkap dengan interpretasinya.",
             icon=":material/arrow_forward:",
@@ -126,20 +126,20 @@ def _panduan_penggunaan() -> None:
             kicker="Panduan",
         )
         st.markdown(
-            "- **📋 Rencana** — opsional, tetapi lebih baik diisi sebelum melihat data. "
+            "- **Rencana** — opsional, tetapi lebih baik diisi sebelum melihat data. "
             "Menentukan apakah kesimpulan nanti boleh berbunyi sebab-akibat.\n"
-            "- **📁 Data** — memuat data (unggah/contoh/proyek), entri manual, dan kamus "
+            "- **Data** — memuat data (unggah/contoh/proyek), entri manual, dan kamus "
             "variabel (skala & peran tiap kolom).\n"
-            "- **🔍 Mutu Data** — Rapor Data (nilai kosong, duplikat, pencilan) dan "
+            "- **Mutu Data** — Rapor Data (nilai kosong, duplikat, pencilan) dan "
             "Eksplorasi (deskriptif, distribusi, normalitas).\n"
-            "- **🧭 Analisis** — pilih **Dipandu aplikasi** bila belum yakin uji apa "
+            "- **Analisis** — pilih **Dipandu aplikasi** bila belum yakin uji apa "
             "yang tepat, atau **Pilih metode manual** bila sudah tahu.\n"
-            "- **📄 Laporan** — otomatis tersusun dari metode yang benar-benar Anda "
+            "- **Laporan** — otomatis tersusun dari metode yang benar-benar Anda "
             "jalankan, dengan interpretasi dan statistik deskriptif, dalam tiga ragam "
             "bahasa (Umum/Akademik/Profesional).\n"
-            "- **🎓 Simulasi Sidang** — langkah terakhir, berlatih menjawab pertanyaan "
+            "- **Simulasi Sidang** — langkah terakhir, berlatih menjawab pertanyaan "
             "dari analisis Anda sendiri.\n"
-            "- **👤 Akun** — paket langganan yang berlaku."
+            "- **Akun** — paket langganan yang berlaku."
         )
 
         st.markdown("**Kalau Anda ingin ...**")
