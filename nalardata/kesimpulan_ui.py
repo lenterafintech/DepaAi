@@ -288,10 +288,23 @@ def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan] | None:
         c for c in kandidat if pd.api.types.is_numeric_dtype(df[c])
     ]
 
+    # Bila Pemandu Uji baru saja dipakai, variabel yang sudah dipilih di sana lebih
+    # relevan bagi pengguna daripada tebakan berbasis korelasi — dipakai sebagai
+    # pilihan awal ketika cocok tipe datanya; heuristik korelasi tetap jadi
+    # fallback (Pemandu belum pernah dipakai, atau variabelnya tidak cocok).
+    dipandu = ui.konfigurasi_pemandu()
+    outcome_dipandu = dipandu.get("outcome") or ""
+    kelompok_dipandu = dipandu.get("kelompok") or ""
+    prediktor_dipandu = [c for c in dipandu.get("prediktor", []) if c in numerik]
+
     # Pilihan awal diarahkan ke variabel yang paling banyak berbagi informasi dengan
     # variabel lain, supaya ringkasan pertama yang dilihat pengguna sudah bermakna.
     korelasi = _korelasi_absolut(df, numerik)
-    target_awal = str((korelasi.sum() - 1).sort_values(ascending=False).index[0])
+    target_awal = (
+        outcome_dipandu
+        if outcome_dipandu in numerik
+        else str((korelasi.sum() - 1).sort_values(ascending=False).index[0])
+    )
 
     with st.expander("Atur cakupan analisis", expanded=False):
         st.caption(
@@ -299,10 +312,15 @@ def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan] | None:
             "analisis yang benar-benar dijalankan pada data Anda — makin lengkap "
             "pilihan di bawah, makin banyak sudut pandang yang dilaporkan."
         )
+        variabel_awal = (
+            list(dict.fromkeys([target_awal, *prediktor_dipandu]))
+            if outcome_dipandu in numerik or prediktor_dipandu
+            else numerik[: min(8, len(numerik))]
+        )
         variabel = st.multiselect(
             "Variabel numerik yang dianalisis",
             numerik,
-            default=numerik[: min(8, len(numerik))],
+            default=variabel_awal or numerik[: min(8, len(numerik))],
             key="kesimpulan_var",
         )
         kol1, kol2 = st.columns(2)
@@ -316,25 +334,30 @@ def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan] | None:
             target_biner = st.selectbox(
                 "Variabel hasil dua kategori (regresi logistik)",
                 [TANPA] + biner,
-                index=1 if biner else 0,
+                index=(biner.index(outcome_dipandu) + 1) if outcome_dipandu in biner else (1 if biner else 0),
                 key="kesimpulan_biner",
             )
         with kol2:
             prediktor_kandidat = [c for c in numerik if c != target_numerik]
+            prediktor_awal = [c for c in prediktor_dipandu if c in prediktor_kandidat] or [
+                c
+                for c in _prediktor_awal(df, numerik, korelasi, target_numerik)
+                if c in prediktor_kandidat
+            ]
             prediktor = st.multiselect(
                 "Faktor penjelas (prediktor)",
                 prediktor_kandidat,
-                default=[
-                    c
-                    for c in _prediktor_awal(df, numerik, korelasi, target_numerik)
-                    if c in prediktor_kandidat
-                ],
+                default=prediktor_awal,
                 key="kesimpulan_x",
             )
             kelompok = st.selectbox(
                 "Variabel kelompok (uji beda & diskriminan)",
                 [TANPA] + kelompok_kandidat,
-                index=1 if kelompok_kandidat else 0,
+                index=(
+                    (kelompok_kandidat.index(kelompok_dipandu) + 1)
+                    if kelompok_dipandu in kelompok_kandidat
+                    else (1 if kelompok_kandidat else 0)
+                ),
                 key="kesimpulan_kelompok",
             )
             moderator = st.selectbox(
@@ -350,14 +373,15 @@ def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan] | None:
 
         if target_biner != TANPA:
             kandidat_biner = [c for c in numerik if c != target_biner]
+            default_x_biner = [c for c in prediktor_dipandu if c in kandidat_biner] or [
+                c
+                for c in _prediktor_awal(df, numerik, korelasi, target_biner)
+                if c in kandidat_biner
+            ]
             prediktor_biner = st.multiselect(
                 f"Faktor penjelas untuk model dua kategori ({target_biner})",
                 kandidat_biner,
-                default=[
-                    c
-                    for c in _prediktor_awal(df, numerik, korelasi, target_biner)
-                    if c in kandidat_biner
-                ],
+                default=default_x_biner,
                 key="kesimpulan_x_biner",
             )
         else:

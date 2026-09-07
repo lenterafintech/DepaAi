@@ -678,6 +678,30 @@ def test_panel_metode_tanpa_pemandu_tidak_mengisi_apa_apa(sample):
     assert not any("Disiapkan dari Pemandu Uji" in s.value for s in app.success)
 
 
+def test_laporan_atur_cakupan_terisi_dari_pemandu(sample):
+    """Tangkapan layar ketiga yang dilaporkan pengguna: widget "Atur cakupan
+    analisis" di Laporan > Ringkasan Otomatis menunjukkan kombinasi variabel
+    KETIGA yang berbeda lagi dari Pemandu maupun panel metode, karena
+    kesimpulan_ui.py sepenuhnya memakai heuristik korelasi sendiri. Kini
+    heuristik itu jadi fallback saja — konfigurasi Pemandu diprioritaskan."""
+    app = _run(
+        sample,
+        pemandu_konfigurasi={
+            "metode": "Regresi linear berganda",
+            "outcome": "usia",
+            "prediktor": ["skor_kredit", "pendapatan_bulanan"],
+            "kelompok": "segmen_usaha",
+            "berpasangan": False,
+            "tujuan": "memperkirakan_nilai",
+            "alasan": "contoh",
+        },
+    )
+    assert not app.exception
+    assert app.selectbox(key="kesimpulan_y").value == "usia"
+    assert app.multiselect(key="kesimpulan_x").value == ["skor_kredit", "pendapatan_bulanan"]
+    assert app.selectbox(key="kesimpulan_kelompok").value == "segmen_usaha"
+
+
 def test_kolom_pemandu_yang_sudah_tidak_ada_tidak_menggagalkan_app(sample):
     """Data dapat berganti setelah pemandu dijalankan."""
     app = _run(
