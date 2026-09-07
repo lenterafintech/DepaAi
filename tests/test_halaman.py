@@ -609,6 +609,29 @@ def test_kolom_pemandu_yang_sudah_tidak_ada_tidak_menggagalkan_app(sample):
     assert not app.exception
 
 
+def test_pemandu_rekomendasi_langsung_muncul_setelah_kedua_variabel_dipilih(sample):
+    """Reproduksi laporan pengguna: tujuan membandingkan, outcome usia lalu penanda
+    kelompok gagal_bayar dipilih pada dua giliran render terpisah (dua widget berbeda,
+    bukan satu form) — rekomendasi harus langsung berubah begitu keduanya lengkap,
+    tanpa perlu interaksi tambahan yang tidak relevan."""
+    app = _run(sample)
+    app.radio(key="pemandu_tujuan").set_value("membandingkan").run()
+
+    app.selectbox(key="pemandu_outcome_beda").set_value("usia (rasio)").run()
+    assert not app.exception
+    teks_sebelum = _teks(app) + _html(app)
+    assert "menandai kelompoknya" in teks_sebelum
+
+    app.selectbox(key="pemandu_kelompok").set_value("gagal_bayar (nominal)").run()
+    assert not app.exception
+    teks_sesudah = _teks(app) + _html(app)
+    assert "menandai kelompoknya" not in teks_sesudah
+    assert any(s.value.startswith("**") for s in app.success), (
+        "kartu metode utama (st.success berisi **nama metode**) harus tampil begitu "
+        "outcome dan kelompok lengkap, pada giliran render yang sama"
+    )
+
+
 def test_pemandu_konfirmasi_menampilkan_panel_metode_di_bawahnya(sample):
     """Konfirmasi di mode Dipandu harus langsung menampilkan panel metode — tanpa
     perlu pengguna berpindah tab atau halaman sendiri (lihat keluhan navigasi
