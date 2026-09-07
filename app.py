@@ -89,6 +89,35 @@ KELOMPOK_METODE: dict[str, list[tuple[str, object]]] = {
 RENDER_METODE = {nama: fn for grup in KELOMPOK_METODE.values() for nama, fn in grup}
 
 
+def _ringkasan_keputusan_pemandu(dipandu: dict, kamus) -> str:
+    """Kalimat ringkas metode + variabel + alasan satu kalimat, ditampilkan di
+    atas panel metode setelah konfirmasi (poin 10) — supaya pengguna yang baru
+    saja menekan tombol konfirmasi tidak perlu menggulir ke atas untuk
+    mengingat apa yang baru saja ia pilih dan mengapa."""
+    variabel = []
+    if dipandu.get("outcome"):
+        variabel.append(kamus.judul(dipandu["outcome"]))
+    if dipandu.get("kelompok"):
+        variabel.append(kamus.judul(dipandu["kelompok"]))
+    for nama in dipandu.get("prediktor") or []:
+        variabel.append(kamus.judul(nama))
+    daftar_variabel = ", ".join(variabel) if variabel else "-"
+
+    alasan = (dipandu.get("alasan") or "").strip()
+    kalimat_pertama = alasan.split(". ")[0].strip() if alasan else ""
+    if kalimat_pertama and not kalimat_pertama.endswith("."):
+        kalimat_pertama += "."
+
+    ringkasan = f"**{dipandu['metode']}** pada variabel {daftar_variabel}."
+    if kalimat_pertama:
+        ringkasan += f" {kalimat_pertama}"
+    return ringkasan
+
+
+def _kembali_ke_pemandu() -> None:
+    st.session_state["analisis_mode"] = "Dipandu aplikasi"
+
+
 def _tab_analisis() -> None:
     mode = st.radio(
         "Cara memilih metode",
@@ -103,13 +132,38 @@ def _tab_analisis() -> None:
 
     if mode == "Dipandu aplikasi":
         pemandu_page.render(df, kamus, penelitian)
+        # Dibaca SETELAH render Pemandu, bukan sebelumnya: tombol konfirmasi di
+        # dalam pemandu_page.render() mengubah konfigurasi ini pada giliran
+        # render yang sama saat diklik — membacanya lebih awal akan memakai
+        # nilai basi sebelum konfirmasi, dan panel metode gagal langsung
+        # terbuka pada klik yang sama.
         dipandu = ui.konfigurasi_pemandu()
         halaman = pmd.METODE_TERSEDIA.get(dipandu.get("metode", ""), "")
         if halaman in RENDER_METODE:
             st.divider()
             ui.judul_bagian(f"Panel metode: {halaman}", kicker="Analisis")
+            st.info(
+                _ringkasan_keputusan_pemandu(dipandu, kamus), icon=":material/task_alt:"
+            )
             RENDER_METODE[halaman](df, kamus, penelitian)
     else:
+        # Cabang ini tidak merender Pemandu, sehingga konfigurasi tidak dapat
+        # berubah pada giliran ini — aman dibaca di sini, dan TETAP ada
+        # (tidak pernah dihapus) meski pengguna berpindah ke mode manual.
+        dipandu = ui.konfigurasi_pemandu()
+        if dipandu.get("metode"):
+            # Session state milik widget ("analisis_mode") tidak boleh diubah
+            # setelah widget itu diinstansiasi pada giliran render yang sama
+            # (radio-nya sudah dirender di atas) — perubahan lewat on_click
+            # dieksekusi di awal giliran BERIKUTNYA, sebelum widget mana pun
+            # diinstansiasi ulang, sehingga tidak melanggar batasan itu.
+            st.button(
+                f":material/arrow_back: Kembali ke Pemandu — metode terakhir: "
+                f"{dipandu['metode']}",
+                key="kembali_ke_pemandu",
+                on_click=_kembali_ke_pemandu,
+            )
+
         grup = st.selectbox("Kelompok metode", list(KELOMPOK_METODE), key="analisis_grup")
         opsi = [nama for nama, _ in KELOMPOK_METODE[grup]]
         pilihan = st.selectbox("Metode", opsi, key="analisis_metode")

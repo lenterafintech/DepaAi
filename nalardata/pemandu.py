@@ -647,7 +647,12 @@ def sarankan(
         "berpasangan": bool(berpasangan),
     }
     if hasil.utama is not None:
-        hasil.utama.konfig = dict(hasil.konfig, metode=hasil.utama.metode)
+        # ``alasan`` ikut disimpan di konfig (bukan cuma di Saran.alasan) supaya
+        # ringkasan keputusan pada panel metode (setelah konfirmasi, poin 10)
+        # dapat dibaca tanpa menjalankan ulang sarankan() atau menduplikasi teks.
+        hasil.utama.konfig = dict(
+            hasil.konfig, metode=hasil.utama.metode, alasan=hasil.utama.alasan
+        )
         # Dipindah dari lapisan tampilan (views/pemandu.py) supaya jadi bagian
         # struktur hasil, bukan dihitung ulang di titik render — pagar.py dan
         # penelitian.batas_kesimpulan() sudah ada dan sudah teruji, di sini

@@ -664,6 +664,65 @@ def test_pemandu_konfirmasi_menampilkan_panel_metode_di_bawahnya(sample):
     app.button(key="pemandu_konfirmasi").click().run()
     assert not app.exception
     assert any("tampil tepat di bawah ini" in s.value for s in app.success)
+
+
+def test_konfirmasi_pemandu_menampilkan_ringkasan_keputusan(sample):
+    """Poin 10: ringkasan keputusan (metode + variabel + alasan satu kalimat)
+    tampil di atas panel metode, tanpa perlu menggulir ke Pemandu untuk
+    mengingat apa yang baru saja dipilih."""
+    app = _run(sample)
+    app.radio(key="pemandu_tujuan").set_value("membandingkan").run()
+    app.selectbox(key="pemandu_outcome_beda").set_value("skor_kredit (rasio)").run()
+    app.selectbox(key="pemandu_kelompok").set_value("segmen_usaha (nominal)").run()
+    app.button(key="pemandu_konfirmasi").click().run()
+    assert not app.exception
+    ringkasan = [i.value for i in app.info if i.value.startswith("**") and "skor_kredit" in i.value]
+    assert ringkasan, [i.value for i in app.info]
+    assert "segmen_usaha" in ringkasan[0]
+
+
+def test_tombol_kembali_ke_pemandu_tampil_setelah_pindah_mode_manual(sample):
+    """Poin 10: setelah konfirmasi lalu berpindah ke mode manual, tombol
+    'Kembali ke Pemandu' tersedia sebagai jalan pintas balik — tanpa harus
+    mengklik radio secara manual."""
+    app = _run(sample)
+    app.radio(key="pemandu_tujuan").set_value("membandingkan").run()
+    app.selectbox(key="pemandu_outcome_beda").set_value("skor_kredit (rasio)").run()
+    app.selectbox(key="pemandu_kelompok").set_value("segmen_usaha (nominal)").run()
+    app.button(key="pemandu_konfirmasi").click().run()
+
+    app.radio(key="analisis_mode").set_value("Pilih metode sendiri").run()
+    assert not app.exception
+    tombol = [b for b in app.button if "Kembali ke Pemandu" in b.label]
+    assert len(tombol) == 1
+    assert "One-Way ANOVA" in tombol[0].label or "Uji-t" in tombol[0].label
+
+
+def test_tombol_kembali_ke_pemandu_tidak_tampil_tanpa_konfirmasi(sample):
+    """Tanpa konfirmasi sebelumnya, tidak ada metode terakhir untuk dituju —
+    tombol tidak boleh muncul dan menjanjikan sesuatu yang tidak ada."""
+    app = _run(sample)
+    app.radio(key="analisis_mode").set_value("Pilih metode sendiri").run()
+    assert not app.exception
+    assert not any("Kembali ke Pemandu" in b.label for b in app.button)
+
+
+def test_tombol_kembali_ke_pemandu_mengembalikan_mode_tanpa_menghapus_konfigurasi(sample):
+    """Poin 10: tombol hanya mengubah analisis_mode, TIDAK menghapus
+    konfigurasi_pemandu — ringkasan keputusan harus tetap ada begitu kembali."""
+    app = _run(sample)
+    app.radio(key="pemandu_tujuan").set_value("membandingkan").run()
+    app.selectbox(key="pemandu_outcome_beda").set_value("skor_kredit (rasio)").run()
+    app.selectbox(key="pemandu_kelompok").set_value("segmen_usaha (nominal)").run()
+    app.button(key="pemandu_konfirmasi").click().run()
+
+    app.radio(key="analisis_mode").set_value("Pilih metode sendiri").run()
+    app.button(key="kembali_ke_pemandu").click().run()
+    assert not app.exception
+    assert app.radio(key="analisis_mode").value == "Dipandu aplikasi"
+    assert any(
+        i.value.startswith("**") and "skor_kredit" in i.value for i in app.info
+    )
     assert any("Disiapkan dari Pemandu Uji" in s.value for s in app.success)
 
 
