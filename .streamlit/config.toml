@@ -15,16 +15,17 @@ address = "0.0.0.0"
 [browser]
 gatherUsageStats = false
 
-# Palet "modern SaaS analytics" (acuan Vercel/Stripe/Linear): latar netral
-# lembut, aksen biru listrik. Warna status (hijau/amber/merah) didefinisikan
-# di nalardata/ui.py karena Streamlit hanya menyediakan satu warna aksen di sini.
+# Palet "premium halus": latar netral lembut, aksen indigo. Warna status
+# (hijau/amber/merah) didefinisikan di nalardata/ui.py karena Streamlit hanya
+# menyediakan satu warna aksen di sini — harus tetap sinkron dengan token
+# "aksen" pada WARNA di nalardata/ui.py.
 [theme]
 base = "light"
-primaryColor = "#2563eb"
+primaryColor = "#4f46e5"
 backgroundColor = "#f8fafc"
 secondaryBackgroundColor = "#ffffff"
 textColor = "#0f172a"
-linkColor = "#2563eb"
+linkColor = "#4f46e5"
 borderColor = "#e2e8f0"
 font = "sans-serif"
 headingFont = "sans-serif"

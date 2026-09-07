@@ -178,14 +178,14 @@ def _tab_simulasi_sidang() -> None:
     tab_akun,
 ) = st.tabs(
     [
-        "🏠 Beranda",
-        "📋 Rencana",
-        "📁 Data",
-        "🔍 Mutu Data",
-        "🧭 Analisis",
-        "📄 Laporan",
-        "🎓 Simulasi Sidang",
-        "👤 Akun",
+        ":material/home: Beranda",
+        ":material/assignment: Rencana",
+        ":material/folder: Data",
+        ":material/fact_check: Mutu Data",
+        ":material/explore: Analisis",
+        ":material/description: Laporan",
+        ":material/school: Simulasi Sidang",
+        ":material/person: Akun",
     ]
 )
 

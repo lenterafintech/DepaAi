@@ -32,7 +32,7 @@ def render(df, kamus, penelitian) -> None:
     if laporan is None:
         ui.keadaan_kosong(
             "Laporan belum tersusun",
-            "Buka tab 📄 Laporan → Ringkasan Otomatis terlebih dahulu, lalu kembali "
+            "Buka tab Laporan → Ringkasan Otomatis terlebih dahulu, lalu kembali "
             "ke sini — simulasi sidang membaca pertanyaannya dari laporan itu.",
             ikon="🎓",
         )
