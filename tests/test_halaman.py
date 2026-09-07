@@ -741,6 +741,28 @@ def test_pemandu_tidak_menampilkan_banner_saat_rencana_lengkap(sample):
     assert not any("Rencana penelitian belum lengkap" in i.value for i in app.info)
 
 
+def test_pemandu_menandai_rekomendasi_sementara_saat_skala_belum_dikonfirmasi(sample):
+    """Poin 4: peringatan spesifik menyebut nama variabel yang dipakai, bukan
+    cuma angka total kolom tebakan di seluruh dataset."""
+    app = _run(sample)
+    app.radio(key="pemandu_tujuan").set_value("membandingkan").run()
+    app.selectbox(key="pemandu_outcome_beda").set_value("usia (rasio)").run()
+    app.selectbox(key="pemandu_kelompok").set_value("segmen_usaha (nominal)").run()
+    assert not app.exception
+    assert any("Rekomendasi sementara" in w.value for w in app.warning)
+    assert any("usia" in w.value for w in app.warning if "Rekomendasi sementara" in w.value)
+
+
+def test_pemandu_tidak_menawarkan_kolom_id_sebagai_variabel(sample):
+    """Poin 4: kolom berperan 'id' (di sini id_nasabah, ditebak otomatis dari nama
+    kolom + nilai unik semua) tidak boleh ditawarkan sebagai variabel dibandingkan."""
+    app = _run(sample)
+    app.radio(key="pemandu_tujuan").set_value("membandingkan").run()
+    assert not app.exception
+    opsi = app.selectbox(key="pemandu_outcome_beda").options
+    assert not any(o.startswith("id_nasabah") for o in opsi)
+
+
 def test_kesesuaian_hasil_menyebut_yang_belum_divalidasi():
     """Daftar yang menyembunyikan lubangnya sendiri tidak dapat dipercaya."""
     app = _run(None)

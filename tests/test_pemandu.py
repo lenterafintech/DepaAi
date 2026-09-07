@@ -135,6 +135,40 @@ def test_alasan_menolak_anova_menyebut_angka_ujinya(acak):
 
 
 # --------------------------------------------------------------------------- #
+# Status informasi & perlu_konfirmasi (poin 4: Kamus Variabel <-> rekomendasi)
+# --------------------------------------------------------------------------- #
+
+
+def test_perlu_konfirmasi_menyebut_variabel_yang_dipakai_saja(acak):
+    """Hanya variabel yang BENAR-BENAR dipakai (outcome/kelompok) yang diperiksa,
+    bukan seluruh dataset — kolom 'z' tidak dipakai dan tidak boleh muncul, kolom
+    'g' teks dua kategori ditebak PASTI sehingga tidak perlu dikonfirmasi."""
+    df = _dua_kelompok(acak.normal(50, 8, N), acak.normal(52, 8, N))
+    df["z"] = acak.normal(0, 1, len(df))
+    hasil = _sarankan(df, tujuan="membandingkan", outcome="y", kelompok="g")
+    assert hasil.status_informasi == pmd.PERLU_KONFIRMASI
+    assert "y" in hasil.perlu_konfirmasi
+    assert "z" not in hasil.perlu_konfirmasi
+    assert "g" not in hasil.perlu_konfirmasi
+
+
+def test_status_cukup_saat_variabel_yang_dipakai_sudah_dikonfirmasi(acak):
+    df = _dua_kelompok(acak.normal(50, 8, N), acak.normal(52, 8, N))
+    hasil = _sarankan(
+        df, skala={"y": km.RASIO}, tujuan="membandingkan", outcome="y", kelompok="g"
+    )
+    assert hasil.status_informasi == pmd.CUKUP
+    assert hasil.perlu_konfirmasi == []
+
+
+def test_status_tidak_cukup_saat_input_belum_lengkap(acak):
+    df = _dua_kelompok(acak.normal(50, 8, N), acak.normal(52, 8, N))
+    hasil = _sarankan(df, tujuan="membandingkan", outcome="y")
+    assert hasil.status_informasi == pmd.TIDAK_CUKUP
+    assert hasil.belum_terjawab
+
+
+# --------------------------------------------------------------------------- #
 # Skala dibaca dari kamus, bukan dari dtype
 # --------------------------------------------------------------------------- #
 

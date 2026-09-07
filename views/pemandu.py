@@ -115,7 +115,11 @@ def render(df, kamus, penelitian) -> None:
         kicker="Langkah 2",
     )
 
-    semua = list(df.columns)
+    # Kolom berperan "id" (dikenali otomatis dari kamus, mis. nomor responden) tidak
+    # pernah masuk akal sebagai outcome/prediktor/kelompok — itu sekadar identitas,
+    # bukan sesuatu yang diukur. Kamus.numerik() sudah menerapkan aturan yang sama;
+    # di sini disamakan untuk seluruh daftar kandidat, termasuk yang kategorik.
+    semua = [c for c in df.columns if not (c in kamus and kamus[c].peran == "id")]
     numerik = kamus.numerik()
     kategorik = kamus.kategorik()
 
@@ -266,6 +270,15 @@ def render(df, kamus, penelitian) -> None:
 
     if not rekomendasi.berhasil:
         return
+
+    if rekomendasi.perlu_konfirmasi:
+        nama_variabel = ", ".join(f"**{kamus.judul(n)}**" for n in rekomendasi.perlu_konfirmasi)
+        st.warning(
+            f"Rekomendasi sementara — skala {nama_variabel} belum dikonfirmasi. "
+            "Saran di bawah memakai tebakan aplikasi; periksa di tab **Kamus Variabel** "
+            "untuk memastikan saran ini tetap benar.",
+            icon=":material/rule:",
+        )
 
     utama = rekomendasi.utama
     st.success(f"**{utama.metode}**", icon=":material/check_circle:")

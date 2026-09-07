@@ -68,6 +68,12 @@ TERPENUHI = "terpenuhi"
 DILANGGAR = "dilanggar"
 TIDAK_DIUJI = "tidak diuji"
 
+# Status informasi sebuah Rekomendasi — bukan status metode, melainkan seberapa
+# bisa diandalkan rekomendasi itu sendiri (lihat Rekomendasi.status_informasi).
+CUKUP = "cukup"
+PERLU_KONFIRMASI = "perlu_konfirmasi"
+TIDAK_CUKUP = "tidak_cukup"
+
 ALFA = 0.05
 MIN_SEL = 5  # frekuensi harapan minimum pada tabel silang
 MIN_KELOMPOK = 3  # anggota minimum agar sebuah kelompok masih dapat diuji
@@ -180,6 +186,8 @@ class Rekomendasi:
     catatan: list[str] = field(default_factory=list)
     belum_terjawab: list[str] = field(default_factory=list)
     konfig: dict = field(default_factory=dict)
+    status_informasi: str = CUKUP
+    perlu_konfirmasi: list[str] = field(default_factory=list)
 
     @property
     def berhasil(self) -> bool:
@@ -587,6 +595,19 @@ def sarankan(
     }
     if hasil.utama is not None:
         hasil.utama.konfig = dict(hasil.konfig, metode=hasil.utama.metode)
+
+    # Status informasi: seberapa bisa diandalkan rekomendasi ini, terpisah dari
+    # metode yang dipilih. Hanya variabel yang BENAR-BENAR dipakai yang diperiksa —
+    # bukan seluruh dataset — supaya peringatannya spesifik dan dapat ditindaklanjuti.
+    if hasil.belum_terjawab:
+        hasil.status_informasi = TIDAK_CUKUP
+    else:
+        dipakai = [n for n in ([outcome, kelompok] + list(prediktor)) if n]
+        dipakai = list(dict.fromkeys(dipakai))
+        hasil.perlu_konfirmasi = [
+            n for n in dipakai if n in kamus and kamus[n].perlu_diperiksa
+        ]
+        hasil.status_informasi = PERLU_KONFIRMASI if hasil.perlu_konfirmasi else CUKUP
     return hasil
 
 
