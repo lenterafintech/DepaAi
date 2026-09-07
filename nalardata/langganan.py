@@ -32,7 +32,7 @@ FITUR = {
     "nonparametrik": "Uji non-parametrik dan uji lanjutan",
     "instrumen": "Reliabilitas dan validitas instrumen",
     "sem": "CFA, analisis jalur, dan SEM",
-    "lanjutan": "Regresi data panel dan peramalan deret waktu (ARIMA)",
+    "lanjutan": "Regresi data panel, peramalan deret waktu (ARIMA), dan analisis teks",
     "ringkasan_eksekutif": "Ringkasan eksekutif",
     "ringkasan_akademik": "Ringkasan akademik",
     "ringkasan_profesional": "Ringkasan profesional",

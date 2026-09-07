@@ -40,6 +40,7 @@ from views import (
     ringkasan,
     sem,
     sidang,
+    teks,
 )
 from views import kamus as kamus_page
 from views import pemandu as pemandu_page
@@ -82,6 +83,7 @@ KELOMPOK_METODE: dict[str, list[tuple[str, object]]] = {
     "Data Lanjutan": [
         ("Regresi Panel", panel.render),
         ("Deret Waktu (ARIMA)", deret_waktu.render),
+        ("Analisis Teks", teks.render),
     ],
 }
 RENDER_METODE = {nama: fn for grup in KELOMPOK_METODE.values() for nama, fn in grup}

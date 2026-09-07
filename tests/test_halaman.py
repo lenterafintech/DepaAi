@@ -25,7 +25,7 @@ KELOMPOK_METODE = {
     "Pemodelan": ["Regresi", "Regresi Moderasi (MRA)", "Analisis Diskriminan", "CFA, Jalur & SEM"],
     "Reduksi & Kelompok": ["PCA", "Analisis Faktor", "Analisis Klaster", "Korelasi Kanonik"],
     "Instrumen": ["Reliabilitas & Validitas"],
-    "Data Lanjutan": ["Regresi Panel", "Deret Waktu (ARIMA)"],
+    "Data Lanjutan": ["Regresi Panel", "Deret Waktu (ARIMA)", "Analisis Teks"],
 }
 
 
@@ -841,6 +841,19 @@ def test_pemandu_arima_menyarankan_deret_waktu(sample):
     app.selectbox(key="pemandu_outcome_arima").set_value("skor_kredit (rasio)").run()
     assert not app.exception
     assert any(s.value.startswith("**ARIMA**") for s in app.success)
+
+
+def test_pemandu_teks_menyarankan_analisis_teks(sample):
+    """Langkah 8: tujuan baru 'menganalisis_teks' menyambungkan halaman Analisis
+    Teks — mesin baru (NLTK/spaCy/Sastrawi) yang dibangun sebagai pengecualian
+    yang disetujui pengguna."""
+    app = _run(sample)
+    app.radio(key="pemandu_tujuan").set_value("menganalisis_teks").run()
+    opsi = app.selectbox(key="pemandu_outcome_teks").options
+    assert len(opsi) > 1  # ada kandidat kolom teks selain "— pilih —"
+    app.selectbox(key="pemandu_outcome_teks").set_value(opsi[1]).run()
+    assert not app.exception
+    assert any(s.value.startswith("**Analisis teks**") for s in app.success)
 
 
 def test_kesesuaian_hasil_menyebut_yang_belum_divalidasi():

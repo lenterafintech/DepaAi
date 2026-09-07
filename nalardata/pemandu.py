@@ -57,6 +57,7 @@ TUJUAN = {
     "mutu_instrumen": "Memeriksa mutu kuesioner",
     "menganalisis_panel": "Menganalisis data panel (entitas x waktu)",
     "meramalkan_waktu": "Meramalkan deret waktu",
+    "menganalisis_teks": "Menganalisis data teks (jawaban terbuka)",
 }
 
 PERTANYAAN_TUJUAN = {
@@ -73,6 +74,7 @@ PERTANYAAN_TUJUAN = {
     "mutu_instrumen": "Apakah kuesioner saya valid dan reliabel?",
     "menganalisis_panel": "Bagaimana pengaruh X terhadap Y bila unit yang sama diamati berulang kali?",
     "meramalkan_waktu": "Bagaimana kemungkinan nilainya di masa depan, dari pola masa lalunya sendiri?",
+    "menganalisis_teks": "Tema atau kata apa yang paling menonjol dari jawaban terbuka responden?",
 }
 
 TERPENUHI = "terpenuhi"
@@ -153,6 +155,7 @@ METODE_TERSEDIA: dict[str, str] = {
     "Uji validitas dan reliabilitas": "Reliabilitas & Validitas",
     "Regresi Panel": "Regresi Panel",
     "ARIMA": "Deret Waktu (ARIMA)",
+    "Analisis teks": "Analisis Teks",
 }
 
 
@@ -629,6 +632,7 @@ def sarankan(
         "mutu_instrumen": _mutu_instrumen,
         "menganalisis_panel": _panel,
         "meramalkan_waktu": _arima,
+        "menganalisis_teks": _teks,
     }
     hasil = penanganan[tujuan](df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian)
 
@@ -2007,6 +2011,52 @@ def _arima(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> 
                 "Regresi biasa menuntut variabel penjelas terpisah dan mengasumsikan "
                 "pengamatan saling bebas — asumsi yang dilanggar oleh deret waktu, "
                 "yang nilainya justru berkorelasi dengan dirinya sendiri di masa lalu."
+            ),
+        )
+    )
+    return hasil
+
+
+def _teks(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
+    """Analisis teks: ``outcome`` menjadi kolom teks (jawaban terbuka), satu
+    kolom saja — mengikuti pola pemakaian outcome pada tujuan 'meramalkan_waktu'."""
+    hasil = Rekomendasi()
+    if not outcome:
+        hasil.belum_terjawab.append("Kolom teks mana yang ingin dianalisis, misalnya jawaban terbuka?")
+        return hasil
+
+    n = int(df[outcome].notna().sum()) if outcome in df.columns else 0
+    dokumen_syarat = Syarat(
+        "Jumlah dokumen",
+        TERPENUHI if n >= 10 else DILANGGAR,
+        f"{n} baris berisi teks." + ("" if n >= 10 else " Frekuensi kata kurang bermakna di bawah 10 dokumen."),
+    )
+
+    hasil.utama = Saran(
+        metode="Analisis teks",
+        halaman="Analisis Teks",
+        alasan=(
+            f"'{outcome}' berisi teks bebas (jawaban terbuka), sehingga dianalisis "
+            "lewat frekuensi kata setelah dibersihkan dari stopword dan disatukan "
+            "imbuhannya — bukan lewat statistik numerik seperti kolom lain."
+        ),
+        syarat=[dokumen_syarat],
+        lanjutan=(
+            "Kata tersering menunjukkan tema yang menonjol menurut istilah responden "
+            "sendiri, bukan kategori yang sudah Anda tetapkan sebelumnya. Tetap baca "
+            "kalimat aslinya sebelum menyimpulkan sebuah tema."
+        ),
+        pembanding="NVivo, Atlas.ti, atau paket quanteda/tidytext di R",
+    )
+    hasil.alternatif.append(
+        Saran(
+            metode="Pengkodean tematik manual",
+            halaman="Analisis Teks",
+            alasan="",
+            ditolak_karena=(
+                "Aplikasi ini hanya menghitung frekuensi kata, bukan mengelompokkan "
+                "jawaban ke dalam tema secara otomatis. Pengkodean tematik penuh "
+                "tetap menuntut penilaian peneliti membaca tiap jawaban."
             ),
         )
     )

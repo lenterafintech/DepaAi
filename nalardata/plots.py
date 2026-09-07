@@ -497,6 +497,27 @@ def time_series_forecast(
     return fig
 
 
+def word_frequency_bar(tabel: pd.DataFrame, n: int = 20) -> go.Figure:
+    """Batang horizontal kata tersering — pengganti word cloud yang terurut
+    dan tidak menyesatkan (ukuran font pada word cloud sering dibaca berlebihan)."""
+    atas = tabel.head(n).iloc[::-1]
+    fig = go.Figure(
+        go.Bar(
+            x=atas["Frekuensi"],
+            y=atas["Kata"],
+            orientation="h",
+            marker_color=QUALITATIVE[0],
+        )
+    )
+    fig.update_layout(
+        **LAYOUT,
+        title=f"{len(atas)} Kata Tersering",
+        height=max(320, 24 * len(atas)),
+        xaxis_title="Frekuensi",
+    )
+    return fig
+
+
 def moderation_plot(
     data: pd.DataFrame, x: str, y: str, group: str = "Tingkat moderator"
 ) -> go.Figure:

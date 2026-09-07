@@ -7,6 +7,7 @@ mengapa alternatifnya tidak dipilih.
 
 from __future__ import annotations
 
+import pandas as pd
 import streamlit as st
 
 from nalardata import audit as ad
@@ -301,6 +302,16 @@ def render(df, kamus, penelitian) -> None:
             format_func=lambda k: "— pilih —" if k is None else _label(k),
             key="pemandu_outcome_arima",
             help="Deret angka yang ingin diramalkan nilainya di masa depan.",
+        )
+
+    elif tujuan == "menganalisis_teks":
+        kandidat_teks = [c for c in df.columns if pd.api.types.is_string_dtype(df[c])]
+        outcome = st.selectbox(
+            "Kolom teks yang dianalisis",
+            [None] + kandidat_teks,
+            format_func=lambda k: "— pilih —" if k is None else _label(k),
+            key="pemandu_outcome_teks",
+            help="Kolom berisi kalimat atau paragraf, misalnya jawaban terbuka atau komentar.",
         )
 
     else:

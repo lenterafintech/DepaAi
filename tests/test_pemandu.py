@@ -918,3 +918,31 @@ def test_arima_perlu_outcome(acak):
     hasil = _sarankan(df, tujuan="meramalkan_waktu")
     assert hasil.utama is None
     assert hasil.belum_terjawab
+
+
+def test_analisis_teks_terdaftar_di_metode_tersedia():
+    assert pmd.METODE_TERSEDIA["Analisis teks"] == "Analisis Teks"
+
+
+def test_teks_menyarankan_analisis_teks(acak):
+    df = pd.DataFrame({"komentar": [f"Ini adalah komentar responden nomor {i}." for i in range(15)]})
+    hasil = _sarankan(df, tujuan="menganalisis_teks", outcome="komentar")
+    assert hasil.utama.metode == "Analisis teks"
+    assert hasil.utama.halaman == "Analisis Teks"
+    assert hasil.utama.tersedia
+    dokumen = [s for s in hasil.utama.syarat if s.nama == "Jumlah dokumen"][0]
+    assert dokumen.terpenuhi
+
+
+def test_teks_menandai_dokumen_terlalu_sedikit(acak):
+    df = pd.DataFrame({"komentar": ["Baik.", "Cukup.", None, None]})
+    hasil = _sarankan(df, tujuan="menganalisis_teks", outcome="komentar")
+    dokumen = [s for s in hasil.utama.syarat if s.nama == "Jumlah dokumen"][0]
+    assert dokumen.dilanggar
+
+
+def test_teks_perlu_kolom_teks(acak):
+    df = pd.DataFrame({"komentar": ["a"] * 15})
+    hasil = _sarankan(df, tujuan="menganalisis_teks")
+    assert hasil.utama is None
+    assert hasil.belum_terjawab
