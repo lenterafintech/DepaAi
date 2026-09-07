@@ -784,6 +784,76 @@ def test_pemandu_tidak_menawarkan_kolom_id_sebagai_variabel(sample):
     assert not any(o.startswith("id_nasabah") for o in opsi)
 
 
+# --------------------------------------------------------------------------- #
+# Kartu rekomendasi & kepadatan layar (Langkah 9, poin 8 & 9 permintaan)
+# --------------------------------------------------------------------------- #
+
+
+def test_pemandu_penjelasan_lengkap_dipindah_ke_expander(sample):
+    """Poin 9: dua kotak info besar digantikan satu baris ringkas + expander
+    collapsed — penjelasan lengkapnya tetap ada, hanya tidak lagi selalu tampil."""
+    app = _run(sample)
+    assert not app.exception
+    assert not any("Ia tidak tahu apakah pengamatan" in i.value for i in app.info)
+    batas = [e for e in app.expander if e.label == "Batas kemampuan Pemandu"]
+    assert len(batas) == 1
+    isi = " ".join(
+        getattr(c, "value", "") for c in batas[0].children.values() if hasattr(c, "value")
+    )
+    assert "Ia tidak tahu apakah pengamatan" in isi
+
+
+def test_pemandu_badge_skala_tampil_sebagai_ringkasan(sample):
+    """Poin 9: jumlah kolom tebakan skala tampil sebagai badge ringkas, bukan
+    kotak peringatan besar terpisah."""
+    app = _run(sample)
+    assert not app.exception
+    html = [h.value for h in app.get("html")]
+    assert any("skala belum dikonfirmasi" in v for v in html)
+
+
+def test_pemandu_kartu_menampilkan_bagian_baru(sample):
+    """Poin 8: susunan kartu memuat bagian baru yang diminta — variabel dipakai,
+    bukti dari data, dan hal yang tidak dapat diperiksa aplikasi."""
+    app = _run(sample)
+    app.radio(key="pemandu_tujuan").set_value("membandingkan").run()
+    app.selectbox(key="pemandu_outcome_beda").set_value("usia (rasio)").run()
+    app.selectbox(key="pemandu_kelompok").set_value("gagal_bayar (nominal)").run()
+    assert not app.exception
+
+    teks_markdown = [m.value for m in app.markdown]
+    assert any(t == "**Variabel yang dipakai**" for t in teks_markdown)
+    assert any("Variabel utama: **usia**" in t for t in teks_markdown)
+    assert any("Kelompok/entitas: **gagal_bayar**" in t for t in teks_markdown)
+    assert any(t == "**Bukti dari data**" for t in teks_markdown)
+    assert any(t == "**Hal yang tidak dapat diperiksa aplikasi**" for t in teks_markdown)
+    assert any("Independensi antar-pengamatan" in t for t in teks_markdown)
+
+    html = [h.value for h in app.get("html")]
+    assert any("Layak dijalankan" in v or "Layak dipakai dengan catatan" in v for v in html)
+
+
+def test_pemandu_batas_kesimpulan_dari_rencana_tampil(sample):
+    """Poin 8: batas kesimpulan dari Rencana (field baru Langkah 5) akhirnya
+    ditampilkan di kartu — sebelumnya dihitung tapi tidak pernah dirender."""
+    from nalardata import proyek_penelitian as pp
+
+    proyek = pp.ProyekPenelitian(
+        judul="Pengaruh promosi terhadap penjualan",
+        pertanyaan=["Apakah promosi memengaruhi penjualan?"],
+        populasi="Nasabah aktif",
+        unit_analisis="Nasabah",
+    )
+    app = _run(sample, proyek_penelitian=proyek)
+    app.radio(key="pemandu_tujuan").set_value("membandingkan").run()
+    app.selectbox(key="pemandu_outcome_beda").set_value("usia (rasio)").run()
+    app.selectbox(key="pemandu_kelompok").set_value("gagal_bayar (nominal)").run()
+    assert not app.exception
+
+    assert any(m.value == "**Batas kesimpulan dari Rencana**" for m in app.markdown)
+    assert any("bukan sebab-akibat" in c.value for c in app.caption)
+
+
 def test_pemandu_banyak_outcome_menyarankan_manova(sample):
     """Langkah 6: tujuan baru 'membandingkan_banyak_outcome' menyambungkan MANOVA
     yang mesinnya sudah ada (nalardata/manova.py) tapi belum bisa disarankan Pemandu."""

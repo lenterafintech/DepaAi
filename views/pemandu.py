@@ -26,6 +26,36 @@ def _prasi_banyak(kandidat: list[str], kamus: km.Kamus, *peran: str) -> list[str
     return [n for n in kamus.dengan_peran(*peran) if n in kandidat]
 
 
+def _status_metode(utama: pmd.Saran) -> tuple[str, str, str]:
+    """(jenis_pil, ikon, label) untuk status visual kartu.
+
+    Ikon+teks selalu menyertai warna (baik=hijau/perhatian=kuning/kritis=merah) —
+    warna tidak pernah jadi satu-satunya penanda, sama seperti simbol ✓/✕/– yang
+    sudah dipakai di baris syarat.
+    """
+    if not utama.tersedia:
+        return "kritis", "✕", "Belum bisa dijalankan di aplikasi ini"
+    if any(s.dilanggar for s in utama.syarat):
+        return "perhatian", "!", "Layak dipakai dengan catatan"
+    return "baik", "✓", "Layak dijalankan"
+
+
+def _ringkas_variabel(konfig: dict, kamus: km.Kamus) -> list[str]:
+    """Variabel yang dipakai metode ini, dalam bahasa sehari-hari — bukan
+    outcome/prediktor/kelompok istilah statistik yang belum tentu dikenal."""
+    baris = []
+    if konfig.get("outcome"):
+        baris.append(f"Variabel utama: **{kamus.judul(konfig['outcome'])}**")
+    if konfig.get("kelompok"):
+        baris.append(f"Kelompok/entitas: **{kamus.judul(konfig['kelompok'])}**")
+    if konfig.get("prediktor"):
+        nama = ", ".join(kamus.judul(p) for p in konfig["prediktor"])
+        baris.append(f"Variabel lain: **{nama}**")
+    if konfig.get("berpasangan"):
+        baris.append("Pengukuran berpasangan (unit yang sama, diukur berulang).")
+    return baris
+
+
 def _simpan_peran(kamus: km.Kamus, nama: str | None, peran: str) -> None:
     """Menuliskan peran yang baru saja dipilih pengguna kembali ke Kamus Variabel.
 
@@ -43,14 +73,6 @@ def render(df, kamus, penelitian) -> None:
     if not ui.butuh_fitur("pemandu"):
         return
 
-    st.info(
-        "Pemandu membaca **bentuk** data, bukan **maksud** penelitian. Ia tidak tahu "
-        "apakah pengamatan Anda benar-benar saling bebas, apakah variabelnya benar-benar "
-        "mengukur yang Anda maksud, atau apakah pertanyaan penelitiannya sudah tepat. "
-        "Saran di bawah adalah titik awal yang berdasar, bukan keputusan akhir.",
-        icon=":material/info:",
-    )
-
     # --------------------------------------------------------------------------- #
     # Audit lebih dulu: memilih uji di atas data yang cacat tidak ada gunanya
     # --------------------------------------------------------------------------- #
@@ -67,15 +89,36 @@ def render(df, kamus, penelitian) -> None:
         for temuan in kritis[:5]:
             st.markdown(f"- **{temuan.kolom or 'Data'}** — {temuan.rincian} {temuan.saran}")
 
+    # Satu baris ringkas menggantikan dua kotak info besar yang sebelumnya
+    # mendorong Langkah 1 turun layar (poin 9: kepadatan layar) — penjelasan
+    # lengkap tetap ada, dipindah ke expander collapsed di bawahnya. Peringatan
+    # skala DI SINI sengaja hanya berupa hitungan ringkas seluruh data; peringatan
+    # yang menyebut NAMA variabel muncul lebih spesifik dekat kartu hasil, hanya
+    # bila variabel yang benar-benar dipakai belum dikonfirmasi (lihat di bawah).
     belum = kamus.perlu_diperiksa()
+    kiri_ringkas, kanan_ringkas = st.columns([5, 2])
+    kiri_ringkas.caption(
+        "Pemandu membaca **bentuk** data, bukan **maksud** penelitian — lihat batas "
+        "kemampuannya di bawah."
+    )
     if belum:
-        st.warning(
-            f"{formatting.num(len(belum))} kolom masih memakai tebakan skala aplikasi. "
-            "Saran di bawah bergantung pada skala itu — kolom Likert yang tercatat sebagai "
-            "rasio akan mengantar Anda ke uji parametrik yang keliru. Periksa di "
-            "**Kamus Variabel**.",
-            icon=":material/help:",
+        with kanan_ringkas:
+            st.html(ui.pil(f"{formatting.num(len(belum))} skala belum dikonfirmasi", "perhatian"))
+
+    with st.expander("Batas kemampuan Pemandu"):
+        st.markdown(
+            "Pemandu membaca **bentuk** data, bukan **maksud** penelitian. Ia tidak tahu "
+            "apakah pengamatan Anda benar-benar saling bebas, apakah variabelnya benar-benar "
+            "mengukur yang Anda maksud, atau apakah pertanyaan penelitiannya sudah tepat. "
+            "Saran di bawah adalah titik awal yang berdasar, bukan keputusan akhir."
         )
+        if belum:
+            st.markdown(
+                f"{formatting.num(len(belum))} kolom pada seluruh data masih memakai "
+                "tebakan skala aplikasi — kolom Likert yang tercatat sebagai rasio akan "
+                "mengantar Anda ke uji parametrik yang keliru. Periksa kapan saja di tab "
+                "**Kamus Variabel**."
+            )
 
     if penelitian is None or penelitian.kosong() or not penelitian.lengkap():
         st.info(
@@ -386,12 +429,16 @@ def render(df, kamus, penelitian) -> None:
             icon=":material/rule:",
         )
 
+    # Susunan kartu di bawah ini mengikuti urutan yang diminta: metode utama →
+    # alasan → variabel dipakai → bukti dari data → asumsi terpenuhi/dilanggar →
+    # hal yang perlu dicermati → hal yang tidak dapat diperiksa aplikasi →
+    # (alternatif ada di bagiannya sendiri, di bawah) → ukuran efek → padanan
+    # SPSS/R → batas kesimpulan dari Rencana.
     utama = rekomendasi.utama
+    jenis_status, ikon_status, label_status = _status_metode(utama)
     st.success(f"**{utama.metode}**", icon=":material/check_circle:")
+    st.html(ui.pil(f"{ikon_status} {label_status}", jenis_status))
     st.markdown(utama.alasan)
-
-    if utama.peringatan:
-        st.info(utama.peringatan, icon=":material/tune:")
 
     if utama.status_bukti:
         st.caption(f":material/science: {utama.status_bukti}")
@@ -399,26 +446,54 @@ def render(df, kamus, penelitian) -> None:
     kiri, kanan = st.columns([3, 2])
 
     with kiri:
-        st.markdown("**Syarat metode ini pada data Anda**")
+        variabel = _ringkas_variabel(utama.konfig, kamus)
+        if variabel:
+            st.markdown("**Variabel yang dipakai**")
+            for baris in variabel:
+                st.markdown(f"- {baris}")
+
+        bukti = [s for s in utama.syarat if s.terpenuhi]
+        if bukti:
+            st.markdown("**Bukti dari data**")
+            for syarat in bukti:
+                st.markdown(f"- {syarat.rincian}")
+
+        st.markdown("**Asumsi terpenuhi/dilanggar**")
         ikon = {pmd.TERPENUHI: "✓", pmd.DILANGGAR: "✕", pmd.TIDAK_DIUJI: "–"}
         for syarat in utama.syarat:
             st.markdown(f"{ikon[syarat.status]} **{syarat.nama}** — {syarat.rincian}")
 
         dilanggar = [s for s in utama.syarat if s.dilanggar]
-        if dilanggar:
-            st.warning(
-                "Syarat yang tidak terpenuhi wajib disebutkan pada laporan, bukan "
-                "dihilangkan dari naskah.",
-                icon=":material/gavel:",
-            )
+        if dilanggar or utama.peringatan:
+            st.markdown("**Hal yang perlu dicermati**")
+            if utama.peringatan:
+                st.info(utama.peringatan, icon=":material/tune:")
+            if dilanggar:
+                st.warning(
+                    "Syarat yang tidak terpenuhi wajib disebutkan pada laporan, bukan "
+                    "dihilangkan dari naskah.",
+                    icon=":material/gavel:",
+                )
+
+        if utama.tidak_dapat_diperiksa:
+            st.markdown("**Hal yang tidak dapat diperiksa aplikasi**")
+            for hal in utama.tidak_dapat_diperiksa:
+                st.markdown(f"- {hal}")
 
     with kanan:
         if utama.lanjutan:
             st.markdown("**Langkah berikutnya**")
             st.markdown(utama.lanjutan)
+        if utama.ukuran_efek:
+            st.markdown("**Ukuran efek yang dilaporkan**")
+            st.caption(utama.ukuran_efek)
         if utama.pembanding:
-            st.markdown("**Padanan di perangkat lain**")
+            st.markdown("**Padanan SPSS/R/perangkat lain**")
             st.caption(utama.pembanding)
+        if utama.keterbatasan_desain:
+            st.markdown("**Batas kesimpulan dari Rencana**")
+            for batas in utama.keterbatasan_desain:
+                st.caption(f"- {batas}")
 
     # --------------------------------------------------------------------------- #
     # Konfirmasi
