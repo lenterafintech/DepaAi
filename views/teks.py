@@ -22,6 +22,9 @@ def render(df, kamus, penelitian) -> None:
         "sebelum dihitung.",
     )
 
+    dipandu = ui.konfigurasi_pemandu()
+    ui.banner_dipandu(dipandu)
+
     kandidat = [c for c in df.columns if pd.api.types.is_string_dtype(df[c])]
     if not kandidat:
         st.error(
@@ -33,6 +36,7 @@ def render(df, kamus, penelitian) -> None:
     kolom = st.selectbox(
         "Kolom teks yang dianalisis",
         kandidat,
+        index=ui.indeks_pilihan(kandidat, dipandu.get("outcome")),
         key="teks_kolom",
         help="Pilih kolom berisi jawaban terbuka, komentar, atau esai — bukan "
         "kolom kategori pendek seperti jenis kelamin atau wilayah.",

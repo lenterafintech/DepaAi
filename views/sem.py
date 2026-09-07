@@ -26,10 +26,15 @@ def render(df, kamus, penelitian) -> None:
         "indeks pendamping seperti CFI, TLI, dan RMSEA ikut dilaporkan.",
     )
 
+    dipandu = ui.konfigurasi_pemandu()
+    ui.banner_dipandu(dipandu)
+
     numerik = preprocessing.numeric_columns(df)
     if len(numerik) < 3:
         st.error("Halaman ini memerlukan minimal 3 kolom numerik.")
         return
+
+    prediktor_dipandu = [c for c in dipandu.get("prediktor", []) if c in numerik]
 
     # --------------------------------------------------------------------------- #
     # Pilihan estimator
@@ -147,7 +152,7 @@ def render(df, kamus, penelitian) -> None:
             "Kelompokkan butir menjadi konstruk. Bila butir dinamai berpola (KUAL1, "
             "KUAL2, …), pengelompokan awal ditebak dari awalannya."
         )
-        tebakan = rb.tebak_konstruk(numerik) or {"konstruk1": numerik[:3]}
+        tebakan = rb.tebak_konstruk(numerik) or {"konstruk1": prediktor_dipandu or numerik[:3]}
         dipakai = st.multiselect(
             "Konstruk yang diuji",
             list(tebakan),
@@ -266,7 +271,7 @@ def render(df, kamus, penelitian) -> None:
             "Gabungkan model pengukuran dan struktural. Konstruk laten yang didefinisikan "
             "di sini dapat langsung dipakai sebagai variabel pada persamaan struktural."
         )
-        tebakan = rb.tebak_konstruk(numerik) or {"konstruk1": numerik[:3]}
+        tebakan = rb.tebak_konstruk(numerik) or {"konstruk1": prediktor_dipandu or numerik[:3]}
         dipakai = st.multiselect(
             "Konstruk laten",
             list(tebakan),
@@ -321,7 +326,7 @@ def render(df, kamus, penelitian) -> None:
             "tidak ada uji kecocokan model keseluruhan (chi-square, CFI, RMSEA). Hanya "
             "indikator **reflektif** yang didukung."
         )
-        tebakan_pls = rb.tebak_konstruk(numerik) or {"konstruk1": numerik[:3]}
+        tebakan_pls = rb.tebak_konstruk(numerik) or {"konstruk1": prediktor_dipandu or numerik[:3]}
         dipakai_pls = st.multiselect(
             "Konstruk laten",
             list(tebakan_pls),

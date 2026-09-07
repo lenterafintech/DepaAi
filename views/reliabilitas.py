@@ -30,10 +30,15 @@ def render(df, kamus, penelitian) -> None:
         "lebih diandalkan.",
     )
 
+    dipandu = ui.konfigurasi_pemandu()
+    ui.banner_dipandu(dipandu)
+
     numerik = preprocessing.numeric_columns(df)
     if len(numerik) < 2:
         st.error("Halaman ini memerlukan minimal 2 kolom numerik.")
         return
+
+    prediktor_dipandu = [c for c in dipandu.get("prediktor", []) if c in numerik]
 
     tab_satu, tab_banyak = st.tabs(["Satu konstruk", "Beberapa konstruk"])
 
@@ -43,7 +48,9 @@ def render(df, kamus, penelitian) -> None:
 
     with tab_satu:
         tebakan = rb.tebak_konstruk(numerik)
-        bawaan = next(iter(tebakan.values()), numerik[: min(4, len(numerik))])
+        bawaan = next(iter(tebakan.values()), None) or prediktor_dipandu or numerik[
+            : min(4, len(numerik))
+        ]
         butir = st.multiselect(
             "Butir yang membentuk satu konstruk",
             numerik,
@@ -137,7 +144,7 @@ def render(df, kamus, penelitian) -> None:
         )
         tebakan = rb.tebak_konstruk(numerik)
         if not tebakan:
-            tebakan = {"konstruk1": numerik[: min(3, len(numerik))]}
+            tebakan = {"konstruk1": prediktor_dipandu or numerik[: min(3, len(numerik))]}
         if "rel_konstruk" not in st.session_state:
             st.session_state["rel_konstruk"] = list(tebakan)
 

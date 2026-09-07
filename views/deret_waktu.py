@@ -22,6 +22,9 @@ def render(df, kamus, penelitian) -> None:
         "differencing otomatis sampai stasioner atau batas differencing tercapai.",
     )
 
+    dipandu = ui.konfigurasi_pemandu()
+    ui.banner_dipandu(dipandu)
+
     numerik = preprocessing.numeric_columns(df)
     if not numerik:
         st.error("Tidak ada kolom numerik yang dapat diramalkan.")
@@ -37,7 +40,12 @@ def render(df, kamus, penelitian) -> None:
         help="Kolom tanggal/periode untuk mengurutkan data. Data yang belum terurut "
         "waktu akan menghasilkan pola yang keliru.",
     )
-    nilai = kol2.selectbox("Kolom nilai yang diramalkan", numerik, key="arima_nilai")
+    nilai = kol2.selectbox(
+        "Kolom nilai yang diramalkan",
+        numerik,
+        index=ui.indeks_pilihan(numerik, dipandu.get("outcome")),
+        key="arima_nilai",
+    )
 
     kerja = df.sort_values(urutan) if urutan else df
     series = pd.to_numeric(kerja[nilai], errors="coerce").dropna().reset_index(drop=True)

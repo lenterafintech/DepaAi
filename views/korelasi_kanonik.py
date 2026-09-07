@@ -19,20 +19,31 @@ def render(df, kamus, penelitian) -> None:
         "membentuk pasangan variat kanonik yang korelasinya semaksimal mungkin.",
     )
 
+    dipandu = ui.konfigurasi_pemandu()
+    ui.banner_dipandu(dipandu)
+
     numeric_cols = preprocessing.numeric_columns(df)
     if len(numeric_cols) < 4:
         st.error("Korelasi kanonik memerlukan minimal 4 variabel numerik (2 di tiap gugus).")
         return
 
+    prediktor_dipandu = [c for c in dipandu.get("prediktor", []) if c in numeric_cols]
+    default_x = (
+        prediktor_dipandu[: max(1, len(prediktor_dipandu) // 2)] or numeric_cols[: min(3, len(numeric_cols))]
+    )
+
     c1, c2 = st.columns(2)
     with c1:
         x_vars = st.multiselect(
-            "Gugus X", numeric_cols, default=numeric_cols[: min(3, len(numeric_cols))], key="cca_x"
+            "Gugus X", numeric_cols, default=default_x, key="cca_x"
         )
     with c2:
         remaining = [c for c in numeric_cols if c not in x_vars]
+        default_y = [c for c in prediktor_dipandu if c not in x_vars and c in remaining] or remaining[
+            : min(3, len(remaining))
+        ]
         y_vars = st.multiselect(
-            "Gugus Y", remaining, default=remaining[: min(3, len(remaining))], key="cca_y"
+            "Gugus Y", remaining, default=default_y, key="cca_y"
         )
 
     if not x_vars or not y_vars:

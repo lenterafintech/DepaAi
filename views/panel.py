@@ -24,6 +24,9 @@ def render(df, kamus, penelitian) -> None:
         "dipakai pada data Anda.",
     )
 
+    dipandu = ui.konfigurasi_pemandu()
+    ui.banner_dipandu(dipandu)
+
     numerik = preprocessing.numeric_columns(df)
     if len(numerik) < 2:
         st.error(
@@ -46,6 +49,7 @@ def render(df, kamus, penelitian) -> None:
     entitas = kol1.selectbox(
         "Kolom entitas (identitas, mis. perusahaan/individu)",
         kandidat_entitas,
+        index=ui.indeks_pilihan(kandidat_entitas, dipandu.get("kelompok")),
         key="panel_entitas",
         help="Kolom yang menandai unit yang diamati berulang, misalnya kode perusahaan.",
     )
@@ -58,14 +62,21 @@ def render(df, kamus, penelitian) -> None:
         help="Menambahkan efek waktu (mis. dummy tahun) pada kedua model bila diisi.",
     )
 
+    kandidat_y = [c for c in numerik if c != entitas]
     y = st.selectbox(
-        "Variabel hasil (Y)", [c for c in numerik if c != entitas], key="panel_y"
+        "Variabel hasil (Y)",
+        kandidat_y,
+        index=ui.indeks_pilihan(kandidat_y, dipandu.get("outcome")),
+        key="panel_y",
     )
     kandidat_x = [c for c in numerik if c not in {y, entitas, waktu}]
+    default_x = [c for c in dipandu.get("prediktor", []) if c in kandidat_x] or kandidat_x[
+        : min(3, len(kandidat_x))
+    ]
     prediktor = st.multiselect(
         "Prediktor (X)",
         kandidat_x,
-        default=kandidat_x[: min(3, len(kandidat_x))],
+        default=default_x,
         key="panel_x",
     )
     if not prediktor:

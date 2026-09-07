@@ -21,18 +21,35 @@ def render(df, kamus, penelitian) -> None:
         "tanpa bergantung pada pilihan titik ±1 SD yang sifatnya sembarang.",
     )
 
+    dipandu = ui.konfigurasi_pemandu()
+    ui.banner_dipandu(dipandu)
+
     numerik = preprocessing.numeric_columns(df)
     if len(numerik) < 3:
         st.error("Regresi moderasi memerlukan minimal 3 kolom numerik.")
         return
 
+    prediktor_dipandu = [c for c in dipandu.get("prediktor", []) if c in numerik]
+
     kol1, kol2, kol3 = st.columns(3)
-    y = kol1.selectbox("Variabel terikat (Y)", numerik, key="mra_y")
-    x = kol2.selectbox(
-        "Prediktor (X)", [c for c in numerik if c != y], key="mra_x"
+    y = kol1.selectbox(
+        "Variabel terikat (Y)", numerik, index=ui.indeks_pilihan(numerik, dipandu.get("outcome")), key="mra_y"
     )
+    kandidat_x = [c for c in numerik if c != y]
+    x = kol2.selectbox(
+        "Prediktor (X)",
+        kandidat_x,
+        index=ui.indeks_pilihan(kandidat_x, prediktor_dipandu[0] if prediktor_dipandu else None),
+        key="mra_x",
+    )
+    kandidat_m = [c for c in numerik if c not in {y, x}]
     m = kol3.selectbox(
-        "Moderator (M)", [c for c in numerik if c not in {y, x}], key="mra_m"
+        "Moderator (M)",
+        kandidat_m,
+        index=ui.indeks_pilihan(
+            kandidat_m, prediktor_dipandu[1] if len(prediktor_dipandu) > 1 else None
+        ),
+        key="mra_m",
     )
     kontrol = st.multiselect(
         "Variabel kontrol (opsional)",
