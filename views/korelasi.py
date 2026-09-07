@@ -11,7 +11,14 @@ def render(df, kamus, penelitian) -> None:
     if not ui.butuh_fitur("dasar"):
         return
 
-    selected = ui.numeric_selector(df, "Variabel yang dianalisis", default_count=8, key="corr_vars")
+    dipandu = ui.konfigurasi_pemandu()
+    ui.banner_dipandu(dipandu)
+    default_vars = ([dipandu["outcome"]] if dipandu.get("outcome") else []) + list(
+        dipandu.get("prediktor", [])
+    )
+    selected = ui.numeric_selector(
+        df, "Variabel yang dianalisis", default_count=8, key="corr_vars", default=default_vars
+    )
     subset = df[selected]
 
     tab_corr, tab_partial, tab_adequacy, tab_multicol, tab_homog = st.tabs(

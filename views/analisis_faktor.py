@@ -19,7 +19,15 @@ def render(df, kamus, penelitian) -> None:
         "variance) dan menyisakan varians unik tiap variabel.",
     )
 
-    selected = ui.numeric_selector(df, "Variabel indikator", default_count=8, key="fa_vars")
+    dipandu = ui.konfigurasi_pemandu()
+    ui.banner_dipandu(dipandu)
+    selected = ui.numeric_selector(
+        df,
+        "Variabel indikator",
+        default_count=8,
+        key="fa_vars",
+        default=dipandu.get("prediktor"),
+    )
     subset = df[selected].dropna()
 
     c1, c2, c3 = st.columns(3)

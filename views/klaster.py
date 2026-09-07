@@ -21,7 +21,15 @@ def render(df, kamus, penelitian) -> None:
         "menandai pencilan.",
     )
 
-    selected = ui.numeric_selector(df, "Variabel pembentuk klaster", default_count=6, key="cl_vars")
+    dipandu = ui.konfigurasi_pemandu()
+    ui.banner_dipandu(dipandu)
+    selected = ui.numeric_selector(
+        df,
+        "Variabel pembentuk klaster",
+        default_count=6,
+        key="cl_vars",
+        default=dipandu.get("prediktor"),
+    )
     missing, scaling = ui.preprocessing_controls("cluster")
     data = ui.prepare_numeric(df, selected, missing, scaling)
     if scaling == "tanpa penskalaan":

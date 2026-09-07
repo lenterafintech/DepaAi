@@ -19,7 +19,15 @@ def render(df, kamus, penelitian) -> None:
         "reduksi dimensi, membuat indeks komposit, dan mengatasi multikolinearitas.",
     )
 
-    selected = ui.numeric_selector(df, "Variabel yang dimasukkan ke PCA", default_count=8, key="pca_vars")
+    dipandu = ui.konfigurasi_pemandu()
+    ui.banner_dipandu(dipandu)
+    selected = ui.numeric_selector(
+        df,
+        "Variabel yang dimasukkan ke PCA",
+        default_count=8,
+        key="pca_vars",
+        default=dipandu.get("prediktor"),
+    )
     subset = df[selected].dropna()
 
     c1, c2 = st.columns(2)
