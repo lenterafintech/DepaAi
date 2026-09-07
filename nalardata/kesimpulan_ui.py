@@ -30,26 +30,26 @@ _PALET_GELAP = {
     "ink": "inherit",
     "ink2": "rgba(233,237,246,0.78)",
     "muted": "rgba(233,237,246,0.55)",
-    "accent": "#93a6ea",
-    "accent2": "#6b81d6",
-    "accentWash": "rgba(107,129,214,0.18)",
-    "good": "#5cbb8c",
-    "warn": "#d8a53f",
-    "crit": "#e08074",
+    "accent": "#60a5fa",
+    "accent2": "#3b82f6",
+    "accentWash": "rgba(59,130,246,0.18)",
+    "good": "#4ade80",
+    "warn": "#fbbf24",
+    "crit": "#f87171",
 }
 _PALET_TERANG = {
-    "sheet": "rgba(19,26,43,0.025)",
-    "sheet2": "rgba(19,26,43,0.05)",
-    "rule": "rgba(19,26,43,0.14)",
+    "sheet": "rgba(15,23,42,0.025)",
+    "sheet2": "rgba(15,23,42,0.05)",
+    "rule": "#e2e8f0",
     "ink": "inherit",
-    "ink2": "rgba(19,26,43,0.78)",
-    "muted": "rgba(19,26,43,0.55)",
-    "accent": "#26356b",
-    "accent2": "#3b4ea0",
-    "accentWash": "rgba(59,78,160,0.12)",
-    "good": "#1b6f4a",
-    "warn": "#96690b",
-    "crit": "#9c3327",
+    "ink2": "#334155",
+    "muted": "#64748b",
+    "accent": "#2563eb",
+    "accent2": "#3b82f6",
+    "accentWash": "#eff6ff",
+    "good": "#15803d",
+    "warn": "#b45309",
+    "crit": "#b91c1c",
 }
 
 
@@ -72,13 +72,16 @@ def pasang_gaya() -> None:
     st.html(
         f"""
 <style>
-.mva-headline{{border-left:3px solid {p['accent2']};background:{p['sheet2']};
+.mva-headline{{border-left:4px solid {p['accent2']};background:{p['sheet2']};
   padding:20px 24px;border-radius:0 10px 10px 0;margin-bottom:6px}}
 .mva-headline .stmt{{font-size:1.45rem;line-height:1.32;font-weight:650;margin:0 0 8px;
   max-width:40ch;color:{p['ink']}}}
 .mva-headline .note{{font-size:1rem;line-height:1.6;margin:0;color:{p['ink2']};max-width:70ch}}
-.mva-lamps{{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:10px;margin:4px 0 6px}}
-.mva-lamp{{border:1px solid {p['rule']};border-radius:10px;padding:13px 15px;background:{p['sheet']}}}
+.mva-lamps{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 6px}}
+@media (max-width:800px){{.mva-lamps{{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}}}}
+.mva-lamp{{border:1px solid {p['rule']};border-radius:10px;padding:13px 15px;background:{p['sheet']};
+  transition:transform .15s ease,box-shadow .15s ease}}
+.mva-lamp:hover{{transform:translateY(-2px);box-shadow:0 4px 12px rgba(15,23,42,0.08)}}
 .mva-lamp .lb{{font-size:.86rem;font-weight:650;display:flex;gap:8px;align-items:center;color:{p['ink']}}}
 .mva-dot{{width:9px;height:9px;border-radius:50%;flex:0 0 auto}}
 .mva-lamp .lv{{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.75rem;

@@ -317,7 +317,12 @@ def test_token_warna_mengikuti_tema():
 
     assert set(ui.WARNA) == set(ui.WARNA_GELAP)
     gaya = ui._gaya()
-    assert gaya.count("\n  --") == len(ui.WARNA)
+    # Setiap token palet wajib tertulis sebagai custom property tersendiri —
+    # boleh ada custom property tambahan (mis. token bayangan) di luar palet,
+    # tetapi tidak boleh ada token palet yang hilang atau menyatu satu baris.
+    for nama in ui.WARNA:
+        assert f"\n  --{nama}: " in gaya, nama
+    assert gaya.count("\n  --") >= len(ui.WARNA)
     assert "prefers-reduced-motion" in gaya
 
 

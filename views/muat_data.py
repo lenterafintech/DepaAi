@@ -92,10 +92,13 @@ def render(df, kamus, penelitian, key_prefix: str = "") -> None:
 
     st.divider()
     st.markdown("**Pratinjau data**")
-    st.caption(
-        f"{formatting.num(len(df))} baris · {df.shape[1]} kolom "
-        f"({len(df.select_dtypes('number').columns)} numerik) · "
-        f"{formatting.num(int(df.isna().sum().sum()))} sel kosong"
+    st.html(
+        "<div>"
+        + ui.pil(f"{formatting.num(len(df))} baris", "info")
+        + ui.pil(f"{df.shape[1]} kolom", "info")
+        + ui.pil(f"{len(df.select_dtypes('number').columns)} numerik", "netral")
+        + ui.pil(f"{formatting.num(int(df.isna().sum().sum()))} sel kosong", "netral")
+        + "</div>"
     )
     st.dataframe(df.head(50), width="stretch", hide_index=True)
     with st.expander("Profil variabel"):

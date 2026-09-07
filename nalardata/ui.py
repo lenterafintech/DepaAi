@@ -23,47 +23,50 @@ JEJAK_KEY = "jejak_langkah"
 PEMANDU_KEY = "pemandu_konfigurasi"
 SAMPLE_PATH = Path(__file__).resolve().parents[1] / "data" / "contoh_data_nasabah.csv"
 
-# Palet terang. Warna status sengaja terpisah dari aksen agar "berhasil" dan
-# "aksen merek" tidak pernah tertukar maknanya.
+# Palet terang: gaya "modern SaaS analytics" (acuan Vercel/Stripe/Linear).
+# Warna status sengaja terpisah dari aksen agar "berhasil" dan "aksen merek"
+# tidak pernah tertukar maknanya.
 WARNA = {
-    "tinta": "#131a2b",
-    "tinta2": "#3d4860",
-    "redup": "#6f7a91",
-    "garis": "#dde3ee",
-    "garis2": "#eef1f6",
+    "tinta": "#0f172a",
+    "tinta2": "#334155",
+    "redup": "#64748b",
+    "garis": "#e2e8f0",
+    "garis2": "#f1f5f9",
     "kertas": "#ffffff",
-    "kertas2": "#f6f8fc",
-    "aksen": "#26356b",
-    "aksen2": "#3b4ea0",
-    "aksenSamar": "#eef1f8",
-    "baik": "#1b6f4a",
-    "baikSamar": "#e4f0ea",
-    "perhatian": "#96690b",
-    "perhatianSamar": "#f8f1e0",
-    "kritis": "#9c3327",
-    "kritisSamar": "#f7e7e4",
+    "kertas2": "#ffffff",
+    "dasar": "#f8fafc",
+    "aksen": "#2563eb",
+    "aksen2": "#3b82f6",
+    "aksenSamar": "#eff6ff",
+    "baik": "#15803d",
+    "baikSamar": "#dcfce7",
+    "perhatian": "#b45309",
+    "perhatianSamar": "#fef3c7",
+    "kritis": "#b91c1c",
+    "kritisSamar": "#fee2e2",
 }
 
 # Palet gelap: bukan pembalikan otomatis, melainkan langkah yang dipilih sendiri.
 # Tinta dan kertas bertukar peran, sementara aksen dinaikkan terangnya agar tetap
 # terbaca di atas dasar gelap.
 WARNA_GELAP = {
-    "tinta": "#e9edf6",
-    "tinta2": "#b3bccf",
-    "redup": "#8b96ac",
-    "garis": "#2a344c",
-    "garis2": "#212a3e",
-    "kertas": "#141b2c",
-    "kertas2": "#1a2235",
-    "aksen": "#93a6ea",
-    "aksen2": "#8098e0",
-    "aksenSamar": "#1d2740",
-    "baik": "#5cbb8c",
-    "baikSamar": "#162b22",
-    "perhatian": "#d8a53f",
-    "perhatianSamar": "#2e2513",
-    "kritis": "#e08074",
-    "kritisSamar": "#331b18",
+    "tinta": "#f1f5f9",
+    "tinta2": "#cbd5e1",
+    "redup": "#94a3b8",
+    "garis": "#293548",
+    "garis2": "#1e293b",
+    "kertas": "#1e293b",
+    "kertas2": "#1e293b",
+    "dasar": "#0f172a",
+    "aksen": "#60a5fa",
+    "aksen2": "#3b82f6",
+    "aksenSamar": "#1e2b4d",
+    "baik": "#4ade80",
+    "baikSamar": "#14251b",
+    "perhatian": "#fbbf24",
+    "perhatianSamar": "#2c2210",
+    "kritis": "#f87171",
+    "kritisSamar": "#331a1a",
 }
 
 
@@ -89,13 +92,27 @@ def _token(warna: dict[str, str]) -> str:
 
 
 def _gaya() -> str:
-    """Lembar gaya halaman, disusun dari token palet yang sedang berlaku."""
+    """Lembar gaya halaman, disusun dari token palet yang sedang berlaku.
+
+    Bahasa visualnya "modern SaaS analytics" (acuan Vercel/Stripe/Linear):
+    latar netral lembut, kartu putih dengan bayangan halus, aksen biru listrik,
+    dan tab berbentuk pil bersegmen menggantikan garis bawah bawaan Streamlit.
+    """
     p = palet()
     return f"""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 :root {{
 {_token(p)}
+  --bayang: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --bayang-hover: 0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
 }}
+
+html, body, [class*="css"], .stApp {{
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}}
+.stApp {{background: var(--dasar)}}
 
 /* Lebar halaman dibatasi agar baris teks tidak membentang terlalu panjang. */
 /* Bilah header Streamlit melayang di atas isi halaman; padding ini menjaga
@@ -112,26 +129,38 @@ def _gaya() -> str:
 .mva-head .tanda {{display: grid; place-items: center; width: 20px; height: 20px;
   border-radius: 6px; background: var(--aksen); color: #fff; font-size: .62rem;
   font-weight: 800; letter-spacing: 0}}
-.mva-head h1 {{font-size: 1.85rem; line-height: 1.2; font-weight: 700; margin: 0;
-  letter-spacing: -.015em; color: var(--tinta)}}
+.mva-head h1 {{font-size: 1.85rem; line-height: 1.2; font-weight: 800; margin: 0;
+  letter-spacing: -.02em; color: var(--tinta)}}
 .mva-head .desc {{font-size: .95rem; line-height: 1.6; color: var(--tinta2);
   margin: .5rem 0 0; max-width: 76ch}}
 .mva-head hr {{border: 0; border-top: 1px solid var(--garis); margin: 1.1rem 0 0}}
 
-/* ---- Bilah status data aktif, di atas halaman bukan tersembunyi di sidebar ---- */
+/* ---- Bilah status data aktif: floating header card, mengambang di atas isi ---- */
 .mva-strip {{display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  border: 1px solid var(--garis); border-radius: 11px; background: var(--kertas2);
-  margin: 0 0 1.25rem; overflow: hidden}}
-.mva-strip .sel {{padding: .6rem .9rem; min-width: 0}}
+  border: 1px solid var(--garis); border-radius: 12px; background: var(--kertas);
+  box-shadow: var(--bayang); margin: 0 0 1.25rem; overflow: hidden}}
+.mva-strip .sel {{padding: .7rem 1rem; min-width: 0}}
 .mva-strip .sel + .sel {{border-left: 1px solid var(--garis)}}
-.mva-strip .lb {{display: block; font-size: .63rem; font-weight: 750;
+.mva-strip .lb {{display: block; font-size: .63rem; font-weight: 700;
   letter-spacing: .09em; text-transform: uppercase; color: var(--redup);
-  margin-bottom: .15rem}}
-.mva-strip .nl {{display: block; font-size: .85rem; font-weight: 700;
-  color: var(--tinta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis}}
-.mva-strip .titik {{display: inline-block; width: 7px; height: 7px; border-radius: 50%;
-  margin-right: .4rem; background: var(--baik)}}
+  margin-bottom: .2rem}}
+.mva-strip .nl {{display: inline-flex; align-items: center; font-size: .78rem;
+  font-weight: 700; color: var(--tinta); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; background: var(--aksenSamar); padding: .15rem .55rem;
+  border-radius: 999px; max-width: 100%}}
+.mva-strip .titik {{display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  margin-right: .4rem; background: var(--baik); flex: 0 0 auto}}
 .mva-strip .titik.sepi {{background: var(--redup)}}
+
+/* ---- Badge pil status, dipakai di mana pun perlu menonjolkan satu nilai ---- */
+.mva-pil {{display: inline-flex; align-items: center; gap: .35rem; font-size: .72rem;
+  font-weight: 700; padding: .2rem .65rem; border-radius: 999px; line-height: 1.5}}
+.mva-pil.baik {{background: var(--baikSamar); color: var(--baik)}}
+.mva-pil.perhatian {{background: var(--perhatianSamar); color: var(--perhatian)}}
+.mva-pil.kritis {{background: var(--kritisSamar); color: var(--kritis)}}
+.mva-pil.info {{background: var(--aksenSamar); color: var(--aksen2)}}
+.mva-pil.netral {{background: var(--garis2); color: var(--tinta2)}}
+.mva-pil + .mva-pil {{margin-left: .4rem}}
 
 /* ---- Judul bagian dengan batang aksen ---- */
 .mva-bagian {{display: flex; align-items: flex-start; gap: .7rem; margin: 1.7rem 0 .7rem}}
@@ -144,10 +173,35 @@ def _gaya() -> str:
 .mva-bagian .ket {{font-size: .81rem; color: var(--redup); line-height: 1.5;
   margin-top: .2rem; max-width: 76ch}}
 
+/* ---- Kartu umum: dasar bagi grid langkah, KPI, dan kartu kustom lainnya ---- */
+.mva-kartu2 {{background: var(--kertas); border: 1px solid var(--garis);
+  border-radius: 12px; padding: 1.1rem 1.2rem; box-shadow: var(--bayang);
+  transition: transform .15s ease, box-shadow .15s ease}}
+.mva-kartu2:hover {{transform: translateY(-2px); box-shadow: var(--bayang-hover)}}
+
+/* ---- Grid langkah bernomor (alur kerja, wizard) ---- */
+.mva-langkah {{display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: .8rem; margin: .6rem 0 1rem}}
+.mva-langkah .k {{background: var(--kertas); border: 1px solid var(--garis);
+  border-radius: 12px; padding: 1rem 1.1rem; box-shadow: var(--bayang);
+  transition: transform .15s ease, box-shadow .15s ease}}
+.mva-langkah .k:hover {{transform: translateY(-2px); box-shadow: var(--bayang-hover)}}
+.mva-langkah .no {{display: inline-grid; place-items: center; width: 26px; height: 26px;
+  border-radius: 999px; background: var(--aksenSamar); color: var(--aksen);
+  font-size: .74rem; font-weight: 800; margin-bottom: .55rem}}
+.mva-langkah .jd {{font-size: .92rem; font-weight: 700; color: var(--tinta);
+  margin-bottom: .3rem}}
+.mva-langkah .ket {{font-size: .81rem; line-height: 1.5; color: var(--redup)}}
+
+/* ---- Kartu highlight beraksen kiri (ringkasan eksekutif, dsb.) ---- */
+.mva-sorot {{background: var(--kertas); border: 1px solid var(--garis);
+  border-left: 4px solid var(--aksen); border-radius: 0 12px 12px 0;
+  padding: 1.1rem 1.3rem; box-shadow: var(--bayang); margin: .6rem 0 1.1rem}}
+
 /* ---- Keadaan kosong: mengarahkan, bukan sekadar memberi tahu ---- */
 .mva-kosong {{text-align: center; border: 1px dashed var(--garis);
   border-radius: 14px; padding: 2rem 1.4rem; margin: 1rem 0;
-  background: var(--kertas2); color: var(--tinta2)}}
+  background: var(--kertas); color: var(--tinta2)}}
 .mva-kosong .ikon {{display: grid; place-items: center; width: 44px; height: 44px;
   margin: 0 auto .7rem; border-radius: 13px; background: var(--aksenSamar);
   color: var(--aksen2); font-size: 1.2rem}}
@@ -162,13 +216,59 @@ def _gaya() -> str:
   font-size: .88rem; line-height: 1.6; color: var(--tinta2); max-width: 82ch}}
 .mva-baca b {{color: var(--tinta)}}
 
+/* ---- Tab bersegmen (pill tabs), menggantikan garis bawah bawaan Streamlit ---- */
+.stTabs [data-baseweb="tab-list"] {{gap: 4px; background: var(--garis2);
+  padding: 5px; border-radius: 12px; border: 1px solid var(--garis)}}
+.stTabs [data-baseweb="tab"] {{height: 40px; border-radius: 8px; padding: 0 16px;
+  font-weight: 600; font-size: .88rem; color: var(--redup); border: none !important;
+  background: transparent; transition: color .15s ease}}
+.stTabs [data-baseweb="tab"]:hover {{color: var(--tinta2)}}
+.stTabs [aria-selected="true"] {{background: var(--kertas) !important;
+  color: var(--aksen) !important; box-shadow: var(--bayang)}}
+.stTabs [data-baseweb="tab-highlight"] {{background: transparent}}
+.stTabs [data-baseweb="tab-border"] {{display: none}}
+
 /* ---- Komponen bawaan Streamlit ---- */
-[data-testid="stMetric"] {{border: 1px solid var(--garis); border-radius: 11px;
-  padding: .8rem .9rem; background: var(--kertas2)}}
-[data-testid="stExpander"] {{border: 1px solid var(--garis); border-radius: 11px}}
-[data-testid="stDataFrame"] {{border: 1px solid var(--garis); border-radius: 10px;
-  overflow: hidden}}
-.stButton > button, .stDownloadButton > button {{border-radius: 8px; font-weight: 650}}
+[data-testid="stMetric"] {{border: 1px solid var(--garis); border-radius: 12px;
+  padding: 1rem 1.1rem; background: var(--kertas); box-shadow: var(--bayang);
+  transition: transform .15s ease, box-shadow .15s ease}}
+[data-testid="stMetric"]:hover {{transform: translateY(-2px); box-shadow: var(--bayang-hover)}}
+[data-testid="stMetricValue"] {{font-weight: 800; letter-spacing: -.01em}}
+[data-testid="stExpander"] {{border: 1px solid var(--garis); border-radius: 12px;
+  background: var(--kertas); box-shadow: var(--bayang); overflow: hidden}}
+[data-testid="stExpander"] summary {{font-weight: 600}}
+[data-testid="stDataFrame"] {{border: 1px solid var(--garis); border-radius: 12px;
+  overflow: hidden; box-shadow: var(--bayang)}}
+
+.stButton > button, .stDownloadButton > button {{border-radius: 8px; font-weight: 600;
+  transition: background .15s ease, box-shadow .15s ease}}
+.stButton > button[kind="primary"], .stDownloadButton > button[kind="primary"] {{
+  background: var(--aksen); border-color: var(--aksen)}}
+.stButton > button[kind="primary"]:hover, .stDownloadButton > button[kind="primary"]:hover {{
+  background: var(--aksen2); border-color: var(--aksen2)}}
+
+div[data-testid="stTextInput"] input, div[data-testid="stTextArea"] textarea,
+div[data-testid="stNumberInput"] input {{border-radius: 8px; border-color: var(--garis)}}
+div[data-testid="stTextInput"] input:focus, div[data-testid="stTextArea"] textarea:focus,
+div[data-testid="stNumberInput"] input:focus {{border-color: var(--aksen) !important;
+  box-shadow: 0 0 0 3px var(--aksenSamar) !important}}
+
+/* ---- Tag pilihan multiselect (variabel terpilih) sebagai pil bulat netral ---- */
+[data-testid="stMultiSelectTagsContainer"] span[data-baseweb="tag"] {{
+  background: var(--garis2) !important; border-radius: 999px !important}}
+[data-testid="stMultiSelectTagsContainer"] span[data-baseweb="tag"] span {{color: var(--tinta2) !important}}
+
+/* ---- Banner notifikasi (st.info/success/warning/error) ---- */
+div[data-testid="stAlertContainer"] {{border-radius: 10px !important; border: 1px solid transparent}}
+div[data-testid="stAlertContainer"] p {{font-size: .92rem}}
+div[data-testid="stAlertContainer"]:has(> div[data-testid="stAlertContentInfo"]) {{
+  background: var(--aksenSamar) !important; color: var(--aksen) !important; border-color: #bfdbfe !important}}
+div[data-testid="stAlertContainer"]:has(> div[data-testid="stAlertContentSuccess"]) {{
+  background: var(--baikSamar) !important; color: var(--baik) !important; border-color: #bbf7d0 !important}}
+div[data-testid="stAlertContainer"]:has(> div[data-testid="stAlertContentWarning"]) {{
+  background: var(--perhatianSamar) !important; color: var(--perhatian) !important; border-color: #fde68a !important}}
+div[data-testid="stAlertContainer"]:has(> div[data-testid="stAlertContentError"]) {{
+  background: var(--kritisSamar) !important; color: var(--kritis) !important; border-color: #fecaca !important}}
 
 /* Menu bawaan Streamlit Cloud (Deploy/Fork) tidak relevan bagi pengguna produk publik. */
 [data-testid="stToolbar"], [data-testid="stDecoration"] {{display: none !important}}
@@ -241,6 +341,29 @@ def keadaan_kosong(judul: str, keterangan: str, ikon: str = "○") -> None:
         f"<b>{escape(judul)}</b>"
         f'<div class="ket">{escape(keterangan)}</div></div>'
     )
+
+
+def langkah_grid(daftar: list[tuple[str, str]]) -> None:
+    """Grid kartu bernomor untuk alur kerja atau wizard, satu kartu per langkah.
+
+    ``daftar`` berisi pasangan (judul, keterangan); nomornya diambil dari urutan
+    tampil, bukan diketik manual di judulnya, supaya tidak pernah salah hitung.
+    """
+    kartu = "".join(
+        f'<div class="k"><div class="no">{i}</div>'
+        f'<div class="jd">{escape(judul)}</div>'
+        f'<div class="ket">{escape(ket)}</div></div>'
+        for i, (judul, ket) in enumerate(daftar, start=1)
+    )
+    st.html(f'<div class="mva-langkah">{kartu}</div>')
+
+
+def pil(teks: str, jenis: str = "netral") -> str:
+    """Satu badge pil status siap-tempel di dalam blok HTML lain (mis. tabel/kartu).
+
+    ``jenis``: baik, perhatian, kritis, info, atau netral (bawaan).
+    """
+    return f'<span class="mva-pil {escape(jenis)}">{escape(teks)}</span>'
 
 
 def siapkan_aplikasi() -> None:

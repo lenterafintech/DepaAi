@@ -128,10 +128,15 @@ def _render_paket(akun: pg.Pengguna | None) -> None:
 <style>
 .mva-paket {{display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px; margin: .4rem 0 1.2rem}}
-.mva-paket .p {{border: 1px solid {ui.WARNA['garis']}; border-radius: 10px; padding: 16px 18px;
-  background: #fff}}
+.mva-paket .p {{position: relative; border: 1px solid {ui.WARNA['garis']}; border-radius: 12px;
+  padding: 18px; background: {ui.WARNA['kertas']}; transition: transform .15s ease}}
+.mva-paket .p:hover {{transform: translateY(-2px)}}
 .mva-paket .p.aktif {{border-color: {ui.WARNA['aksen']}; border-width: 2px;
   background: {ui.WARNA['aksenSamar']}}}
+.mva-paket .p.populer {{border-color: {ui.WARNA['aksen']}; border-width: 2px}}
+.mva-paket .pop {{position: absolute; top: -11px; right: 16px; font-size: .62rem;
+  font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #fff;
+  background: {ui.WARNA['aksen']}; border-radius: 999px; padding: 3px 10px}}
 .mva-paket .nm {{font-weight: 700; font-size: 1.05rem; color: {ui.WARNA['tinta']}}}
 .mva-paket .hg {{font-family: ui-monospace, Menlo, monospace; font-size: .95rem;
   color: {ui.WARNA['aksen2']}; margin: .3rem 0 .5rem; font-weight: 600}}
@@ -141,7 +146,7 @@ def _render_paket(akun: pg.Pengguna | None) -> None:
   font-family: ui-monospace, Menlo, monospace}}
 .mva-paket .tag {{display: inline-block; font-size: .64rem; font-weight: 700;
   letter-spacing: .08em; text-transform: uppercase; color: {ui.WARNA['aksen']};
-  background: #fff; border: 1px solid {ui.WARNA['aksen']}; border-radius: 999px;
+  background: {ui.WARNA['kertas']}; border: 1px solid {ui.WARNA['aksen']}; border-radius: 999px;
   padding: 1px 8px; margin-left: 8px; vertical-align: 2px}}
 </style>
 """
@@ -149,12 +154,15 @@ def _render_paket(akun: pg.Pengguna | None) -> None:
 
     kartu = []
     for p in langganan.urut_tingkatan():
-        aktif = " aktif" if p.kode == paket.kode else ""
-        tag = '<span class="tag">Paket Anda</span>' if p.kode == paket.kode else ""
+        aktif = p.kode == paket.kode
+        populer = p.kode == "profesional"
+        kelas = (" aktif" if aktif else "") + (" populer" if populer and not aktif else "")
+        lencana = '<span class="pop">Populer</span>' if populer else ""
+        tag = '<span class="tag">Paket Anda</span>' if aktif else ""
         harga = langganan.harga_tampil(p)
         batas = f"{p.maks_baris:,} baris · {p.maks_variabel} kolom".replace(",", ".")
         kartu.append(
-            f'<div class="p{aktif}"><div class="nm">{p.nama}{tag}</div>'
+            f'<div class="p{kelas}">{lencana}<div class="nm">{p.nama}{tag}</div>'
             f'<div class="hg">{harga}</div><div class="rk">{p.ringkas}</div>'
             f'<div class="bt">{batas} · {len(p.fitur)}/{len(langganan.FITUR)} fitur</div></div>'
         )

@@ -16,10 +16,10 @@ from nalardata import formatting, ui
 from views import muat_data
 
 LANGKAH = [
-    ("1 · Muat data", "Unggah berkas Anda, coba data contoh, atau lanjutkan proyek lama."),
-    ("2 · Periksa mutu", "Rapor Data memeriksa nilai kosong, pencilan, dan kejanggalan lain."),
-    ("3 · Pilih metode", "Pemandu menyarankan uji yang tepat, atau pilih sendiri secara manual."),
-    ("4 · Baca laporan", "Interpretasi dan statistik deskriptif disusun otomatis dari yang Anda jalankan."),
+    ("Muat data", "Unggah berkas Anda, coba data contoh, atau lanjutkan proyek lama."),
+    ("Periksa mutu", "Rapor Data memeriksa nilai kosong, pencilan, dan kejanggalan lain."),
+    ("Pilih metode", "Pemandu menyarankan uji yang tepat, atau pilih sendiri secara manual."),
+    ("Baca laporan", "Interpretasi dan statistik deskriptif disusun otomatis dari yang Anda jalankan."),
 ]
 
 METODE = [
@@ -66,10 +66,7 @@ def _sebelum_data(kamus, penelitian) -> None:
 
     st.divider()
     ui.judul_bagian("Alur kerja empat langkah", kicker="Cara kerja")
-    kolom = st.columns(4)
-    for kol, (judul, ket) in zip(kolom, LANGKAH):
-        kol.markdown(f"**{judul}**")
-        kol.caption(ket)
+    ui.langkah_grid(LANGKAH)
 
 
 def _dashboard(df, kamus, penelitian) -> None:
