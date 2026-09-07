@@ -763,6 +763,43 @@ def test_pemandu_tidak_menawarkan_kolom_id_sebagai_variabel(sample):
     assert not any(o.startswith("id_nasabah") for o in opsi)
 
 
+def test_pemandu_banyak_outcome_menyarankan_manova(sample):
+    """Langkah 6: tujuan baru 'membandingkan_banyak_outcome' menyambungkan MANOVA
+    yang mesinnya sudah ada (nalardata/manova.py) tapi belum bisa disarankan Pemandu."""
+    app = _run(sample)
+    app.radio(key="pemandu_tujuan").set_value("membandingkan_banyak_outcome").run()
+    app.selectbox(key="pemandu_kelompok_manova").set_value("segmen_usaha (nominal)").run()
+    app.multiselect(key="pemandu_outcome_manova").set_value(
+        ["skor_kredit (rasio)", "pendapatan_bulanan (rasio)"]
+    ).run()
+    assert not app.exception
+    assert any(s.value.startswith("**MANOVA**") for s in app.success)
+
+
+def test_pemandu_moderasi_menyarankan_mra(sample):
+    """Langkah 6: tujuan baru 'menguji_moderasi' menyambungkan halaman Regresi
+    Moderasi (MRA) yang mesinnya sudah ada (nalardata/moderation.py)."""
+    app = _run(sample)
+    app.radio(key="pemandu_tujuan").set_value("menguji_moderasi").run()
+    app.selectbox(key="pemandu_y_medmod").set_value("skor_kredit (rasio)").run()
+    app.selectbox(key="pemandu_x_medmod").set_value("usia (rasio)").run()
+    app.selectbox(key="pemandu_m_medmod").set_value("pendapatan_bulanan (rasio)").run()
+    assert not app.exception
+    assert any("Regresi Moderasi (MRA)" in s.value for s in app.success)
+
+
+def test_pemandu_mediasi_menyarankan_sem(sample):
+    """Langkah 6: tujuan baru 'menguji_mediasi' mengarah ke panel SEM yang sudah
+    punya bootstrap mediasi (nalardata/sem_analysis.py), bukan halaman baru."""
+    app = _run(sample)
+    app.radio(key="pemandu_tujuan").set_value("menguji_mediasi").run()
+    app.selectbox(key="pemandu_y_medmod").set_value("skor_kredit (rasio)").run()
+    app.selectbox(key="pemandu_x_medmod").set_value("usia (rasio)").run()
+    app.selectbox(key="pemandu_m_medmod").set_value("pendapatan_bulanan (rasio)").run()
+    assert not app.exception
+    assert any("CFA / Analisis Jalur / SEM" in s.value for s in app.success)
+
+
 def test_kesesuaian_hasil_menyebut_yang_belum_divalidasi():
     """Daftar yang menyembunyikan lubangnya sendiri tidak dapat dipercaya."""
     app = _run(None)

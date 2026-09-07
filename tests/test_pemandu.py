@@ -755,3 +755,82 @@ def test_tidak_dapat_diperiksa_berisi_asumsi_yang_memang_tak_teruji(acak):
     df = _dua_kelompok(acak.normal(50, 8, N), acak.normal(54, 8, N))
     hasil = _sarankan(df, tujuan="membandingkan", outcome="y", kelompok="g")
     assert hasil.utama.tidak_dapat_diperiksa != []
+
+
+# --------------------------------------------------------------------------- #
+# MANOVA, mediasi, moderasi (poin 5 & 6 — mesin sudah ada, disambungkan lewat
+# METODE_TERSEDIA dan tujuan baru, bukan mesin baru)
+# --------------------------------------------------------------------------- #
+
+
+def test_manova_dan_mra_terdaftar_di_metode_tersedia():
+    assert pmd.METODE_TERSEDIA["MANOVA"] == "MANOVA"
+    assert pmd.METODE_TERSEDIA["Regresi Moderasi (MRA)"] == "Regresi Moderasi (MRA)"
+
+
+def test_banyak_outcome_menghasilkan_manova(acak):
+    n = 150
+    g = ["A"] * n + ["B"] * n + ["C"] * n
+    y1 = np.r_[acak.normal(50, 8, n), acak.normal(55, 8, n), acak.normal(60, 8, n)]
+    y2 = np.r_[acak.normal(20, 5, n), acak.normal(22, 5, n), acak.normal(25, 5, n)]
+    df = pd.DataFrame({"g": g, "y1": y1, "y2": y2})
+    hasil = _sarankan(
+        df, tujuan="membandingkan_banyak_outcome", prediktor=["y1", "y2"], kelompok="g"
+    )
+    assert hasil.utama.metode == "MANOVA"
+    assert hasil.utama.halaman == "MANOVA"
+    assert hasil.utama.tersedia
+    assert any("ANOVA terpisah" in a.metode for a in hasil.alternatif)
+
+
+def test_banyak_outcome_perlu_dua_variabel_hasil(acak):
+    df = pd.DataFrame({"g": ["A"] * 30 + ["B"] * 30, "y1": acak.normal(0, 1, 60)})
+    hasil = _sarankan(df, tujuan="membandingkan_banyak_outcome", prediktor=["y1"], kelompok="g")
+    assert hasil.utama is None
+    assert hasil.belum_terjawab
+
+
+def test_banyak_outcome_perlu_penanda_kelompok(acak):
+    df = pd.DataFrame({"y1": acak.normal(0, 1, 60), "y2": acak.normal(0, 1, 60)})
+    hasil = _sarankan(df, tujuan="membandingkan_banyak_outcome", prediktor=["y1", "y2"])
+    assert hasil.utama is None
+    assert hasil.belum_terjawab
+
+
+def test_mediasi_menyarankan_sem_dengan_bootstrap(acak):
+    n = 200
+    x = acak.normal(0, 1, n)
+    m = 0.6 * x + acak.normal(0, 1, n)
+    y = 0.5 * m + 0.2 * x + acak.normal(0, 1, n)
+    df = pd.DataFrame({"x": x, "m": m, "y": y})
+    hasil = _sarankan(df, tujuan="menguji_mediasi", outcome="y", prediktor=["x", "m"])
+    assert hasil.utama.metode == "CFA / Analisis Jalur / SEM"
+    assert "bootstrap" in hasil.utama.alasan.lower()
+    assert any(a.metode == "Uji Sobel" for a in hasil.alternatif)
+
+
+def test_mediasi_perlu_x_dan_m(acak):
+    df = pd.DataFrame({"x": acak.normal(0, 1, 60), "y": acak.normal(0, 1, 60)})
+    hasil = _sarankan(df, tujuan="menguji_mediasi", outcome="y", prediktor=["x"])
+    assert hasil.utama is None
+    assert hasil.belum_terjawab
+
+
+def test_moderasi_menyarankan_mra(acak):
+    n = 200
+    x = acak.normal(0, 1, n)
+    m = acak.normal(0, 1, n)
+    y = 0.4 * x + 0.3 * m + 0.5 * x * m + acak.normal(0, 1, n)
+    df = pd.DataFrame({"x": x, "m": m, "y": y})
+    hasil = _sarankan(df, tujuan="menguji_moderasi", outcome="y", prediktor=["x", "m"])
+    assert hasil.utama.metode == "Regresi Moderasi (MRA)"
+    assert hasil.utama.halaman == "Regresi Moderasi (MRA)"
+    assert hasil.utama.tersedia
+    assert "interaksi" in hasil.utama.alasan.lower()
+
+
+def test_moderasi_perlu_x_dan_moderator(acak):
+    df = pd.DataFrame({"x": acak.normal(0, 1, 60), "y": acak.normal(0, 1, 60)})
+    hasil = _sarankan(df, tujuan="menguji_moderasi", outcome="y", prediktor=["x"])
+    assert hasil.utama is None
+    assert hasil.belum_terjawab

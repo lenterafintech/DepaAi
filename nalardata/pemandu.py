@@ -45,9 +45,12 @@ from nalardata import proyek_penelitian as pp
 
 TUJUAN = {
     "membandingkan": "Membandingkan kelompok",
+    "membandingkan_banyak_outcome": "Membandingkan kelompok pada beberapa hasil sekaligus",
     "menghubungkan": "Menguji hubungan antar variabel",
     "memperkirakan_nilai": "Menjelaskan atau memperkirakan nilai angka",
     "memperkirakan_kategori": "Memperkirakan kategori atau keputusan",
+    "menguji_mediasi": "Menguji apakah satu variabel menjadi perantara (mediasi)",
+    "menguji_moderasi": "Menguji apakah satu variabel memperkuat/memperlemah pengaruh (moderasi)",
     "meringkas": "Meringkas banyak variabel menjadi sedikit dimensi",
     "mengelompokkan": "Mengelompokkan responden yang mirip",
     "menguji_model": "Menguji model teoretis antar konstruk",
@@ -56,9 +59,12 @@ TUJUAN = {
 
 PERTANYAAN_TUJUAN = {
     "membandingkan": "Apakah kelompok A berbeda dari kelompok B?",
+    "membandingkan_banyak_outcome": "Apakah kelompok berbeda pada beberapa ukuran hasil sekaligus?",
     "menghubungkan": "Apakah dua variabel bergerak bersamaan?",
     "memperkirakan_nilai": "Faktor apa yang menjelaskan naik-turunnya sebuah angka?",
     "memperkirakan_kategori": "Faktor apa yang membedakan yang 'ya' dari yang 'tidak'?",
+    "menguji_mediasi": "Apakah pengaruh X terhadap Y mengalir lewat variabel perantara M?",
+    "menguji_moderasi": "Apakah kekuatan pengaruh X terhadap Y berubah pada tingkat variabel lain?",
     "meringkas": "Belasan butir kuesioner ini sebenarnya mengukur berapa hal?",
     "mengelompokkan": "Ada berapa tipe responden dalam data ini?",
     "menguji_model": "Apakah model hubungan antar konstruk saya didukung data?",
@@ -126,6 +132,7 @@ METODE_TERSEDIA: dict[str, str] = {
     "Kruskal-Wallis": "Uji Beda",
     "Friedman": "Uji Beda",
     "ANOVA ukur ulang": "MANOVA",
+    "MANOVA": "MANOVA",
     "Chi-square": "Uji Beda",
     "Uji eksak Fisher": "Uji Beda",
     "Korelasi Pearson": "Korelasi & Asumsi",
@@ -133,6 +140,7 @@ METODE_TERSEDIA: dict[str, str] = {
     "Korelasi Kendall tau": "Korelasi & Asumsi",
     "Regresi linear berganda": "Regresi",
     "Regresi logistik biner": "Regresi",
+    "Regresi Moderasi (MRA)": "Regresi Moderasi (MRA)",
     "Analisis diskriminan": "Analisis Diskriminan",
     "Analisis Faktor Eksploratori (EFA)": "Analisis Faktor",
     "Analisis Komponen Utama (PCA)": "PCA",
@@ -603,9 +611,12 @@ def sarankan(
 
     penanganan = {
         "membandingkan": _membandingkan,
+        "membandingkan_banyak_outcome": _membandingkan_banyak_outcome,
         "menghubungkan": _menghubungkan,
         "memperkirakan_nilai": _memperkirakan_nilai,
         "memperkirakan_kategori": _memperkirakan_kategori,
+        "menguji_mediasi": _mediasi,
+        "menguji_moderasi": _moderasi,
         "meringkas": _meringkas,
         "mengelompokkan": _mengelompokkan,
         "menguji_model": _menguji_model,
@@ -1161,6 +1172,85 @@ def _berpasangan_banyak_nonparametrik(hasil, jumlah_kolom, syarat, alasan):
     return hasil
 
 
+def _membandingkan_banyak_outcome(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
+    """MANOVA: beberapa variabel hasil dibandingkan sekaligus antar kelompok.
+
+    ``prediktor`` di sini bukan penjelas seperti pada regresi, melainkan daftar
+    variabel hasil (dependen) yang diuji bersama — mengikuti bentuk widget
+    multiselect yang sama seperti tujuan lain, bukan parameter baru.
+    """
+    hasil = Rekomendasi()
+    variabel = [v for v in prediktor if _numerik(kamus, v)]
+    if not kelompok:
+        hasil.belum_terjawab.append("Kolom mana yang menandai kelompoknya?")
+    if len(variabel) < 2:
+        hasil.belum_terjawab.append(
+            "Variabel hasil (dependen) mana saja yang dibandingkan sekaligus? "
+            "Perlu sekurang-kurangnya dua."
+        )
+    if hasil.belum_terjawab:
+        return hasil
+
+    bersih = _bersih(df, variabel + [kelompok])
+    k = int(bersih[kelompok].nunique()) if not bersih.empty else 0
+    if k < 2:
+        hasil.catatan.append(
+            f"Kolom '{kelompok}' hanya memuat {k} kelompok, sehingga tidak ada yang "
+            "dapat dibandingkan."
+        )
+        return hasil
+
+    ukuran = periksa_ukuran_kelompok(bersih, kelompok)
+    normalitas = [periksa_normalitas(bersih, v, kelompok) for v in variabel]
+    langgar_normal = [s for s in normalitas if s.dilanggar]
+    sebaran = Syarat(
+        "Normalitas per variabel hasil",
+        DILANGGAR if langgar_normal else TERPENUHI,
+        (
+            f"{len(langgar_normal)} dari {len(variabel)} variabel hasil menolak "
+            "normalitas univariat pada Shapiro-Wilk — indikasi awal, bukan uji "
+            "normalitas multivariat sesungguhnya (diperiksa penuh pada halaman MANOVA)."
+            if langgar_normal
+            else f"Tidak satu pun dari {len(variabel)} variabel hasil menolak normalitas "
+            "univariat pada Shapiro-Wilk — indikasi awal, bukan uji normalitas "
+            "multivariat sesungguhnya (diperiksa penuh pada halaman MANOVA)."
+        ),
+    )
+    syarat = [ukuran, sebaran]
+
+    hasil.utama = Saran(
+        metode="MANOVA",
+        halaman="MANOVA",
+        alasan=(
+            f"{len(variabel)} variabel hasil dibandingkan sekaligus antar {k} kelompok "
+            f"pada '{kelompok}'. MANOVA memperhitungkan korelasi antar variabel hasil "
+            "dan menjaga tingkat kesalahan tipe I dibanding menjalankan ANOVA terpisah "
+            "untuk tiap variabel."
+        ),
+        syarat=syarat,
+        lanjutan=(
+            "Box's M dan normalitas multivariat diperiksa penuh pada halaman MANOVA. "
+            "Bila ada variabel kovariat yang ingin dikendalikan, pakai tab MANCOVA "
+            "pada halaman yang sama alih-alih menjalankan MANOVA biasa."
+        ),
+        ukuran_efek="Eta-squared parsial per variabel hasil (tab ANOVA Lanjutan).",
+        pembanding="SPSS: Analyze ▸ General Linear Model ▸ Multivariate",
+    )
+    hasil.alternatif.append(
+        Saran(
+            metode="ANOVA terpisah untuk tiap variabel hasil",
+            halaman="Uji Beda",
+            alasan="",
+            ditolak_karena=(
+                "Menjalankan ANOVA satu-satu untuk tiap variabel hasil menaikkan "
+                "peluang kesalahan tipe I secara keseluruhan dan mengabaikan korelasi "
+                "antar variabel hasil yang justru diperhitungkan MANOVA."
+            ),
+        )
+    )
+    return hasil
+
+
 # --------------------------------------------------------------------------- #
 # Menguji hubungan
 # --------------------------------------------------------------------------- #
@@ -1629,6 +1719,128 @@ def _menguji_model(df, kamus, outcome, prediktor, kelompok, berpasangan, penelit
                 "Regresi): di sini setiap jalur model diuji satu-satu lewat regresi "
                 "terpisah, bertahap. Cara itu mengabaikan galat pengukuran dan "
                 "tidak menghasilkan indeks kecocokan model secara keseluruhan."
+            ),
+        )
+    )
+    return hasil
+
+
+# --------------------------------------------------------------------------- #
+# Mediasi dan moderasi
+# --------------------------------------------------------------------------- #
+
+
+def _mediasi(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
+    """Mediasi: X mempengaruhi Y lewat perantara M. ``prediktor[0]`` = X,
+    ``prediktor[1]`` = M — urutan yang diminta di widget, bukan aturan baru."""
+    hasil = Rekomendasi()
+    if not outcome:
+        hasil.belum_terjawab.append("Variabel mana yang menjadi hasil akhir (Y)?")
+    if len(prediktor) < 2:
+        hasil.belum_terjawab.append(
+            "Variabel bebas (X) dan variabel perantara (mediator, M) yang mana? "
+            "Pilih X terlebih dulu, lalu M."
+        )
+    if hasil.belum_terjawab:
+        return hasil
+
+    x, m = prediktor[0], prediktor[1]
+    n = len(_bersih(df, [outcome, x, m]))
+    syarat = [
+        Syarat(
+            "Ukuran sampel",
+            DILANGGAR if n < 100 else TERPENUHI,
+            f"{n} pengamatan"
+            + (
+                ". Bootstrap efek tidak langsung lebih stabil pada sekurang-kurangnya 100."
+                if n < 100
+                else "."
+            ),
+        )
+    ]
+
+    hasil.utama = Saran(
+        metode="CFA / Analisis Jalur / SEM",
+        halaman="CFA, Jalur & SEM",
+        alasan=(
+            f"Diuji apakah pengaruh '{x}' terhadap '{outcome}' mengalir lewat '{m}' "
+            "sebagai perantara. Efek tidak langsung (X → M → Y) diuji dengan bootstrap, "
+            "bukan uji Sobel, karena sebaran hasil kali dua koefisien jarang normal."
+        ),
+        syarat=syarat,
+        lanjutan=(
+            "Bangun jalur X → M dan M → Y (plus X → Y untuk efek langsung) pada panel "
+            "CFA, Jalur & SEM, lalu baca efek langsung, tidak langsung, dan total "
+            "beserta interval kepercayaan bootstrap-nya."
+        ),
+        ukuran_efek="Proporsi efek yang dimediasi (efek tidak langsung ÷ efek total).",
+        pembanding="PROCESS macro (Hayes) Model 4 pada SPSS, atau paket lavaan di R",
+    )
+    hasil.alternatif.append(
+        Saran(
+            metode="Uji Sobel",
+            halaman="CFA, Jalur & SEM",
+            alasan="",
+            ditolak_karena=(
+                "Uji Sobel mengasumsikan hasil kali dua koefisien (a×b) berdistribusi "
+                "normal — asumsi yang lazim dilanggar pada sampel sedang atau kecil. "
+                "Bootstrap tidak menuntut asumsi itu."
+            ),
+        )
+    )
+    return hasil
+
+
+def _moderasi(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
+    """Moderasi: kekuatan pengaruh X terhadap Y berubah menurut M. ``prediktor[0]``
+    = X, ``prediktor[1]`` = moderator M."""
+    hasil = Rekomendasi()
+    if not outcome:
+        hasil.belum_terjawab.append("Variabel mana yang menjadi hasil (Y)?")
+    if len(prediktor) < 2:
+        hasil.belum_terjawab.append(
+            "Variabel bebas (X) dan variabel moderator yang mana? Pilih X terlebih "
+            "dulu, lalu moderatornya."
+        )
+    if hasil.belum_terjawab:
+        return hasil
+
+    x, m = prediktor[0], prediktor[1]
+    if not all(_numerik(kamus, v) for v in (outcome, x, m)):
+        hasil.catatan.append(
+            "Regresi moderasi pada aplikasi ini menuntut Y, X, dan moderator "
+            "sama-sama berskala angka."
+        )
+
+    kolinear = periksa_multikolinearitas(df, [x, m])
+    syarat = [kolinear]
+
+    hasil.utama = Saran(
+        metode="Regresi Moderasi (MRA)",
+        halaman="Regresi Moderasi (MRA)",
+        alasan=(
+            f"Diuji apakah besar pengaruh '{x}' terhadap '{outcome}' berubah pada "
+            f"tingkat '{m}' yang berbeda, lewat suku interaksi X × moderator — bukan "
+            "dengan membandingkan koefisien pada beberapa regresi terpisah."
+        ),
+        syarat=syarat,
+        lanjutan=(
+            "Pusatkan (mean-center) X dan moderator sebelum membentuk suku interaksi, "
+            "lalu baca kemiringan sederhana pada nilai moderator rendah, rata-rata, "
+            "dan tinggi, serta titik Johnson-Neyman bila tersedia."
+        ),
+        ukuran_efek="Perubahan R² akibat suku interaksi (ΔR²).",
+        pembanding="PROCESS macro (Hayes) Model 1 pada SPSS",
+    )
+    hasil.alternatif.append(
+        Saran(
+            metode="Regresi linear berganda tanpa suku interaksi",
+            halaman="Regresi",
+            alasan="",
+            ditolak_karena=(
+                "Tanpa suku interaksi, model ini mengasumsikan pengaruh X terhadap Y "
+                "sama besarnya pada semua tingkat moderator — anggapan yang justru "
+                "ingin diuji, bukan ditetapkan sejak awal."
             ),
         )
     )

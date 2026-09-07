@@ -175,6 +175,60 @@ def render(df, kamus, penelitian) -> None:
                 help="Kolom yang membagi responden menjadi beberapa kelompok, misalnya jenis kelamin atau kelas perlakuan.",
             )
 
+    elif tujuan == "membandingkan_banyak_outcome":
+        kiri, kanan = st.columns([2, 3])
+        kelompok = kiri.selectbox(
+            "Penanda kelompok",
+            [None] + kategorik,
+            index=_indeks(kategorik, _prasi_tunggal(kategorik, kamus, "kelompok")),
+            format_func=lambda k: "— pilih —" if k is None else _label(k),
+            key="pemandu_kelompok_manova",
+            help="Kolom yang membagi responden menjadi beberapa kelompok.",
+        )
+        prediktor = kanan.multiselect(
+            "Variabel hasil (dependen) yang dibandingkan sekaligus",
+            numerik,
+            key="pemandu_outcome_manova",
+            format_func=_label,
+            help="Pilih sekurang-kurangnya dua ukuran hasil yang diuji bersama, "
+            "misalnya nilai ujian dan skor motivasi.",
+        )
+
+    elif tujuan in {"menguji_mediasi", "menguji_moderasi"}:
+        if tujuan == "menguji_mediasi":
+            label_m = "Variabel perantara (mediator, M)"
+            bantuan_m = "Variabel yang Anda duga menjadi jalur perantara antara X dan Y."
+        else:
+            label_m = "Variabel moderator (M)"
+            bantuan_m = "Variabel yang Anda duga mengubah kekuatan pengaruh X terhadap Y."
+
+        kiri, tengah, kanan = st.columns(3)
+        outcome = kiri.selectbox(
+            "Variabel hasil (Y)",
+            [None] + numerik,
+            index=_indeks(numerik, _prasi_tunggal(numerik, kamus, "outcome")),
+            format_func=lambda k: "— pilih —" if k is None else _label(k),
+            key="pemandu_y_medmod",
+            help="Angka yang menjadi hasil akhir yang ingin dijelaskan.",
+        )
+        kandidat_x = [k for k in numerik if k != outcome]
+        x = tengah.selectbox(
+            "Variabel bebas (X)",
+            [None] + kandidat_x,
+            format_func=lambda k: "— pilih —" if k is None else _label(k),
+            key="pemandu_x_medmod",
+            help="Variabel yang diduga memengaruhi Y.",
+        )
+        kandidat_m = [k for k in numerik if k not in {outcome, x}]
+        m = kanan.selectbox(
+            label_m,
+            [None] + kandidat_m,
+            format_func=lambda k: "— pilih —" if k is None else _label(k),
+            key="pemandu_m_medmod",
+            help=bantuan_m,
+        )
+        prediktor = [v for v in (x, m) if v]
+
     elif tujuan in {"menghubungkan"}:
         pilihan = st.multiselect(
             "Dua variabel yang ingin dihubungkan",
