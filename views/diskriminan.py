@@ -19,12 +19,20 @@ def render(df, kamus, penelitian) -> None:
         "itu dilanggar, QDA lebih tepat.",
     )
 
-    group = ui.group_selector(df, "Variabel kelompok (dependen)", key="da_group")
+    dipandu = ui.konfigurasi_pemandu()
+    ui.banner_dipandu(dipandu)
+
+    group = ui.group_selector(
+        df, "Variabel kelompok (dependen)", key="da_group", default=dipandu.get("kelompok")
+    )
     numeric_cols = [c for c in preprocessing.numeric_columns(df) if c != group]
+    default_pred = [c for c in dipandu.get("prediktor", []) if c in numeric_cols] or numeric_cols[
+        : min(5, len(numeric_cols))
+    ]
     predictors = st.multiselect(
         "Variabel prediktor numerik",
         numeric_cols,
-        default=numeric_cols[: min(5, len(numeric_cols))],
+        default=default_pred,
         key="da_pred",
     )
     kind = st.radio(

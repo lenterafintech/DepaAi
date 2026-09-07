@@ -19,6 +19,9 @@ def render(df, kamus, penelitian) -> None:
         "korelasi antar variabel dependen dan menjaga tingkat kesalahan tipe I.",
     )
 
+    dipandu = ui.konfigurasi_pemandu()
+    ui.banner_dipandu(dipandu)
+
     mode = st.radio(
         "Desain",
         ["Antar kelompok (MANOVA)", "Pengukuran berulang (dalam-subjek)"],
@@ -27,18 +30,23 @@ def render(df, kamus, penelitian) -> None:
     )
     st.divider()
     if mode == "Antar kelompok (MANOVA)":
-        _render_antar_kelompok(df)
+        _render_antar_kelompok(df, dipandu)
     else:
         _render_berulang(df)
 
 
-def _render_antar_kelompok(df) -> None:
-    factor = ui.group_selector(df, "Variabel faktor (kelompok)", key="manova_factor")
+def _render_antar_kelompok(df, dipandu: dict) -> None:
+    factor = ui.group_selector(
+        df, "Variabel faktor (kelompok)", key="manova_factor", default=dipandu.get("kelompok")
+    )
     numeric_cols = [c for c in preprocessing.numeric_columns(df) if c != factor]
+    default_dv = [c for c in dipandu.get("prediktor", []) if c in numeric_cols] or numeric_cols[
+        : min(3, len(numeric_cols))
+    ]
     dependents = st.multiselect(
         "Variabel dependen numerik (minimal 2)",
         numeric_cols,
-        default=numeric_cols[: min(3, len(numeric_cols))],
+        default=default_dv,
         key="manova_dv",
     )
 
