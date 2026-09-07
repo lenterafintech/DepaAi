@@ -65,11 +65,28 @@ def test_dua_kelompok_ragam_berbeda_menghasilkan_welch(acak):
     assert ditolak and "Levene" in ditolak[0].ditolak_karena
 
 
+def test_shapiro_signifikan_tapi_sampel_besar_tetap_parametrik(acak):
+    """Inti perbaikan aturan (poin 2): Shapiro-Wilk BUKAN lagi sakelar tunggal.
+    Sebaran seragam (uniform) simetris tanpa pencilan, tapi bentuknya cukup beda
+    dari normal sehingga Shapiro-Wilk menolaknya pada sampel besar — di sini itu
+    tidak boleh otomatis melempar ke Mann-Whitney, karena CLT tetap menjaga uji
+    parametrik layak pada n sebesar ini."""
+    df = _dua_kelompok(acak.uniform(40, 60, N), acak.uniform(44, 64, N))
+    hasil = _sarankan(df, tujuan="membandingkan", outcome="y", kelompok="g")
+    normal = [s for s in hasil.utama.syarat if s.nama == "Normalitas"][0]
+    assert normal.dilanggar, "uniform vs normal semestinya ditolak Shapiro-Wilk pada n besar"
+    assert hasil.utama.metode in {"Uji-t sampel bebas", "Uji-t Welch"}
+    assert "tetap tahan dipakai" in hasil.utama.alasan
+
+
 def test_dua_kelompok_menceng_menghasilkan_mann_whitney(acak):
+    """Lognormal punya ekor berat: pada n=120 ini bukan lagi Shapiro-Wilk yang
+    memutuskan (sampel sudah besar), melainkan pencilan ekstrem yang ditemukan pada
+    ekor sebarannya — kedua alasan itu sama sahihnya untuk menolak parametrik."""
     df = _dua_kelompok(acak.lognormal(2, 1, N), acak.lognormal(2.4, 1, N))
     hasil = _sarankan(df, tujuan="membandingkan", outcome="y", kelompok="g")
     assert hasil.utama.metode == "Mann-Whitney U"
-    assert "Shapiro" in hasil.alternatif[0].ditolak_karena
+    assert "pencilan ekstrem" in hasil.alternatif[0].ditolak_karena.lower()
 
 
 # --------------------------------------------------------------------------- #
@@ -105,13 +122,15 @@ def test_tiga_kelompok_ragam_berbeda_menghasilkan_welch_anova(acak):
 
 
 def test_alasan_menolak_anova_menyebut_angka_ujinya(acak):
-    """'Tidak normal' saja tidak mengajari; yang mengajari adalah angkanya."""
+    """'Tidak normal' saja tidak mengajari; yang mengajari adalah angkanya —
+    di sini angka jumlah pencilan ekstrem per kelompok."""
     df = _tiga_kelompok(
         acak.lognormal(2, 1, N), acak.lognormal(2.3, 1, N), acak.lognormal(1.9, 1, N)
     )
     hasil = _sarankan(df, tujuan="membandingkan", outcome="y", kelompok="g")
     ditolak = [a for a in hasil.alternatif if a.metode == "One-Way ANOVA"][0]
-    assert "3 dari 3 kelompok" in ditolak.ditolak_karena
+    assert "pencilan ekstrem" in ditolak.ditolak_karena.lower()
+    assert any(c.isdigit() for c in ditolak.ditolak_karena)
 
 
 # --------------------------------------------------------------------------- #
@@ -183,8 +202,43 @@ def test_dua_pengukuran_berpasangan_menceng_menghasilkan_wilcoxon(acak):
     assert hasil.utama.metode == "Wilcoxon signed-rank"
 
 
-def test_tiga_pengukuran_berpasangan_menghasilkan_friedman(acak):
+def test_berpasangan_memeriksa_selisih_bukan_kolom_pertama_saja(acak):
+    """Bug yang diperbaiki (poin 2): dulu hanya kolom pertama yang diperiksa
+    normalitasnya, bukan selisihnya. Di sini kolom 'sebelum' sendiri jelas menceng
+    berat (lognormal) — tapi efek perlakuannya (selisih terhadap 'sesudah') normal.
+    Kode lama akan salah lari ke Wilcoxon karena melihat 'sebelum' saja menceng."""
+    sebelum = acak.lognormal(3, 0.5, N)
+    efek = acak.normal(5, 2, N)
+    df = pd.DataFrame({"sebelum": sebelum, "sesudah": sebelum + efek})
+    hasil = _sarankan(
+        df, tujuan="membandingkan", outcome="sebelum", prediktor=["sesudah"], berpasangan=True
+    )
+    assert hasil.utama.metode == "Uji-t berpasangan"
+
+
+def test_tiga_pengukuran_berpasangan_normal_menghasilkan_anova_ukur_ulang(acak):
+    """ANOVA pengukuran berulang sudah tersedia (nalardata/manova.py) — begitu
+    residual antar-kondisinya normal, itu jadi pilihan utama, bukan lagi Friedman
+    yang dulu satu-satunya karena ANOVA ukur ulang belum tersambung ke Pemandu."""
     df = pd.DataFrame({f"waktu{i}": acak.normal(50, 8, N) for i in range(3)})
+    hasil = _sarankan(
+        df,
+        tujuan="membandingkan",
+        outcome="waktu0",
+        prediktor=["waktu1", "waktu2"],
+        berpasangan=True,
+    )
+    assert hasil.utama.metode == "ANOVA ukur ulang"
+    assert hasil.utama.tersedia
+    assert "Mauchly" in hasil.utama.lanjutan
+    ditolak = [a for a in hasil.alternatif if a.metode == "Friedman"][0]
+    assert "terpenuhi" in ditolak.ditolak_karena.lower()
+
+
+def test_tiga_pengukuran_berpasangan_menceng_menghasilkan_friedman(acak):
+    df = pd.DataFrame(
+        {f"waktu{i}": acak.lognormal(2 + i * 0.1, 1, N) for i in range(3)}
+    )
     hasil = _sarankan(
         df,
         tujuan="membandingkan",
@@ -194,6 +248,8 @@ def test_tiga_pengukuran_berpasangan_menghasilkan_friedman(acak):
     )
     assert hasil.utama.metode == "Friedman"
     assert "Kendall" in hasil.utama.lanjutan
+    ditolak = [a for a in hasil.alternatif if a.metode == "ANOVA ukur ulang"][0]
+    assert ditolak.ditolak_karena
 
 
 def test_berpasangan_menghasilkan_uji_berbeda_dari_bebas(acak):
@@ -255,6 +311,21 @@ def test_outcome_angka_menghasilkan_regresi_linear(acak):
     hasil = _sarankan(df, tujuan="memperkirakan_nilai", outcome="y", prediktor=["x1", "x2"])
     assert hasil.utama.metode == "Regresi linear berganda"
     assert "asumsi klasik" in hasil.utama.lanjutan
+
+
+def test_regresi_memeriksa_normalitas_residual_bukan_outcome_mentah(acak):
+    """Bug yang diperbaiki (poin 2): dulu normalitas dicek pada outcome mentah.
+    Di sini outcome ('y') sendiri jelas menceng — karena ikut menceng bersama
+    prediktornya (x lognormal) — tapi galat modelnya sendiri (residual_asli) normal.
+    Syarat yang muncul harus bernama 'Normalitas residual', bukan 'Normalitas'."""
+    x = acak.lognormal(2, 0.8, 300)
+    residual_asli = acak.normal(0, 5, 300)
+    df = pd.DataFrame({"y": 3 * x + 10 + residual_asli, "x": x})
+    hasil = _sarankan(df, tujuan="memperkirakan_nilai", outcome="y", prediktor=["x"])
+    nama_syarat = [s.nama for s in hasil.utama.syarat]
+    assert "Normalitas residual" in nama_syarat
+    normal = [s for s in hasil.utama.syarat if s.nama == "Normalitas residual"][0]
+    assert not normal.dilanggar, "residualnya (bukan outcome mentah) semestinya normal"
 
 
 def test_multikolinearitas_dilaporkan_sebagai_syarat_dilanggar(acak):
@@ -512,18 +583,18 @@ def test_setiap_metode_yang_disarankan_benar_benar_dapat_dijalankan(semua_rekome
 
 
 def test_alternatif_yang_belum_ada_ditandai_bukan_disembunyikan(acak):
-    """Metode terbaik yang belum tersedia tetap layak disebut, asalkan ditandai."""
-    df = pd.DataFrame({f"waktu{i}": acak.normal(50, 8, N) for i in range(3)})
-    hasil = _sarankan(
-        df,
-        tujuan="membandingkan",
-        outcome="waktu0",
-        prediktor=["waktu1", "waktu2"],
-        berpasangan=True,
-    )
+    """Metode terbaik yang belum tersedia tetap layak disebut, asalkan ditandai.
+
+    "Menguji tiap jalur satu-satu lewat regresi terpisah" sengaja bukan metode
+    nyata (itu praktik yang ditolak, bukan sesuatu yang bisa "tersedia") —
+    selalu muncul sebagai alternatif tak-tersedia pada tujuan menguji_model.
+    """
+    dasar = acak.normal(0, 1, 300)
+    df = pd.DataFrame({f"b{i}": dasar + acak.normal(0, 0.6, 300) for i in range(6)})
+    hasil = _sarankan(df, tujuan="menguji_model", prediktor=list(df.columns))
     belum = [a for a in hasil.alternatif if not a.tersedia]
-    assert belum, "ANOVA ukur ulang belum tersedia dan harus ditandai"
-    assert "belum tersedia" in belum[0].ditolak_karena.lower()
+    assert belum, "alternatif regresi terpisah belum tersedia dan harus ditandai"
+    assert "regresi berganda biasa" in belum[0].ditolak_karena.lower()
 
 
 def test_halaman_pada_saran_cocok_dengan_daftar_metode(semua_rekomendasi):

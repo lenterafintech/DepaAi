@@ -71,6 +71,16 @@ MIN_SEL = 5  # frekuensi harapan minimum pada tabel silang
 MIN_KELOMPOK = 3  # anggota minimum agar sebuah kelompok masih dapat diuji
 MIN_SHAPIRO = 3
 
+# Ambang untuk aturan parametrik-vs-nonparametrik yang tidak lagi bersandar pada
+# Shapiro-Wilk sebagai satu-satunya sakelar (lihat periksa_bentuk_sebaran/
+# periksa_pencilan_ekstrem serta _dua_kelompok/_banyak_kelompok di bawah).
+MIN_BESAR = 30  # ambang "sampel besar" — sudah jadi catatan tak resmi di
+# periksa_ukuran_kelompok dan dipakai nonparametrik.perlu_nonparametrik();
+# di sini dijadikan eksplisit dan disatukan, bukan angka baru.
+SKEW_BERAT = 2.0  # skewness di atas ini tergolong "penyimpangan berat"
+OUTLIER_EKSTREM_K = 3.0  # pagar IQR pencilan "ekstrem" — beda level dari k=1.5
+# yang dipakai Rapor Data untuk pencilan biasa
+
 
 @dataclass
 class Syarat:
@@ -106,6 +116,7 @@ METODE_TERSEDIA: dict[str, str] = {
     "Wilcoxon signed-rank": "Uji Beda",
     "Kruskal-Wallis": "Uji Beda",
     "Friedman": "Uji Beda",
+    "ANOVA ukur ulang": "MANOVA",
     "Chi-square": "Uji Beda",
     "Uji eksak Fisher": "Uji Beda",
     "Korelasi Pearson": "Korelasi & Asumsi",
@@ -289,15 +300,107 @@ def periksa_ukuran_kelompok(df: pd.DataFrame, kelompok: str) -> Syarat:
             f"Kelompok terkecil hanya berisi {terkecil} pengamatan "
             f"('{jumlah.idxmin()}').",
         )
-    if terkecil < 30:
+    if terkecil < MIN_BESAR:
         return Syarat(
             "Ukuran kelompok",
             TERPENUHI,
             f"Kelompok terkecil berisi {terkecil} pengamatan — cukup untuk diuji, "
-            "namun uji non-parametrik lebih aman di bawah 30.",
+            f"namun uji non-parametrik lebih aman di bawah {MIN_BESAR}.",
         )
     return Syarat(
         "Ukuran kelompok", TERPENUHI, f"Kelompok terkecil berisi {terkecil} pengamatan."
+    )
+
+
+def ukuran_tergolong_besar(df: pd.DataFrame, kelompok: str | None) -> bool:
+    """Kelompok terkecil (atau seluruh data bila tanpa kelompok) sudah >= MIN_BESAR.
+
+    Dipakai sebagai salah satu syarat teorema limit pusat: pada sampel sebesar ini,
+    sebaran rata-rata sampel sudah mendekati normal walau data mentahnya tidak,
+    sehingga Shapiro-Wilk yang signifikan tidak lagi otomatis berarti uji parametrik
+    tidak layak dipakai.
+    """
+    if kelompok and kelompok in df.columns:
+        jumlah = df[kelompok].value_counts()
+        return bool(not jumlah.empty and jumlah.min() >= MIN_BESAR)
+    return len(df) >= MIN_BESAR
+
+
+def periksa_bentuk_sebaran(df: pd.DataFrame, outcome: str, kelompok: str | None) -> Syarat:
+    """Skewness per kelompok — pelengkap Shapiro-Wilk yang menilai SEBERAPA berat
+    penyimpangan dari normal, bukan sekadar signifikan/tidak signifikan.
+
+    Shapiro-Wilk menolak normalitas pada penyimpangan sekecil apa pun bila sampel
+    cukup besar, sehingga tidak dapat dipakai sendirian untuk menilai keparahan.
+    """
+    if outcome not in df.columns:
+        return Syarat("Bentuk sebaran", TIDAK_DIUJI, "Variabel terikat belum dipilih.")
+
+    nilai = pd.to_numeric(df[outcome], errors="coerce")
+    if kelompok and kelompok in df.columns:
+        bagian = [g.dropna() for _, g in nilai.groupby(df[kelompok])]
+    else:
+        bagian = [nilai.dropna()]
+
+    skew_maks = 0.0
+    diuji = 0
+    for contoh in bagian:
+        if len(contoh) < 3 or contoh.nunique() < 2:
+            continue
+        diuji += 1
+        skew_maks = max(skew_maks, abs(float(stats.skew(contoh))))
+
+    if diuji == 0:
+        return Syarat("Bentuk sebaran", TIDAK_DIUJI, "Kelompoknya terlalu kecil untuk dinilai.")
+    if skew_maks > SKEW_BERAT:
+        return Syarat(
+            "Bentuk sebaran",
+            DILANGGAR,
+            f"Skewness tertinggi antar kelompok {skew_maks:.2f} — tergolong "
+            f"penyimpangan berat (di atas {SKEW_BERAT:.0f}).",
+        )
+    return Syarat(
+        "Bentuk sebaran",
+        TERPENUHI,
+        f"Skewness tertinggi antar kelompok {skew_maks:.2f} — tidak tergolong berat.",
+    )
+
+
+def periksa_pencilan_ekstrem(df: pd.DataFrame, outcome: str, kelompok: str | None) -> Syarat:
+    """Pencilan IQR ekstrem (k=3,0) per kelompok — beda level dari pencilan biasa
+    (k=1,5) yang dipakai Rapor Data. Memakai ulang descriptive.univariate_outliers,
+    bukan menulis ulang aturan IQR.
+    """
+    from nalardata import descriptive
+
+    if outcome not in df.columns:
+        return Syarat("Pencilan ekstrem", TIDAK_DIUJI, "Variabel terikat belum dipilih.")
+
+    nilai = pd.to_numeric(df[outcome], errors="coerce")
+    if kelompok and kelompok in df.columns:
+        bagian = {str(nama): g.dropna() for nama, g in nilai.groupby(df[kelompok])}
+    else:
+        bagian = {outcome: nilai.dropna()}
+
+    bermasalah = []
+    for nama, contoh in bagian.items():
+        if len(contoh) < 4:
+            continue
+        ringkas = descriptive.univariate_outliers(
+            pd.DataFrame({outcome: contoh}), k=OUTLIER_EKSTREM_K
+        )
+        jumlah = int(ringkas.loc[0, "Jumlah Pencilan"]) if not ringkas.empty else 0
+        if jumlah:
+            bermasalah.append(f"{jumlah} pada '{nama}'")
+
+    if not bermasalah:
+        return Syarat(
+            "Pencilan ekstrem", TERPENUHI, "Tidak ditemukan pencilan ekstrem pada kelompok mana pun."
+        )
+    return Syarat(
+        "Pencilan ekstrem",
+        DILANGGAR,
+        "Ditemukan pencilan ekstrem: " + ", ".join(bermasalah) + ".",
     )
 
 
@@ -575,55 +678,65 @@ def _membandingkan(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Reko
 
     normal = periksa_normalitas(bersih, outcome, kelompok)
     seragam = periksa_homogenitas(bersih, outcome, kelompok)
-    syarat = [normal, seragam, ukuran]
+    sebaran = periksa_bentuk_sebaran(bersih, outcome, kelompok)
+    pencilan = periksa_pencilan_ekstrem(bersih, outcome, kelompok)
+    syarat = [normal, seragam, sebaran, pencilan, ukuran]
 
     ordinal = _ordinal(kamus, outcome)
-    perlu_nonpar = ordinal or normal.dilanggar or ukuran.dilanggar
+    besar = ukuran_tergolong_besar(bersih, kelompok)
 
     if k == 2:
-        return _dua_kelompok(hasil, outcome, kelompok, syarat, ordinal, normal, seragam, perlu_nonpar)
+        return _dua_kelompok(
+            hasil, outcome, kelompok, syarat, ordinal, normal, seragam, sebaran, pencilan, besar
+        )
     return _banyak_kelompok(
-        hasil, outcome, kelompok, k, syarat, ordinal, normal, seragam, perlu_nonpar
+        hasil, outcome, kelompok, k, syarat, ordinal, normal, seragam, sebaran, pencilan, besar
     )
 
 
-def _dua_kelompok(hasil, outcome, kelompok, syarat, ordinal, normal, seragam, perlu_nonpar):
-    if perlu_nonpar:
+def _dua_kelompok(hasil, outcome, kelompok, syarat, ordinal, normal, seragam, sebaran, pencilan, besar):
+    if ordinal:
         alasan = (
             f"'{outcome}' berskala ordinal, sehingga jarak antar tingkatnya belum tentu "
             "sama dan rata-rata kurang bermakna."
-            if ordinal
-            else normal.rincian
         )
-        hasil.utama = Saran(
-            metode="Mann-Whitney U",
-            halaman="Uji Non-parametrik",
-            alasan=f"Dua kelompok bebas dibandingkan tanpa asumsi normalitas. {alasan}",
-            syarat=syarat,
-            lanjutan="Laporkan rank-biserial correlation sebagai ukuran efeknya.",
-            pembanding="SPSS: Analyze ▸ Nonparametric Tests ▸ Independent Samples",
+        return _dua_kelompok_nonparametrik(hasil, syarat, alasan)
+
+    if pencilan.dilanggar:
+        alasan = (
+            f"{pencilan.rincian} Pencilan seekstrem ini menarik rata-rata secara tidak "
+            "wajar dan tidak dapat dipertanggungjawabkan sebagai bagian dari sebaran normal."
         )
-        hasil.alternatif.append(
-            Saran(
-                metode="Uji-t sampel bebas",
-                halaman="Uji Non-parametrik",
-                alasan="",
-                ditolak_karena=alasan,
-                peringatan=(
-                    "Boleh tetap dipakai bila sampel tiap kelompok besar, namun "
-                    "pelanggaran asumsinya wajib disebutkan pada laporan."
-                ),
-            )
+        return _dua_kelompok_nonparametrik(hasil, syarat, alasan)
+
+    if not besar and sebaran.dilanggar:
+        alasan = (
+            f"Ukuran kelompok belum tergolong besar (di bawah {MIN_BESAR}) dan "
+            f"{sebaran.rincian.lower()} Pada sampel sekecil ini, penyimpangan seberat "
+            "itu cukup mengganggu keakuratan uji parametrik."
         )
-        return hasil
+        return _dua_kelompok_nonparametrik(hasil, syarat, alasan)
+
+    # Lolos seluruh gerbang non-parametrik: outcome benar-benar numerik, kelompok
+    # bebas, ukuran kelompok memadai atau penyimpangannya tidak berat, dan tidak ada
+    # pencilan ekstrem. Parametrik layak dipakai walau Shapiro-Wilk masih signifikan.
+    catatan_clt = ""
+    if normal.dilanggar:
+        sebab_aman = "ukuran kelompok sudah tergolong besar" if besar else "penyimpangannya tidak tergolong berat"
+        catatan_clt = (
+            f" Shapiro-Wilk memang menolak normalitas ({normal.rincian.lower()}), "
+            f"tetapi {sebab_aman} dan tidak ditemukan pencilan ekstrem, sehingga uji "
+            "parametrik tetap tahan dipakai."
+        )
 
     if seragam.dilanggar:
         hasil.utama = Saran(
             metode="Uji-t Welch",
             halaman="Uji Non-parametrik",
             alasan=(
-                "Dua kelompok bebas dengan sebaran normal, namun ragamnya tidak "
-                f"seragam. {seragam.rincian} Welch tidak menuntut ragam yang sama."
+                "Dua kelompok bebas dengan ragam tidak seragam. "
+                f"{seragam.rincian}{catatan_clt} Welch tidak menuntut ragam yang sama, "
+                "sehingga jadi pilihan parametrik yang lebih aman di sini."
             ),
             syarat=syarat,
             lanjutan="Laporkan Cohen's d sebagai ukuran efeknya.",
@@ -643,8 +756,8 @@ def _dua_kelompok(hasil, outcome, kelompok, syarat, ordinal, normal, seragam, pe
         metode="Uji-t sampel bebas",
         halaman="Uji Non-parametrik",
         alasan=(
-            f"Dua kelompok bebas, sebaran '{outcome}' normal pada tiap kelompok, dan "
-            "ragamnya seragam."
+            f"Dua kelompok bebas, ragam antar kelompok seragam ({seragam.rincian.lower()})."
+            f"{catatan_clt}"
         ),
         syarat=syarat,
         lanjutan="Laporkan Cohen's d sebagai ukuran efeknya.",
@@ -665,40 +778,67 @@ def _dua_kelompok(hasil, outcome, kelompok, syarat, ordinal, normal, seragam, pe
     return hasil
 
 
-def _banyak_kelompok(hasil, outcome, kelompok, k, syarat, ordinal, normal, seragam, perlu_nonpar):
-    if perlu_nonpar:
-        alasan = (
-            f"'{outcome}' berskala ordinal." if ordinal else normal.rincian
-        )
-        hasil.utama = Saran(
-            metode="Kruskal-Wallis",
+def _dua_kelompok_nonparametrik(hasil, syarat, alasan):
+    hasil.utama = Saran(
+        metode="Mann-Whitney U",
+        halaman="Uji Non-parametrik",
+        alasan=f"Dua kelompok bebas dibandingkan tanpa asumsi normalitas. {alasan}",
+        syarat=syarat,
+        lanjutan="Laporkan rank-biserial correlation sebagai ukuran efeknya.",
+        pembanding="SPSS: Analyze ▸ Nonparametric Tests ▸ Independent Samples",
+    )
+    hasil.alternatif.append(
+        Saran(
+            metode="Uji-t sampel bebas",
             halaman="Uji Non-parametrik",
-            alasan=f"{k} kelompok bebas dibandingkan tanpa asumsi normalitas. {alasan}",
-            syarat=syarat,
-            lanjutan="Uji lanjut Dunn dengan koreksi Holm untuk mengetahui pasangan mana yang berbeda.",
-            pembanding="SPSS: Analyze ▸ Nonparametric Tests ▸ Independent Samples",
+            alasan="",
+            ditolak_karena=alasan,
+            peringatan=(
+                "Boleh tetap dipakai bila sampel tiap kelompok besar, namun "
+                "pelanggaran asumsinya wajib disebutkan pada laporan."
+            ),
         )
-        hasil.alternatif.append(
-            Saran(
-                metode="One-Way ANOVA",
-                halaman="Uji Non-parametrik",
-                alasan="",
-                ditolak_karena=alasan,
-                peringatan=(
-                    "Boleh tetap dipakai bila tiap kelompok berisi cukup banyak "
-                    "pengamatan, dengan menyebutkan pelanggaran asumsinya."
-                ),
-            )
+    )
+    return hasil
+
+
+def _banyak_kelompok(hasil, outcome, kelompok, k, syarat, ordinal, normal, seragam, sebaran, pencilan, besar):
+    if ordinal:
+        alasan = f"'{outcome}' berskala ordinal."
+        return _banyak_kelompok_nonparametrik(hasil, k, syarat, alasan)
+
+    if pencilan.dilanggar:
+        alasan = (
+            f"{pencilan.rincian} Pencilan seekstrem ini tidak dapat dipertanggungjawabkan "
+            "sebagai bagian dari sebaran normal."
         )
-        return hasil
+        return _banyak_kelompok_nonparametrik(hasil, k, syarat, alasan)
+
+    if not besar and sebaran.dilanggar:
+        alasan = (
+            f"Ukuran kelompok belum tergolong besar (di bawah {MIN_BESAR}) dan "
+            f"{sebaran.rincian.lower()} Pada sampel sekecil ini, penyimpangan seberat "
+            "itu cukup mengganggu keakuratan ANOVA."
+        )
+        return _banyak_kelompok_nonparametrik(hasil, k, syarat, alasan)
+
+    catatan_clt = ""
+    if normal.dilanggar:
+        sebab_aman = "ukuran kelompok sudah tergolong besar" if besar else "penyimpangannya tidak tergolong berat"
+        catatan_clt = (
+            f" Shapiro-Wilk memang menolak normalitas pada sebagian kelompok "
+            f"({normal.rincian.lower()}), tetapi {sebab_aman} dan tidak ditemukan "
+            "pencilan ekstrem, sehingga ANOVA tetap tahan dipakai."
+        )
 
     if seragam.dilanggar:
         hasil.utama = Saran(
             metode="Welch ANOVA",
             halaman="Uji Non-parametrik",
             alasan=(
-                f"{k} kelompok bebas dengan sebaran normal, namun ragamnya tidak "
-                f"seragam. {seragam.rincian} Welch ANOVA tidak menuntut ragam yang sama."
+                f"{k} kelompok bebas dengan ragam tidak seragam. {seragam.rincian}"
+                f"{catatan_clt} Welch ANOVA tidak menuntut ragam yang sama, sehingga "
+                "jadi pilihan parametrik yang lebih aman di sini."
             ),
             syarat=syarat,
             lanjutan="Uji lanjut Games-Howell, yang juga tidak menuntut ragam seragam.",
@@ -729,8 +869,8 @@ def _banyak_kelompok(hasil, outcome, kelompok, k, syarat, ordinal, normal, serag
         metode="One-Way ANOVA",
         halaman="Uji Non-parametrik",
         alasan=(
-            f"{k} kelompok bebas, sebaran '{outcome}' normal pada tiap kelompok, dan "
-            "ragamnya seragam."
+            f"{k} kelompok bebas, ragam antar kelompok seragam ({seragam.rincian.lower()})."
+            f"{catatan_clt}"
         ),
         syarat=syarat,
         lanjutan="Uji lanjut Tukey HSD untuk mengetahui pasangan mana yang berbeda.",
@@ -750,8 +890,38 @@ def _banyak_kelompok(hasil, outcome, kelompok, k, syarat, ordinal, normal, serag
     return hasil
 
 
+def _banyak_kelompok_nonparametrik(hasil, k, syarat, alasan):
+    hasil.utama = Saran(
+        metode="Kruskal-Wallis",
+        halaman="Uji Non-parametrik",
+        alasan=f"{k} kelompok bebas dibandingkan tanpa asumsi normalitas. {alasan}",
+        syarat=syarat,
+        lanjutan="Uji lanjut Dunn dengan koreksi Holm untuk mengetahui pasangan mana yang berbeda.",
+        pembanding="SPSS: Analyze ▸ Nonparametric Tests ▸ Independent Samples",
+    )
+    hasil.alternatif.append(
+        Saran(
+            metode="One-Way ANOVA",
+            halaman="Uji Non-parametrik",
+            alasan="",
+            ditolak_karena=alasan,
+            peringatan=(
+                "Boleh tetap dipakai bila tiap kelompok berisi cukup banyak "
+                "pengamatan, dengan menyebutkan pelanggaran asumsinya."
+            ),
+        )
+    )
+    return hasil
+
+
 def _membandingkan_berpasangan(df, kamus, outcome, prediktor) -> Rekomendasi:
-    """Pengukuran berulang pada unit yang sama, tersimpan sebagai beberapa kolom."""
+    """Pengukuran berulang pada unit yang sama, tersimpan sebagai beberapa kolom.
+
+    Asumsi diperiksa pada SELISIH antarpengukuran (dua kolom) atau residual
+    antar-kondisi (tiga kolom atau lebih) — bukan pada salah satu kolom mentah
+    secara terpisah, karena itulah yang sebenarnya disyaratkan uji-t berpasangan
+    dan ANOVA pengukuran berulang.
+    """
     hasil = Rekomendasi()
     kolom = [k for k in ([outcome] if outcome else []) + list(prediktor) if k]
     kolom = list(dict.fromkeys(kolom))
@@ -763,37 +933,49 @@ def _membandingkan_berpasangan(df, kamus, outcome, prediktor) -> Rekomendasi:
         return hasil
 
     bersih = _bersih(df, kolom)
-    normal = periksa_normalitas(bersih, kolom[0], None)
     ordinal = any(_ordinal(kamus, k) for k in kolom)
-    perlu_nonpar = ordinal or normal.dilanggar
+    besar = len(bersih) >= MIN_BESAR
 
     if len(kolom) == 2:
-        if perlu_nonpar:
-            hasil.utama = Saran(
-                metode="Wilcoxon signed-rank",
-                halaman="Uji Non-parametrik",
-                alasan=(
-                    "Dua pengukuran pada unit yang sama dibandingkan tanpa asumsi "
-                    f"normalitas. {'Skalanya ordinal.' if ordinal else normal.rincian}"
-                ),
-                syarat=[normal],
-                pembanding="SPSS: Analyze ▸ Nonparametric Tests ▸ Related Samples",
+        selisih = pd.DataFrame({"selisih": bersih[kolom[0]] - bersih[kolom[1]]})
+        normal = periksa_normalitas(selisih, "selisih", None)
+        sebaran = periksa_bentuk_sebaran(selisih, "selisih", None)
+        pencilan = periksa_pencilan_ekstrem(selisih, "selisih", None)
+        syarat = [normal, sebaran, pencilan]
+
+        if ordinal:
+            alasan = "Salah satu atau kedua pengukuran berskala ordinal, sehingga jarak antar tingkat belum tentu sama."
+            return _berpasangan_nonparametrik(hasil, syarat, alasan)
+        if pencilan.dilanggar:
+            alasan = (
+                f"{pencilan.rincian} Pencilan seekstrem pada selisih kedua pengukuran "
+                "ini tidak dapat dipertanggungjawabkan."
             )
-            hasil.alternatif.append(
-                Saran(
-                    metode="Uji-t berpasangan",
-                    halaman="Uji Non-parametrik",
-                    alasan="",
-                    ditolak_karena="Skalanya ordinal." if ordinal else normal.rincian,
-                )
+            return _berpasangan_nonparametrik(hasil, syarat, alasan)
+        if not besar and sebaran.dilanggar:
+            alasan = (
+                f"Jumlah pasangan belum tergolong besar (di bawah {MIN_BESAR}) dan "
+                f"{sebaran.rincian.lower()} Pada sampel sekecil ini, penyimpangan "
+                "seberat itu cukup mengganggu keakuratan uji-t berpasangan."
             )
-            return hasil
+            return _berpasangan_nonparametrik(hasil, syarat, alasan)
+
+        if normal.dilanggar:
+            sebab_aman = "jumlah pasangan sudah tergolong besar" if besar else "penyimpangannya tidak tergolong berat"
+            alasan_utama = (
+                "Dua pengukuran pada unit yang sama. Shapiro-Wilk pada selisihnya "
+                f"signifikan ({normal.rincian.lower()}), tetapi {sebab_aman} dan "
+                "tidak ditemukan pencilan ekstrem, sehingga uji-t berpasangan tetap "
+                "tahan dipakai."
+            )
+        else:
+            alasan_utama = "Dua pengukuran pada unit yang sama, selisihnya bersebaran normal."
 
         hasil.utama = Saran(
             metode="Uji-t berpasangan",
             halaman="Uji Non-parametrik",
-            alasan="Dua pengukuran pada unit yang sama, selisihnya bersebaran normal.",
-            syarat=[normal],
+            alasan=alasan_utama,
+            syarat=syarat,
             lanjutan="Laporkan Cohen's d untuk sampel berpasangan.",
             pembanding="SPSS: Analyze ▸ Compare Means ▸ Paired-Samples T Test",
         )
@@ -802,31 +984,111 @@ def _membandingkan_berpasangan(df, kamus, outcome, prediktor) -> Rekomendasi:
                 metode="Wilcoxon signed-rank",
                 halaman="Uji Non-parametrik",
                 alasan="",
-                ditolak_karena="Asumsi normalitas terpenuhi, sehingga uji-t lebih peka.",
+                ditolak_karena="Asumsi pada selisihnya cukup terpenuhi, sehingga uji-t lebih peka.",
             )
         )
         return hasil
 
+    # Tiga kondisi atau lebih: periksa residual antar-kondisi (nilai dikurangi
+    # rata-rata subjek itu sendiri), bukan salah satu kolom mentah.
+    residual = bersih[kolom].sub(bersih[kolom].mean(axis=1), axis=0)
+    residual_gab = pd.DataFrame({"residual": residual.to_numpy().ravel()})
+    normal = periksa_normalitas(residual_gab, "residual", None)
+    sebaran = periksa_bentuk_sebaran(residual_gab, "residual", None)
+    pencilan = periksa_pencilan_ekstrem(residual_gab, "residual", None)
+    syarat = [normal, sebaran, pencilan]
+
+    if ordinal:
+        alasan = "Salah satu kolom pengukuran berskala ordinal."
+        return _berpasangan_banyak_nonparametrik(hasil, len(kolom), syarat, alasan)
+    if pencilan.dilanggar:
+        alasan = f"{pencilan.rincian} Pencilan seekstrem ini tidak dapat dipertanggungjawabkan."
+        return _berpasangan_banyak_nonparametrik(hasil, len(kolom), syarat, alasan)
+    if not besar and sebaran.dilanggar:
+        alasan = (
+            f"Jumlah subjek belum tergolong besar (di bawah {MIN_BESAR}) dan "
+            f"{sebaran.rincian.lower()} Pada sampel sekecil ini, penyimpangan seberat "
+            "itu cukup mengganggu keakuratan ANOVA pengukuran berulang."
+        )
+        return _berpasangan_banyak_nonparametrik(hasil, len(kolom), syarat, alasan)
+
+    if normal.dilanggar:
+        sebab_aman = "jumlah subjek sudah tergolong besar" if besar else "penyimpangannya tidak tergolong berat"
+        alasan_utama = (
+            f"{len(kolom)} pengukuran berulang pada unit yang sama. Shapiro-Wilk pada "
+            f"residual antar-kondisi signifikan ({normal.rincian.lower()}), tetapi "
+            f"{sebab_aman} dan tidak ditemukan pencilan ekstrem, sehingga ANOVA "
+            "pengukuran berulang tetap tahan dipakai."
+        )
+    else:
+        alasan_utama = (
+            f"{len(kolom)} pengukuran berulang pada unit yang sama; residual "
+            "antar-kondisinya bersebaran normal."
+        )
+
+    hasil.utama = Saran(
+        metode="ANOVA ukur ulang",
+        halaman="MANOVA",
+        alasan=alasan_utama,
+        syarat=syarat,
+        lanjutan=(
+            "Periksa sphericity Mauchly pada halaman metode; pakai koreksi "
+            "Greenhouse-Geisser bila dilanggar."
+        ),
+        pembanding="SPSS: Analyze ▸ General Linear Model ▸ Repeated Measures",
+    )
+    hasil.alternatif.append(
+        Saran(
+            metode="Friedman",
+            halaman="Uji Non-parametrik",
+            alasan="",
+            ditolak_karena=(
+                "Asumsi pada residual antar-kondisi cukup terpenuhi, sehingga ANOVA "
+                "pengukuran berulang lebih peka menemukan perbedaan yang memang ada. "
+                "Friedman tetap dapat dipakai sebagai pemeriksaan silang."
+            ),
+        )
+    )
+    return hasil
+
+
+def _berpasangan_nonparametrik(hasil, syarat, alasan):
+    hasil.utama = Saran(
+        metode="Wilcoxon signed-rank",
+        halaman="Uji Non-parametrik",
+        alasan=f"Dua pengukuran pada unit yang sama dibandingkan tanpa asumsi normalitas. {alasan}",
+        syarat=syarat,
+        pembanding="SPSS: Analyze ▸ Nonparametric Tests ▸ Related Samples",
+    )
+    hasil.alternatif.append(
+        Saran(
+            metode="Uji-t berpasangan",
+            halaman="Uji Non-parametrik",
+            alasan="",
+            ditolak_karena=alasan,
+        )
+    )
+    return hasil
+
+
+def _berpasangan_banyak_nonparametrik(hasil, jumlah_kolom, syarat, alasan):
     hasil.utama = Saran(
         metode="Friedman",
         halaman="Uji Non-parametrik",
         alasan=(
-            f"{len(kolom)} pengukuran berulang pada unit yang sama. Friedman tidak "
-            "menuntut normalitas dan menangani lebih dari dua pengukuran sekaligus."
+            f"{jumlah_kolom} pengukuran berulang pada unit yang sama, dibandingkan "
+            f"tanpa asumsi normalitas. {alasan}"
         ),
-        syarat=[normal],
+        syarat=syarat,
         lanjutan="Laporkan Kendall's W sebagai ukuran kesepakatan antar pengukuran.",
         pembanding="SPSS: Analyze ▸ Nonparametric Tests ▸ Related Samples ▸ Friedman",
     )
     hasil.alternatif.append(
         Saran(
             metode="ANOVA ukur ulang",
-            halaman="(belum tersedia)",
+            halaman="MANOVA",
             alasan="",
-            ditolak_karena=(
-                "ANOVA ukur ulang belum tersedia di aplikasi ini. Friedman menjawab "
-                "pertanyaan yang sama tanpa asumsi normalitas dan kesamaan ragam."
-            ),
+            ditolak_karena=alasan,
         )
     )
     return hasil
@@ -936,6 +1198,38 @@ def _menghubungkan(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Reko
 # --------------------------------------------------------------------------- #
 
 
+def _periksa_normalitas_residual(regression, df, outcome, prediktor) -> Syarat:
+    """Normalitas RESIDUAL model, bukan outcome mentah.
+
+    Regresi mengasumsikan galat model bersebaran normal, bukan variabel terikatnya
+    sendiri — outcome yang menceng sekalipun dapat punya residual yang mendekati
+    normal begitu prediktornya ikut menjelaskan sebagian kemencengan itu. Memakai
+    ulang ``regression.linear_regression`` (yang sudah menghitung Jarque-Bera pada
+    residualnya), bukan menulis ulang fit model atau uji normalitas.
+    """
+    try:
+        model = regression.linear_regression(df, outcome, prediktor)
+    except Exception:  # noqa: BLE001 - model gagal fit pada data ekstrem
+        return Syarat("Normalitas residual", TIDAK_DIUJI, "Model belum dapat diperiksa.")
+
+    baris = model.diagnostics[model.diagnostics["Asumsi"].str.contains("Normalitas residual")]
+    if baris.empty:
+        return Syarat(
+            "Normalitas residual", TIDAK_DIUJI, "Diagnostik residual tidak tersedia untuk model ini."
+        )
+
+    p = float(baris.iloc[0]["p-value"])
+    if not np.isfinite(p):
+        return Syarat("Normalitas residual", TIDAK_DIUJI, "Nilai p Jarque-Bera tidak terhingga.")
+    if p < ALFA:
+        return Syarat(
+            "Normalitas residual", DILANGGAR, f"Jarque-Bera menolak normalitas residual (p = {p:.4f})."
+        )
+    return Syarat(
+        "Normalitas residual", TERPENUHI, f"Jarque-Bera tidak menolak normalitas residual (p = {p:.4f})."
+    )
+
+
 def _memperkirakan_nilai(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Rekomendasi:
     from nalardata import regression
 
@@ -966,7 +1260,7 @@ def _memperkirakan_nilai(df, kamus, outcome, prediktor, kelompok, berpasangan) -
         return hasil
 
     kolinear = periksa_multikolinearitas(df, prediktor)
-    normal = periksa_normalitas(df, outcome, None)
+    normal = _periksa_normalitas_residual(regression, df, outcome, prediktor)
     syarat = [kolinear, normal]
 
     try:
