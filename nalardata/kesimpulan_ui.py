@@ -334,6 +334,16 @@ def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan] | None:
                 index=1 if kelompok_kandidat else 0,
                 key="kesimpulan_kelompok",
             )
+            moderator = st.selectbox(
+                "Variabel moderator (opsional, regresi moderasi)",
+                [TANPA] + prediktor,
+                index=0,
+                key="kesimpulan_moderator",
+                help=(
+                    "Salah satu prediktor di atas diperlakukan sebagai penjelas utama; "
+                    "pilih satu prediktor lain di sini sebagai moderatornya."
+                ),
+            )
 
         if target_biner != TANPA:
             kandidat_biner = [c for c in numerik if c != target_biner]
@@ -362,6 +372,7 @@ def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan] | None:
         target_biner=None if target_biner == TANPA else target_biner,
         prediktor_biner=prediktor_biner,
         kelompok=None if kelompok == TANPA else kelompok,
+        moderator=None if moderator == TANPA else moderator,
     )
 
     penelitian = ui.penelitian()
@@ -377,6 +388,7 @@ def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan] | None:
         konfig.target_biner,
         tuple(konfig.prediktor_biner),
         konfig.kelompok,
+        konfig.moderator,
         # Rancangan ikut menandai: mengubah desain penelitian mengubah kosakata
         # seluruh laporan, jadi laporan lama tidak boleh dipakai kembali.
         penelitian.desain,

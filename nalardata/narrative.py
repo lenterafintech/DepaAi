@@ -33,9 +33,14 @@ from nalardata import (
     descriptive,
     discriminant,
     manova,
+    moderation as mo,
+    nonparametrik as npar,
+    parametrik as par,
     pca_analysis,
     preprocessing,
     regression,
+    reliability as rb,
+    sem_analysis as sem,
 )
 
 AUDIENCES = ("eksekutif", "akademik", "profesional")
@@ -114,6 +119,24 @@ class Konfigurasi:
     kelompok: str | None = None
     gugus_x: list[str] = field(default_factory=list)
     gugus_y: list[str] = field(default_factory=list)
+    moderator: str | None = None
+
+
+@dataclass
+class HasilUjiBedaOtomatis:
+    """Uji beda univariat yang dipilih otomatis: parametrik atau non-parametrik.
+
+    Berbeda dari ANOVA lanjutan pada MANOVA (selalu parametrik), pemilihan di sini
+    memeriksa normalitas lebih dulu — persis seperti yang dilakukan pengguna sendiri
+    di tab Analisis — sehingga uji yang salah asumsi tidak ikut disimpulkan otomatis.
+    """
+
+    uji: npar.HasilUji
+    outcome: str
+    kelompok: str
+    n_kelompok: int
+    nonparametrik: bool
+    alasan_pilihan: str
 
 
 @dataclass
@@ -138,6 +161,10 @@ class Analisis:
     box_m: assumptions.BoxMResult | None = None
     diskriminan: discriminant.DiscriminantResult | None = None
     kanonik: cca.CCAResult | None = None
+    uji_beda: HasilUjiBedaOtomatis | None = None
+    moderasi: mo.HasilModerasi | None = None
+    reliabilitas: list[rb.HasilKonstruk] | None = None
+    sem: sem.HasilSEM | None = None
     gagal: dict[str, str] = field(default_factory=dict)
 
 
@@ -381,6 +408,30 @@ def jalankan_analisis(df: pd.DataFrame, konfig: Konfigurasi) -> Analisis:
         langkah["Korelasi kanonik"] = lambda: setattr(
             hasil, "kanonik", cca.run_cca(df, konfig.gugus_x, konfig.gugus_y)
         )
+    if konfig.kelompok and konfig.target_numerik:
+        langkah["Uji beda"] = lambda: setattr(
+            hasil, "uji_beda", _jalankan_uji_beda(df, konfig.target_numerik, konfig.kelompok)
+        )
+    if konfig.target_numerik and konfig.moderator and konfig.prediktor:
+        x = next((p for p in konfig.prediktor if p != konfig.moderator), None)
+        if x is not None:
+            kontrol = [p for p in konfig.prediktor if p not in {x, konfig.moderator}]
+            langkah["Regresi moderasi"] = lambda: setattr(
+                hasil,
+                "moderasi",
+                mo.regresi_moderasi(df, konfig.target_numerik, x, konfig.moderator, kontrol),
+            )
+    # Reliabilitas dan CFA hanya berguna pada data berbentuk kuesioner, ditandai
+    # oleh butir yang bernama berpola (KUAL1, KUAL2, ...). Tebakan yang sama dipakai
+    # ulang dari halaman Reliabilitas & Validitas, bukan ditulis kedua kalinya.
+    konstruk = rb.tebak_konstruk(variabel)
+    if konstruk:
+        langkah["Reliabilitas"] = lambda: setattr(
+            hasil, "reliabilitas", rb.analisis_konstruk(df, konstruk)
+        )
+        langkah["CFA"] = lambda: setattr(
+            hasil, "sem", sem.jalankan(df, sem.spesifikasi_cfa(konstruk))
+        )
 
     for nama, jalankan in langkah.items():
         try:
@@ -396,6 +447,42 @@ def _jalankan_klaster(hasil: Analisis, subset: pd.DataFrame) -> None:
     k = int(diagnostik.loc[diagnostik["Silhouette"].idxmax(), "k"])
     hasil.klaster = clustering.run_kmeans(data, k)
     hasil.profil_klaster = clustering.profile_clusters(subset, hasil.klaster.labels)
+
+
+def _jalankan_uji_beda(df: pd.DataFrame, outcome: str, kelompok: str) -> HasilUjiBedaOtomatis:
+    """Pilih uji-t/ANOVA atau padanan non-parametriknya, persis seperti pengguna sendiri.
+
+    Berbeda dari ANOVA lanjutan pada MANOVA (selalu parametrik terlepas dari
+    sebarannya), pemilihan di sini memeriksa normalitas lebih dulu memakai
+    ``nonparametrik.perlu_nonparametrik`` — fungsi yang sama yang dipakai tab
+    Analisis — sehingga uji yang salah asumsi tidak ikut disimpulkan otomatis.
+    """
+    tingkat = sorted(df[kelompok].dropna().unique().tolist(), key=str)
+    if len(tingkat) < 2:
+        raise ValueError(f"Kelompok '{kelompok}' memerlukan minimal 2 kategori.")
+
+    nonparam, alasan = npar.perlu_nonparametrik(df, [outcome])
+    nilai = df[outcome]
+    grup = df[kelompok].astype(str)
+
+    if len(tingkat) == 2:
+        if nonparam:
+            a = df.loc[df[kelompok] == tingkat[0], outcome]
+            b = df.loc[df[kelompok] == tingkat[1], outcome]
+            uji = npar.mann_whitney(a, b, str(tingkat[0]), str(tingkat[1]))
+        else:
+            uji = par.uji_t_bebas(nilai, grup, ragam_sama=True)
+    else:
+        uji = npar.kruskal_wallis(nilai, grup) if nonparam else par.anova_satu_arah(nilai, grup)
+
+    return HasilUjiBedaOtomatis(
+        uji=uji,
+        outcome=outcome,
+        kelompok=kelompok,
+        n_kelompok=len(tingkat),
+        nonparametrik=nonparam,
+        alasan_pilihan=alasan,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -1219,6 +1306,273 @@ def temuan_kanonik(a: Analisis) -> Temuan:
         ringkas=(
             f"Kedua gugus variabel berkaitan {kekuatan} (Rc = {num(r1, 3)}) dengan "
             f"redundansi {pct(redundansi)}."
+        ),
+        eksekutif=eksekutif,
+        akademik=akademik,
+        profesional=profesional,
+    )
+
+
+def temuan_uji_beda(a: Analisis) -> Temuan:
+    hasil = a.uji_beda
+    if hasil is None:
+        raise ValueError("Hasil uji beda tidak tersedia.")
+    uji = hasil.uji
+    tafsir_efek = uji.efek_tafsir or "tidak diketahui"
+
+    eksekutif = (
+        f"Rata-rata {hasil.outcome} pada {hasil.n_kelompok} kelompok {hasil.kelompok} "
+        + (
+            "ternyata berbeda secara meyakinkan. "
+            if uji.signifikan
+            else "ternyata tidak berbeda secara meyakinkan. "
+        )
+        + (
+            f"Besarnya perbedaan tergolong {tafsir_efek}. "
+            if uji.signifikan
+            else ""
+        )
+        + (
+            f"Uji ini memakai bentuk yang tidak menuntut sebaran normal karena "
+            f"{hasil.alasan_pilihan.lower()} "
+            if hasil.nonparametrik
+            else ""
+        )
+        + "Perbedaan yang signifikan secara statistik belum tentu besar secara praktis — "
+        "periksa ukuran efeknya sebelum dijadikan dasar keputusan."
+    )
+
+    akademik = (
+        f"{uji.nama} pada {hasil.outcome} menurut {hasil.n_kelompok} kelompok "
+        f"{hasil.kelompok} menghasilkan {uji.ringkas()} "
+        + (
+            f"Sebaran data {hasil.alasan_pilihan.lower()}, sehingga uji non-parametrik "
+            f"dipakai sebagai bentuk yang tepat (padanan parametriknya {uji.padanan})."
+            if hasil.nonparametrik
+            else "Sebaran data cukup mendekati normal, sehingga uji parametrik ini sah dipakai."
+        )
+    )
+
+    profesional = (
+        f"Uji beda {hasil.outcome} antar {hasil.n_kelompok} kelompok {hasil.kelompok}: "
+        + (
+            f"signifikan, efek {tafsir_efek}. "
+            if uji.signifikan
+            else "tidak signifikan. "
+        )
+        + (
+            "Dipilih otomatis dalam bentuk non-parametrik karena data tidak memenuhi "
+            "syarat normalitas — jangan memaksakan bentuk parametriknya. "
+            if hasil.nonparametrik
+            else ""
+        )
+        + "Gunakan hasil ini sebagai pemeriksaan awal sebelum model yang lebih lengkap "
+        "(regresi atau MANOVA) yang memperhitungkan variabel lain sekaligus."
+    )
+
+    return Temuan(
+        judul=f"Perbedaan {hasil.outcome} antar kelompok {hasil.kelompok}",
+        metode=uji.nama,
+        ringkas=(
+            f"{hasil.outcome} "
+            + ("berbeda" if uji.signifikan else "tidak berbeda")
+            + f" bermakna antar kelompok {hasil.kelompok}."
+        ),
+        eksekutif=eksekutif,
+        akademik=akademik,
+        profesional=profesional,
+    )
+
+
+def temuan_moderasi(a: Analisis) -> Temuan:
+    hasil = a.moderasi
+    if hasil is None:
+        raise ValueError("Hasil regresi moderasi tidak tersedia.")
+    interaksi = hasil.koefisien_interaksi()
+    signifikan = hasil.signifikan()
+    perubahan = hasil.uji_perubahan()
+
+    eksekutif = (
+        f"Pengaruh {hasil.x} terhadap {hasil.y} "
+        + (
+            f"ternyata berbeda menurut tingkat {hasil.m} — dengan kata lain, {hasil.m} "
+            f"memoderasi hubungan keduanya. "
+            if signifikan
+            else f"ternyata seragam pada seluruh tingkat {hasil.m} — tidak ada bukti "
+            f"{hasil.m} memoderasi hubungan keduanya. "
+        )
+        + (
+            f"Suku interaksi menambah {pct(hasil.delta_r2 * 100)} daya jelas model. "
+            if signifikan
+            else ""
+        )
+        + "Bila moderasi terbukti, kebijakan yang sama tidak boleh diperlakukan seragam "
+        "pada seluruh tingkat moderator."
+    )
+
+    akademik = (
+        f"Model moderasi Y = {hasil.x} + {hasil.m} + ({hasil.x} × {hasil.m}) memakai data "
+        f"{'terpusatkan (mean-centered)' if hasil.dipusatkan else 'tanpa pemusatan'} "
+        f"(n = {num(hasil.n)}). Koefisien interaksi B = {num(float(interaksi['B']), 3)}, "
+        f"{pval(float(interaksi['p-value']))}. Uji perubahan R² akibat suku interaksi: "
+        f"ΔR² = {num(perubahan['Delta R2'], 4)}, F({int(perubahan['df1'])}, "
+        f"{int(perubahan['df2'])}) = {num(perubahan['F'])}, {pval(perubahan['p-value'])}. "
+        + hasil.kesimpulan()
+    )
+
+    profesional = (
+        f"Interaksi {hasil.x} × {hasil.m} pada {hasil.y}: "
+        + (
+            f"signifikan (ΔR² = {num(perubahan['Delta R2'], 4)}; {pval(perubahan['p-value'])}). "
+            if signifikan
+            else f"tidak signifikan ({pval(perubahan['p-value'])}). "
+        )
+        + (
+            "Periksa kemiringan sederhana (simple slopes) dan rentang Johnson-Neyman pada "
+            "panel Regresi Moderasi untuk tahu tepatnya di tingkat moderator mana pengaruh "
+            f"{hasil.x} signifikan. "
+            if signifikan
+            else "Model tanpa suku interaksi sudah memadai; melaporkan interaksi yang tidak "
+            "signifikan hanya menambah kerumitan tanpa manfaat. "
+        )
+        + "Suku interaksi dipusatkan pada rata-rata agar koefisien utamanya tetap bermakna."
+    )
+
+    return Temuan(
+        judul=f"Moderasi {hasil.m} atas keterkaitan {hasil.x} dengan {hasil.y}",
+        metode="Regresi moderasi (MRA)",
+        ringkas=(
+            f"{hasil.m} "
+            + ("memoderasi" if signifikan else "tidak terbukti memoderasi")
+            + f" pengaruh {hasil.x} terhadap {hasil.y}."
+        ),
+        eksekutif=eksekutif,
+        akademik=akademik,
+        profesional=profesional,
+    )
+
+
+def temuan_reliabilitas(a: Analisis) -> Temuan:
+    daftar = a.reliabilitas
+    if not daftar:
+        raise ValueError("Hasil reliabilitas tidak tersedia.")
+    memenuhi = [h for h in daftar if h.memenuhi()]
+    bermasalah = [h for h in daftar if not h.memenuhi()]
+    rerata_alpha = float(np.mean([h.alpha for h in daftar]))
+
+    eksekutif = (
+        f"Dari {len(daftar)} konstruk kuesioner yang diperiksa, "
+        + (
+            f"seluruhnya konsisten dan layak dipakai. "
+            if not bermasalah
+            else f"{len(memenuhi)} konsisten dan layak dipakai, sedangkan "
+            f"{len(bermasalah)} ({_daftar([h.nama for h in bermasalah], 3)}) masih perlu "
+            "diperbaiki butirnya sebelum datanya dipakai untuk kesimpulan. "
+        )
+        + "Instrumen yang tidak konsisten membuat kesimpulan apa pun di atasnya meragukan, "
+        "terlepas seberapa canggih analisis lanjutannya."
+    )
+
+    rincian_akademik = "; ".join(
+        f"{h.nama} (α = {num(h.alpha, 3)}; ω = {num(h.omega, 3)}; CR = {num(h.cr, 3)}; "
+        f"AVE = {num(h.ave, 3)}; {h.catatan().lower()})"
+        for h in daftar
+    )
+    akademik = (
+        f"Reliabilitas dan validitas konvergen diperiksa pada {len(daftar)} konstruk: "
+        f"{rincian_akademik}. Ambang yang dipakai: alpha dan CR ≥ 0,70, AVE ≥ 0,50, "
+        "muatan faktor ≥ 0,50 (Hair dkk., 2019)."
+    )
+
+    profesional = (
+        f"Rerata alpha Cronbach {num(rerata_alpha, 3)} pada {len(daftar)} konstruk. "
+        + (
+            "Seluruh konstruk siap dipakai pada analisis lanjutan (regresi, SEM, atau "
+            "sebagai skor komposit). "
+            if not bermasalah
+            else f"Konstruk {_daftar([h.nama for h in bermasalah], 3)} belum memenuhi ambang "
+            "— tinjau ulang butirnya, atau keluarkan butir dengan muatan terendah, sebelum "
+            "skor konstruknya dipakai pada analisis lanjutan. "
+        )
+        + "Instrumen yang lolos di sini belum tentu valid secara isi (content validity); "
+        "itu tetap menuntut penilaian ahli, bukan angka semata."
+    )
+
+    return Temuan(
+        judul="Reliabilitas dan validitas instrumen",
+        metode="Alpha Cronbach, omega McDonald, CR, dan AVE",
+        ringkas=(
+            f"{len(memenuhi)} dari {len(daftar)} konstruk memenuhi ambang reliabilitas "
+            "dan validitas konvergen."
+        ),
+        eksekutif=eksekutif,
+        akademik=akademik,
+        profesional=profesional,
+    )
+
+
+def temuan_sem(a: Analisis) -> Temuan:
+    hasil = a.sem
+    if hasil is None:
+        raise ValueError("Hasil CFA tidak tersedia.")
+    tabel = sem.tabel_kecocokan(hasil)
+    cocok = hasil.cocok()
+    memenuhi = tabel[(tabel["Keputusan"] == "Memenuhi") & (tabel["Indeks"] != "Chi-square")]
+    muatan = hasil.muatan()
+    lemah = muatan[muatan["Estimasi baku"].abs() < 0.5]["Ke"].tolist() if not muatan.empty else []
+    catatan_chi2 = sem.catatan_chi_square(hasil)
+
+    eksekutif = (
+        f"Model pengukuran yang menguji apakah butir kuesioner benar-benar mengukur "
+        f"{len(hasil.laten)} konstruk yang dimaksud "
+        + (
+            "ternyata cocok dengan data: butir-butirnya memang mengelompok sesuai "
+            "konstruknya. "
+            if cocok
+            else "ternyata belum cukup cocok dengan data — sebagian butir mungkin tidak "
+            "benar-benar mengukur konstruk yang dimaksud. "
+        )
+        + (
+            f"Butir yang lemah mengukur konstruknya: {_daftar(lemah, 3)}. "
+            if lemah
+            else ""
+        )
+        + "Model pengukuran yang tidak cocok membuat skor konstruknya tidak dapat "
+        "dipercaya untuk dipakai pada analisis lanjutan."
+    )
+
+    akademik = (
+        f"CFA dengan estimator {hasil.nama_estimator} pada {len(hasil.laten)} konstruk "
+        f"laten dan {len(hasil.teramati)} indikator (n = {num(hasil.n)}) menghasilkan "
+        f"{len(memenuhi)} dari {len(tabel) - 1} indeks kecocokan pendamping yang memenuhi "
+        f"ambang. {catatan_chi2 or 'Uji chi-square tidak signifikan, mendukung kecocokan model.'} "
+        + (
+            f"Muatan terstandardisasi di bawah 0,50: {_daftar(lemah, 4)}."
+            if lemah
+            else "Seluruh muatan terstandardisasi di atas 0,50."
+        )
+    )
+
+    profesional = (
+        f"Kecocokan model pengukuran: {'memenuhi' if cocok else 'belum memenuhi'} "
+        f"mayoritas ambang indeks pendamping. "
+        + (
+            f"Pertimbangkan membuang atau menulis ulang butir {_daftar(lemah, 3)} sebelum "
+            "model dipakai untuk SEM penuh atau skor konstruk. "
+            if lemah
+            else "Model pengukuran ini siap dijadikan dasar SEM penuh (menambahkan jalur "
+            "struktural antar konstruk) bila diperlukan. "
+        )
+        + "Spesifikasi model di sini ditebak otomatis dari nama kolom; tinjau ulang secara "
+        "manual pada panel CFA, Jalur & SEM bila pengelompokan butirnya tidak sesuai maksud."
+    )
+
+    return Temuan(
+        judul="Kecocokan model pengukuran (CFA)",
+        metode=f"CFA — estimator {hasil.nama_estimator}",
+        ringkas=(
+            f"Model pengukuran {len(hasil.laten)} konstruk "
+            + ("cocok dengan data." if cocok else "belum cukup cocok dengan data.")
         ),
         eksekutif=eksekutif,
         akademik=akademik,
@@ -2349,6 +2703,10 @@ def susun_laporan(a: Analisis) -> Laporan:
         ("MANOVA", temuan_perbedaan_kelompok),
         ("Analisis diskriminan", temuan_diskriminan),
         ("Korelasi kanonik", temuan_kanonik),
+        ("Uji beda", temuan_uji_beda),
+        ("Regresi moderasi", temuan_moderasi),
+        ("Reliabilitas", temuan_reliabilitas),
+        ("CFA", temuan_sem),
     ]
     for nama, bangun in pembangun:
         try:

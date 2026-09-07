@@ -106,10 +106,16 @@ menuliskan hasilnya untuk pembaca yang berbeda:
 | **Mahasiswa & Pengajar** | Mahasiswa, dosen, dan pengajar | Pelaporan bergaya jurnal (statistik uji, derajat bebas, p-value, ukuran efek), tabel bergaya APA, paragraf siap salin untuk bab metode/hasil/pembahasan, keterbatasan, dan rujukan ambang |
 | **Profesional** | Analis dan praktisi | Metrik kunci model, kontribusi fitur, temuan teknis, ringkasan pemeriksaan asumsi, tindak lanjut berprioritas, dan risiko pemakaian |
 
-Pengaturan cakupan analisis (variabel, target, prediktor, kelompok) dibuat sekali dan
-berlaku untuk ketiga register; hasil perhitungan dipakai ulang sehingga berpindah
-register tidak menghitung ulang. Seluruh angka dihitung ulang dari data yang sedang
-aktif — tidak ada nilai contoh yang ditanam.
+Pengaturan cakupan analisis (variabel, target, prediktor, kelompok, moderator) dibuat
+sekali dan berlaku untuk ketiga register; hasil perhitungan dipakai ulang sehingga
+berpindah register tidak menghitung ulang. Seluruh angka dihitung ulang dari data
+yang sedang aktif — tidak ada nilai contoh yang ditanam.
+
+Baterainya mencakup regresi linear & logistik, MANOVA, analisis diskriminan, korelasi
+kanonik, PCA, klaster, dan uji beda otomatis (memilih sendiri bentuk parametrik atau
+non-parametrik menurut normalitas data). Reliabilitas & CFA ikut otomatis begitu nama
+kolom berpola butir kuesioner (KUAL1, KUAL2, …) terdeteksi; regresi moderasi menyusul
+begitu variabel moderator dipilih pada panel pengaturan.
 
 ### Menyimpan pekerjaan: berkas proyek
 

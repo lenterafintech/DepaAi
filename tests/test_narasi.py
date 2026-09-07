@@ -6,6 +6,7 @@ import re
 from html import escape
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -89,14 +90,20 @@ def test_seluruh_analisis_berjalan(hasil):
         "manova",
         "diskriminan",
         "kanonik",
+        "uji_beda",
     ):
         assert getattr(analisis, atribut) is not None, atribut
+    # Moderasi, reliabilitas, dan CFA menuntut konfigurasi tambahan (moderator,
+    # atau butir kuesioner bernama berpola) yang tidak dipenuhi fixture ini.
+    assert analisis.moderasi is None
+    assert analisis.reliabilitas is None
+    assert analisis.sem is None
 
 
 def test_laporan_memuat_seluruh_metode(hasil):
     _, laporan = hasil
     assert laporan.dilewati == []
-    assert len(laporan.temuan) == 10
+    assert len(laporan.temuan) == 11
     assert laporan.headline and laporan.subheadline
     assert laporan.lampu and laporan.rekomendasi and laporan.keterbatasan
     assert laporan.tabel and laporan.paragraf and laporan.rujukan
@@ -314,3 +321,149 @@ def test_rujukan_memuat_dasar_ambang_yang_paling_sering_dipakai():
     gabungan = " ".join(nr.RUJUKAN)
     for kata in ("HTMT", "omega", "Fornell-Larcker", "KMO", "efek"):
         assert kata in gabungan
+
+
+# --------------------------------------------------------------------------- #
+# Fase B — pembangun temuan_* yang melengkapi baterai otomatis
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture(scope="module")
+def data_survei() -> pd.DataFrame:
+    """Data kuesioner sintetis dengan dua konstruk laten yang benar-benar ditanam.
+
+    Butir bernama KUALn/PUASn (berpola nomor) agar ``reliability.tebak_konstruk``
+    mengelompokkannya secara otomatis, persis seperti yang dibaca ``jalankan_analisis``.
+    """
+    rng = np.random.default_rng(42)
+    n = 200
+    kual = rng.normal(0, 1, n)
+    puas = rng.normal(0, 1, n)
+    return pd.DataFrame(
+        {
+            "KUAL1": kual * 0.8 + rng.normal(0, 0.5, n),
+            "KUAL2": kual * 0.75 + rng.normal(0, 0.5, n),
+            "KUAL3": kual * 0.7 + rng.normal(0, 0.5, n),
+            "PUAS1": puas * 0.8 + rng.normal(0, 0.5, n),
+            "PUAS2": puas * 0.75 + rng.normal(0, 0.5, n),
+            "PUAS3": puas * 0.7 + rng.normal(0, 0.5, n),
+        }
+    )
+
+
+def test_uji_beda_dua_kelompok_terpasang_otomatis(data):
+    konfig = nr.Konfigurasi(
+        variabel=NUMERIK,
+        nama_data="uji.csv",
+        target_numerik="skor_kredit",
+        kelompok="gagal_bayar",
+    )
+    analisis = nr.jalankan_analisis(data, konfig)
+    assert analisis.uji_beda is not None
+    assert analisis.uji_beda.n_kelompok == 2
+
+    temuan = nr.temuan_uji_beda(analisis)
+    for pembaca in nr.AUDIENCES:
+        teks = temuan.teks(pembaca)
+        assert len(teks) > 40
+        assert not re.search(r"\bnan\b", teks, flags=re.IGNORECASE)
+
+
+def test_uji_beda_tiga_kelompok_memilih_anova_atau_kruskal(data):
+    konfig = nr.Konfigurasi(
+        variabel=NUMERIK,
+        nama_data="uji.csv",
+        target_numerik="skor_kredit",
+        kelompok="segmen_usaha",
+    )
+    analisis = nr.jalankan_analisis(data, konfig)
+    assert analisis.uji_beda is not None
+    assert analisis.uji_beda.n_kelompok == 3
+    assert analisis.uji_beda.uji.kode in {"anova", "kruskal"}
+
+
+def test_moderasi_terpasang_saat_moderator_diisi(data):
+    konfig = nr.Konfigurasi(
+        variabel=["skor_kredit", "pendapatan_bulanan", "lama_usaha_tahun"],
+        nama_data="uji.csv",
+        target_numerik="skor_kredit",
+        prediktor=["pendapatan_bulanan", "lama_usaha_tahun"],
+        moderator="lama_usaha_tahun",
+    )
+    analisis = nr.jalankan_analisis(data, konfig)
+    assert analisis.moderasi is not None
+    assert analisis.moderasi.x == "pendapatan_bulanan"
+    assert analisis.moderasi.m == "lama_usaha_tahun"
+
+    temuan = nr.temuan_moderasi(analisis)
+    assert "pengaruh" not in temuan.judul.lower()
+    assert "terhadap" not in temuan.judul.lower()
+    for pembaca in nr.AUDIENCES:
+        assert len(temuan.teks(pembaca)) > 40
+
+
+def test_moderasi_tanpa_moderator_tidak_terpasang(data):
+    konfig = nr.Konfigurasi(
+        variabel=["skor_kredit", "pendapatan_bulanan", "lama_usaha_tahun"],
+        nama_data="uji.csv",
+        target_numerik="skor_kredit",
+        prediktor=["pendapatan_bulanan", "lama_usaha_tahun"],
+    )
+    analisis = nr.jalankan_analisis(data, konfig)
+    assert analisis.moderasi is None
+    with pytest.raises(ValueError):
+        nr.temuan_moderasi(analisis)
+
+
+def test_reliabilitas_dan_cfa_terpasang_otomatis_dari_pola_nama_butir(data_survei):
+    konfig = nr.Konfigurasi(variabel=list(data_survei.columns), nama_data="survei.csv")
+    analisis = nr.jalankan_analisis(data_survei, konfig)
+    assert analisis.gagal == {}
+    assert analisis.reliabilitas is not None
+    assert {h.nama for h in analisis.reliabilitas} == {"KUAL", "PUAS"}
+    assert all(h.memenuhi() for h in analisis.reliabilitas)  # konstruk ditanam kuat
+    assert analisis.sem is not None
+    assert analisis.sem.cocok()
+
+    temuan_rel = nr.temuan_reliabilitas(analisis)
+    temuan_sem = nr.temuan_sem(analisis)
+    for temuan in (temuan_rel, temuan_sem):
+        for pembaca in nr.AUDIENCES:
+            teks = temuan.teks(pembaca)
+            assert len(teks) > 40
+            assert not re.search(r"\bnan\b", teks, flags=re.IGNORECASE)
+            assert "None" not in teks
+
+
+def test_reliabilitas_tanpa_pola_nama_butir_tidak_terpasang(data):
+    """Data non-kuesioner (tanpa butir bernomor) tidak boleh salah dikira survei."""
+    konfig = nr.Konfigurasi(variabel=NUMERIK, nama_data="uji.csv")
+    analisis = nr.jalankan_analisis(data, konfig)
+    assert analisis.reliabilitas is None
+    assert analisis.sem is None
+
+
+def test_temuan_baru_menghormati_kunci_kausalitas(data, data_survei):
+    """Uji beda, moderasi, reliabilitas, dan CFA tidak boleh lolos satu pun ungkapan
+    sebab-akibat pada rancangan potong lintang — termasuk pada judulnya, yang tidak
+    ikut diproses ulang oleh ``kunci_kesimpulan`` sehingga harus aman sejak ditulis."""
+    from nalardata import pagar
+    from nalardata import proyek_penelitian as pp
+
+    lintang = pp.ProyekPenelitian(desain="potong_lintang")
+
+    konfig = nr.Konfigurasi(
+        variabel=["skor_kredit", "pendapatan_bulanan", "lama_usaha_tahun", "segmen_usaha"],
+        nama_data="uji.csv",
+        target_numerik="skor_kredit",
+        prediktor=["pendapatan_bulanan", "lama_usaha_tahun"],
+        moderator="lama_usaha_tahun",
+        kelompok="segmen_usaha",
+    )
+    _, lap = nr.analisis_dan_laporan(data, konfig, lintang)
+    assert pagar.periksa_kausalitas(_seluruh_teks(lap), lintang) == []
+    assert any("Uji beda" in m or "Moderasi" in t.judul for m, t in zip(lap.metode_terpakai, lap.temuan))
+
+    konfig_survei = nr.Konfigurasi(variabel=list(data_survei.columns), nama_data="survei.csv")
+    _, lap_survei = nr.analisis_dan_laporan(data_survei, konfig_survei, lintang)
+    assert pagar.periksa_kausalitas(_seluruh_teks(lap_survei), lintang) == []
