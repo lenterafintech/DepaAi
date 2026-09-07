@@ -455,6 +455,59 @@ def test_rapor_data_tidak_mengubah_data_saat_hanya_dibuka(sample):
 
 
 # --------------------------------------------------------------------------- #
+# Penanganan Data
+# --------------------------------------------------------------------------- #
+
+
+def test_penanganan_data_tidak_mengubah_data_saat_hanya_dibuka(sample):
+    app = _run(sample)
+    assert not app.exception
+    assert app.session_state["dataset"].shape == sample.shape
+
+
+def test_penanganan_data_menerapkan_imputasi_dan_penskalaan(sample):
+    from nalardata import preprocessing as pp
+
+    kotor = sample.copy()
+    numerik = pp.numeric_columns(kotor)
+    kolom = numerik[0]
+    kotor.loc[0, kolom] = None
+
+    app = _run(kotor)
+    app.selectbox(key="pen_data_missing").set_value("rata-rata").run()
+    app.button(key="pen_num_terapkan").click().run()
+    assert not app.exception
+
+    hasil = app.session_state["dataset"]
+    assert hasil[numerik].isna().sum().sum() == 0
+    assert hasil.shape[0] == kotor.shape[0]
+
+    riwayat = app.session_state["rapor_riwayat_data"]
+    assert len(riwayat) == 1
+    assert "penskalaan" in riwayat[0][1]
+
+
+def test_penanganan_data_batalkan_lewat_tombol_rapor_data(sample):
+    """Riwayat dipakai bersama Rapor Data: satu tombol Batalkan untuk keduanya."""
+    from nalardata import preprocessing as pp
+
+    kotor = sample.copy()
+    numerik = pp.numeric_columns(kotor)
+    kotor.loc[0, numerik[0]] = None
+
+    app = _run(kotor)
+    app.button(key="pen_num_terapkan").click().run()
+    assert app.session_state["dataset"][numerik[0]].isna().sum() == 0
+
+    app.button(key="rapor_undo").click().run()
+    assert not app.exception
+    pd.testing.assert_frame_equal(
+        app.session_state["dataset"].reset_index(drop=True),
+        kotor.reset_index(drop=True),
+    )
+
+
+# --------------------------------------------------------------------------- #
 # Struktur tab (menggantikan uji navigasi st.navigation lama)
 # --------------------------------------------------------------------------- #
 

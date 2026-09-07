@@ -30,6 +30,7 @@ from views import (
     muat_data,
     nonparametrik,
     pca,
+    penanganan_data,
     proyek,
     rapor_data,
     regresi,
@@ -124,7 +125,9 @@ def _tab_data() -> None:
 
 
 def _tab_mutu_data() -> None:
-    tab_rapor, tab_eksplorasi = st.tabs(["Rapor Data", "Eksplorasi"])
+    tab_rapor, tab_eksplorasi, tab_penanganan = st.tabs(
+        ["Rapor Data", "Eksplorasi", "Penanganan Data"]
+    )
     with tab_rapor:
         if not df_ok:
             ui.pesan_data_diperlukan(df)
@@ -135,6 +138,11 @@ def _tab_mutu_data() -> None:
             ui.pesan_data_diperlukan(df)
         else:
             eksplorasi.render(df, kamus, penelitian)
+    with tab_penanganan:
+        if not df_ok:
+            ui.pesan_data_diperlukan(df)
+        else:
+            penanganan_data.render(df, kamus, penelitian)
 
 
 def _tab_laporan() -> None:
