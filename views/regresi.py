@@ -11,6 +11,11 @@ def render(df, kamus, penelitian) -> None:
     if not ui.butuh_fitur("regresi"):
         return
 
+    # Penetapan variabel dari Pemandu Uji, bila pengguna tiba lewat tombol
+    # "Konfirmasi dan siapkan halamannya" — dipakai kedua tab di bawah.
+    dipandu = ui.konfigurasi_pemandu()
+    ui.banner_dipandu(dipandu)
+
     tab_linear, tab_logistic = st.tabs(["Regresi Linear Berganda", "Regresi Logistik Biner"])
 
     with tab_linear:
@@ -25,12 +30,20 @@ def render(df, kamus, penelitian) -> None:
             st.error("Regresi memerlukan minimal 2 kolom numerik.")
             return
 
-        y = st.selectbox("Variabel dependen (Y)", numeric_cols, key="lin_y")
+        y = st.selectbox(
+            "Variabel dependen (Y)",
+            numeric_cols,
+            index=ui.indeks_pilihan(numeric_cols, dipandu.get("outcome")),
+            key="lin_y",
+        )
         candidates = [c for c in df.columns if c != y and df[c].nunique(dropna=True) > 1]
+        default_x = [c for c in dipandu.get("prediktor", []) if c in candidates] or [
+            c for c in numeric_cols if c != y
+        ][:3]
         predictors = st.multiselect(
             "Variabel prediktor (X) — kolom kategorik otomatis diubah jadi dummy",
             candidates,
-            default=[c for c in numeric_cols if c != y][:3],
+            default=default_x,
             key="lin_x",
         )
 
@@ -162,16 +175,24 @@ def render(df, kamus, penelitian) -> None:
                 "biner membutuhkan variabel dependen dua kategori."
             )
         else:
-            y = st.selectbox("Variabel dependen biner (Y)", binary_cols, key="log_y")
+            y = st.selectbox(
+                "Variabel dependen biner (Y)",
+                binary_cols,
+                index=ui.indeks_pilihan(binary_cols, dipandu.get("outcome")),
+                key="log_y",
+            )
             levels = sorted(df[y].dropna().unique().tolist(), key=str)
             positive = st.selectbox(
                 "Kategori yang dianggap 'kejadian' (positif)", levels, index=len(levels) - 1
             )
             candidates = [c for c in df.columns if c != y and df[c].nunique(dropna=True) > 1]
+            default_x_log = [c for c in dipandu.get("prediktor", []) if c in candidates] or [
+                c for c in preprocessing.numeric_columns(df) if c != y
+            ][:3]
             predictors = st.multiselect(
                 "Variabel prediktor (X)",
                 candidates,
-                default=[c for c in preprocessing.numeric_columns(df) if c != y][:3],
+                default=default_x_log,
                 key="log_x",
             )
             threshold = st.slider("Ambang klasifikasi", 0.05, 0.95, 0.5, 0.05)

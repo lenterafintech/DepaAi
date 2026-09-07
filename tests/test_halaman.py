@@ -589,6 +589,69 @@ def test_halaman_terkunci_memakai_nama_metode_bukan_keterangan_fiturnya(sample):
 # --------------------------------------------------------------------------- #
 
 
+def test_panel_regresi_terisi_dari_pemandu(sample):
+    """Bug nyata dilaporkan pengguna lewat tangkapan layar: widget Regresi
+    (Y/X) menunjukkan variabel yang salah/tertukar — sepenuhnya independen
+    dari outcome/prediktor yang baru saja dikonfirmasi di Pemandu. Regresi
+    adalah 1 dari 13 halaman metode yang sebelumnya tidak membaca
+    ui.konfigurasi_pemandu() sama sekali (hanya nonparametrik.py yang benar)."""
+    app = _run(
+        sample,
+        pemandu_konfigurasi={
+            "metode": "Regresi linear berganda",
+            "outcome": "usia",
+            "prediktor": ["skor_kredit", "pendapatan_bulanan"],
+            "kelompok": "",
+            "berpasangan": False,
+            "tujuan": "memperkirakan_nilai",
+            "alasan": "contoh",
+        },
+    )
+    assert not app.exception
+    assert app.selectbox(key="lin_y").value == "usia"
+    assert app.multiselect(key="lin_x").value == ["skor_kredit", "pendapatan_bulanan"]
+
+
+def test_panel_manova_terisi_dari_pemandu(sample):
+    """Pola berbeda dari Regresi: kelompok Pemandu -> faktor MANOVA, dan
+    prediktor -> daftar variabel dependen (bukan satu Y tunggal)."""
+    app = _run(
+        sample,
+        pemandu_konfigurasi={
+            "metode": "MANOVA",
+            "outcome": "",
+            "prediktor": ["usia", "pendapatan_bulanan"],
+            "kelompok": "segmen_usaha",
+            "berpasangan": False,
+            "tujuan": "membandingkan_banyak_outcome",
+            "alasan": "contoh",
+        },
+    )
+    assert not app.exception
+    assert app.selectbox(key="manova_factor").value == "segmen_usaha"
+    assert app.multiselect(key="manova_dv").value == ["usia", "pendapatan_bulanan"]
+
+
+def test_panel_moderasi_terisi_dari_pemandu(sample):
+    """Pola tiga variabel: outcome -> Y, prediktor[0] -> X, prediktor[1] -> M."""
+    app = _run(
+        sample,
+        pemandu_konfigurasi={
+            "metode": "Regresi Moderasi (MRA)",
+            "outcome": "skor_kredit",
+            "prediktor": ["usia", "pendapatan_bulanan"],
+            "kelompok": "",
+            "berpasangan": False,
+            "tujuan": "menguji_moderasi",
+            "alasan": "contoh",
+        },
+    )
+    assert not app.exception
+    assert app.selectbox(key="mra_y").value == "skor_kredit"
+    assert app.selectbox(key="mra_x").value == "usia"
+    assert app.selectbox(key="mra_m").value == "pendapatan_bulanan"
+
+
 def test_panel_metode_terisi_dari_pemandu(sample):
     """Pengguna tidak boleh diminta memilih ulang variabel yang baru saja ia sebut."""
     app = _run(

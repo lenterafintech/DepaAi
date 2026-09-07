@@ -597,6 +597,23 @@ def indeks_pilihan(daftar: list, nilai, bawaan: int = 0) -> int:
         return bawaan
 
 
+def banner_dipandu(dipandu: dict) -> None:
+    """Banner "disiapkan dari Pemandu Uji", dipanggil dari tiap halaman metode
+    yang menerima konfigurasi dari :func:`konfigurasi_pemandu`.
+
+    Tidak menampilkan apa pun bila ``dipandu`` kosong (pengguna membuka
+    halaman ini sendiri, bukan lewat Pemandu) — mengisi pilihan orang yang
+    tidak memintanya justru membingungkan.
+    """
+    if not dipandu.get("metode"):
+        return
+    st.success(
+        f"Disiapkan dari Pemandu Uji: **{dipandu['metode']}**. Pilihan di bawah sudah "
+        "terisi sesuai variabel yang Anda tentukan di sana, dan tetap dapat diubah.",
+        icon=":material/explore:",
+    )
+
+
 def catat_uji(nama: str, halaman: str = "", p: float | None = None, rincian: str = "") -> None:
     """Catat satu uji yang benar-benar dijalankan.
 
@@ -655,15 +672,20 @@ def numeric_selector(
     default_count: int = 6,
     min_selection: int = 2,
     key: str | None = None,
+    default: list[str] | None = None,
 ) -> list[str]:
+    """``default`` (mis. dari :func:`konfigurasi_pemandu`) menggantikan
+    ``default_count`` kolom pertama bila diberikan dan valid — dipakai
+    halaman yang menerima variabel dari Pemandu Uji."""
     options = preprocessing.numeric_columns(df)
     if len(options) < min_selection:
         st.error(
             f"Data hanya punya {len(options)} kolom numerik, minimal {min_selection} dibutuhkan."
         )
         st.stop()
-    default = options[: min(default_count, len(options))]
-    selected = st.multiselect(label, options, default=default, key=key)
+    dari_pemandu = [c for c in (default or []) if c in options]
+    awal = dari_pemandu if len(dari_pemandu) >= min_selection else options[: min(default_count, len(options))]
+    selected = st.multiselect(label, options, default=awal, key=key)
     if len(selected) < min_selection:
         st.info(f"Pilih minimal {min_selection} variabel untuk melanjutkan.")
         st.stop()
@@ -675,7 +697,11 @@ def group_selector(
     label: str = "Variabel kelompok",
     max_levels: int = 20,
     key: str | None = None,
+    default: str | None = None,
 ) -> str:
+    """``default`` (mis. dari :func:`konfigurasi_pemandu`) dipakai sebagai
+    pilihan awal bila ada di antara kandidat — dipakai halaman yang
+    menerima variabel dari Pemandu Uji."""
     candidates = [c for c in df.columns if 2 <= df[c].nunique(dropna=True) <= max_levels]
     # Kolom kategorik didahulukan karena lebih lazim berperan sebagai penanda kelompok.
     options = [c for c in candidates if not pd.api.types.is_numeric_dtype(df[c])] + [
@@ -687,7 +713,7 @@ def group_selector(
             f"(butuh 2 sampai {max_levels} kategori)."
         )
         st.stop()
-    return st.selectbox(label, options, key=key)
+    return st.selectbox(label, options, index=indeks_pilihan(options, default), key=key)
 
 
 def format_number(value: object) -> str:

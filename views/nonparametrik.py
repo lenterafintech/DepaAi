@@ -33,12 +33,7 @@ def render(df, kamus, penelitian) -> None:
     # Penetapan variabel dari Pemandu Uji, bila pengguna tiba lewat tombol
     # "Konfirmasi dan siapkan halamannya". Kosong bila ia membuka halaman ini sendiri.
     dipandu = ui.konfigurasi_pemandu()
-    if dipandu.get("metode"):
-        st.success(
-            f"Disiapkan dari Pemandu Uji: **{dipandu['metode']}**. Pilihan di bawah sudah "
-            "terisi sesuai variabel yang Anda tentukan di sana, dan tetap dapat diubah.",
-            icon=":material/explore:",
-        )
+    ui.banner_dipandu(dipandu)
 
     perlu, alasan = npar.perlu_nonparametrik(df, numerik[: min(6, len(numerik))])
     (st.warning if perlu else st.info)(
