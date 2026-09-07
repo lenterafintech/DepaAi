@@ -261,7 +261,7 @@ def _prediktor_awal(
     return kandidat[:jumlah]
 
 
-def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan]:
+def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan] | None:
     """Tampilkan pengaturan cakupan lalu kembalikan hasil analisis dan laporannya.
 
     Kunci widget sengaja dipakai bersama oleh ketiga halaman ringkasan, sehingga
@@ -271,8 +271,8 @@ def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan]:
     nama_data = st.session_state.get(ui.NAME_KEY, "data")
     numerik = preprocessing.numeric_columns(df)
     if len(numerik) < 2:
-        st.error("Halaman ini memerlukan minimal 2 kolom numerik.")
-        st.stop()
+        st.error("Bagian ini memerlukan minimal 2 kolom numerik.")
+        return None
 
     biner = [c for c in df.columns if df[c].nunique(dropna=True) == 2]
     kandidat = [
@@ -352,7 +352,7 @@ def siapkan_laporan(df: pd.DataFrame) -> tuple[nr.Analisis, nr.Laporan]:
 
     if len(variabel) < 2:
         st.info("Pilih minimal 2 variabel numerik pada 'Atur cakupan analisis'.")
-        st.stop()
+        return None
 
     konfig = nr.Konfigurasi(
         variabel=variabel,
@@ -425,21 +425,6 @@ def pilih_kedalaman(pembaca: str) -> bool:
     return bool(pilihan)
 
 
-def buka_ringkasan(
-    judul: str, pengantar: str, fitur: str = "ringkasan_eksekutif", pembaca: str = "eksekutif"
-) -> tuple[nr.Analisis, nr.Laporan, bool]:
-    """Rangkaian pembuka yang sama untuk ketiga halaman laporan."""
-    ui.butuh_fitur(fitur)
-    ui.page_setup(judul, "Laporan Analisis", pengantar)
-    df = ui.require_dataset()
-    ui.sidebar_info()
-    pasang_gaya()
-    analisis, laporan = siapkan_laporan(df)
-    lengkap = pilih_kedalaman(pembaca)
-    kartu_headline(laporan)
-    st.subheader("Status pemeriksaan")
-    kartu_lampu(laporan)
-    return analisis, laporan, lengkap
 
 
 def analisis_yang_dilewati(laporan: nr.Laporan) -> None:

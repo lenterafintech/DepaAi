@@ -1,83 +1,199 @@
 """NalarData - pendamping analisis dan pelaporan penelitian.
 
 Jalankan dengan: streamlit run app.py
+
+Satu halaman, delapan tab — menggantikan arsitektur ``st.navigation`` multi-halaman
+lama (9 kelompok sidebar, tiga di antaranya bernama sama "6 · Analisis — ...").
+Pengguna baru sempat bingung harus mulai dari mana di antara dua puluh dua halaman;
+di sini ia hanya maju dari tab ke tab, seperti pada aplikasi rujukan yang diminta.
 """
 
 from __future__ import annotations
 
 import streamlit as st
 
-st.set_page_config(page_title="NalarData", page_icon="📊", layout="wide")
-st.session_state["_page_configured"] = True
+from nalardata import pemandu as pmd, ui
+from views import (
+    akun,
+    analisis_faktor,
+    beranda,
+    diskriminan,
+    eksplorasi,
+    entri_data,
+    kesesuaian,
+    klaster,
+    korelasi,
+    korelasi_kanonik,
+    laporan as laporan_hasil,
+    manova,
+    moderasi,
+    muat_data,
+    nonparametrik,
+    pca,
+    proyek,
+    rapor_data,
+    regresi,
+    reliabilitas,
+    ringkasan,
+    sem,
+    sidang,
+)
+from views import kamus as kamus_page
+from views import pemandu as pemandu_page
 
-# Menu disusun mengikuti tahapan penelitian, bukan daftar metode statistik.
-# Pengguna yang belum menguasai statistik tahu sampai di mana penelitiannya,
-# tetapi belum tentu tahu nama uji yang dicarinya - menyodorkan daftar metode
-# sebagai pintu masuk justru meminta ia menjawab pertanyaan yang ia datangi
-# aplikasi ini untuk menanyakannya.
-PAGES = {
-    "1 · Rencana": [
-        st.Page("views/proyek.py", title="Ruang Proyek", icon=":material/flag:"),
+ui.siapkan_aplikasi()
+ui.kepala_aplikasi()
+ui.strip_status()
+
+df = ui.get_dataset()
+kamus = ui.kamus()
+penelitian = ui.penelitian()
+df_ok = ui.dataset_valid(df)
+
+# Kelompok metode manual mengikuti nama kelompok sidebar lama, agar pengguna yang
+# sudah terbiasa tidak kehilangan pengelompokan yang dikenalnya. Label metode yang
+# juga dapat direkomendasikan Pemandu disamakan persis dengan
+# ``nalardata.pemandu.METODE_TERSEDIA`` supaya serah-terima dari mode Dipandu dapat
+# langsung menunjuk panel yang benar.
+KELOMPOK_METODE: dict[str, list[tuple[str, object]]] = {
+    "Uji Beda & Hubungan": [
+        ("Korelasi & Asumsi", korelasi.render),
+        ("Uji Beda", nonparametrik.render),
+        ("MANOVA", manova.render),
     ],
-    "2 · Data": [
-        st.Page(
-            "views/beranda.py",
-            title="Beranda & Data",
-            icon=":material/database:",
-            default=True,
-        ),
-        st.Page("views/entri_data.py", title="Buat & Entri Data", icon=":material/edit_note:"),
-        st.Page("views/kamus.py", title="Kamus Variabel", icon=":material/menu_book:"),
+    "Pemodelan": [
+        ("Regresi", regresi.render),
+        ("Regresi Moderasi (MRA)", moderasi.render),
+        ("Analisis Diskriminan", diskriminan.render),
+        ("CFA, Jalur & SEM", sem.render),
     ],
-    "3 · Mutu Data": [
-        st.Page("views/rapor_data.py", title="Rapor Data", icon=":material/fact_check:"),
-        st.Page("views/eksplorasi.py", title="Eksplorasi Data", icon=":material/search_insights:"),
-        st.Page("views/kesesuaian.py", title="Kesesuaian Hasil", icon=":material/verified:"),
+    "Reduksi & Kelompok": [
+        ("PCA", pca.render),
+        ("Analisis Faktor", analisis_faktor.render),
+        ("Analisis Klaster", klaster.render),
+        ("Korelasi Kanonik", korelasi_kanonik.render),
     ],
-    "4 · Instrumen": [
-        st.Page("views/reliabilitas.py", title="Reliabilitas & Validitas", icon=":material/rule:"),
-    ],
-    "5 · Pilih Metode": [
-        st.Page("views/pemandu.py", title="Pemandu Uji", icon=":material/explore:"),
-    ],
-    "6 · Analisis — Beda & Hubungan": [
-        st.Page("views/korelasi.py", title="Korelasi & Asumsi", icon=":material/linked_services:"),
-        st.Page("views/nonparametrik.py", title="Uji Beda", icon=":material/stacked_line_chart:"),
-        st.Page("views/manova.py", title="MANOVA", icon=":material/balance:"),
-    ],
-    "6 · Analisis — Pemodelan": [
-        st.Page("views/regresi.py", title="Regresi", icon=":material/trending_up:"),
-        st.Page("views/moderasi.py", title="Regresi Moderasi (MRA)", icon=":material/alt_route:"),
-        st.Page("views/diskriminan.py", title="Analisis Diskriminan", icon=":material/rule_folder:"),
-        st.Page("views/sem.py", title="CFA, Jalur & SEM", icon=":material/account_tree:"),
-    ],
-    "6 · Analisis — Reduksi & Kelompok": [
-        st.Page("views/pca.py", title="PCA", icon=":material/compress:"),
-        st.Page("views/analisis_faktor.py", title="Analisis Faktor", icon=":material/hub:"),
-        st.Page("views/klaster.py", title="Analisis Klaster", icon=":material/scatter_plot:"),
-        st.Page(
-            "views/korelasi_kanonik.py",
-            title="Korelasi Kanonik",
-            icon=":material/compare_arrows:",
-        ),
-    ],
-    "7 · Laporan": [
-        st.Page("views/ringkasan_eksekutif.py", title="Laporan Umum", icon=":material/summarize:"),
-        st.Page("views/ringkasan_akademik.py", title="Laporan Akademik", icon=":material/school:"),
-        st.Page(
-            "views/ringkasan_profesional.py",
-            title="Laporan Profesional",
-            icon=":material/engineering:",
-        ),
-        st.Page("views/laporan.py", title="Laporan Hasil", icon=":material/inventory_2:"),
-        st.Page("views/sidang.py", title="Simulasi Sidang", icon=":material/quiz:"),
-    ],
-    "Akun": [
-        st.Page("views/masuk.py", title="Masuk / Daftar", icon=":material/login:"),
-        st.Page("views/akun.py", title="Akun & Langganan", icon=":material/workspace_premium:"),
+    "Instrumen": [
+        ("Reliabilitas & Validitas", reliabilitas.render),
     ],
 }
+RENDER_METODE = {nama: fn for grup in KELOMPOK_METODE.values() for nama, fn in grup}
 
-# expanded=True agar seluruh halaman terlihat; tanpa ini Streamlit
-# menyembunyikan halaman ke-11 dan seterusnya di balik "View more".
-st.navigation(PAGES, expanded=True).run()
+
+def _tab_analisis() -> None:
+    mode = st.radio(
+        "Cara memilih metode",
+        ["Dipandu aplikasi", "Pilih metode sendiri"],
+        horizontal=True,
+        key="analisis_mode",
+    )
+    st.divider()
+    if not df_ok:
+        ui.pesan_data_diperlukan(df)
+        return
+
+    if mode == "Dipandu aplikasi":
+        pemandu_page.render(df, kamus, penelitian)
+        dipandu = ui.konfigurasi_pemandu()
+        halaman = pmd.METODE_TERSEDIA.get(dipandu.get("metode", ""), "")
+        if halaman in RENDER_METODE:
+            st.divider()
+            ui.judul_bagian(f"Panel metode: {halaman}", kicker="Analisis")
+            RENDER_METODE[halaman](df, kamus, penelitian)
+    else:
+        grup = st.selectbox("Kelompok metode", list(KELOMPOK_METODE), key="analisis_grup")
+        opsi = [nama for nama, _ in KELOMPOK_METODE[grup]]
+        pilihan = st.selectbox("Metode", opsi, key="analisis_metode")
+        st.divider()
+        dict(KELOMPOK_METODE[grup])[pilihan](df, kamus, penelitian)
+
+
+def _tab_data() -> None:
+    tab_muat, tab_entri, tab_kamus = st.tabs(
+        ["Muat Data", "Entri Manual", "Kamus Variabel"]
+    )
+    with tab_muat:
+        muat_data.render(df, kamus, penelitian, key_prefix="data_")
+    with tab_entri:
+        entri_data.render(df, kamus, penelitian)
+    with tab_kamus:
+        if not df_ok:
+            ui.pesan_data_diperlukan(df)
+        else:
+            kamus_page.render(df, kamus, penelitian)
+
+
+def _tab_mutu_data() -> None:
+    tab_rapor, tab_eksplorasi = st.tabs(["Rapor Data", "Eksplorasi"])
+    with tab_rapor:
+        if not df_ok:
+            ui.pesan_data_diperlukan(df)
+        else:
+            rapor_data.render(df, kamus, penelitian)
+    with tab_eksplorasi:
+        if not df_ok:
+            ui.pesan_data_diperlukan(df)
+        else:
+            eksplorasi.render(df, kamus, penelitian)
+
+
+def _tab_laporan() -> None:
+    tab_narasi, tab_hasil, tab_mutu = st.tabs(
+        ["Ringkasan Otomatis", "Hasil yang Anda Jalankan", "Kesesuaian Hasil"]
+    )
+    with tab_narasi:
+        if not df_ok:
+            ui.pesan_data_diperlukan(df)
+        else:
+            ringkasan.render(df)
+    with tab_hasil:
+        laporan_hasil.render()
+    with tab_mutu:
+        kesesuaian.render()
+
+
+def _tab_simulasi_sidang() -> None:
+    if not df_ok:
+        ui.pesan_data_diperlukan(df)
+        return
+    sidang.render(df, kamus, penelitian)
+
+
+(
+    tab_beranda,
+    tab_rencana,
+    tab_data,
+    tab_mutu_data,
+    tab_analisis,
+    tab_laporan,
+    tab_sidang,
+    tab_akun,
+) = st.tabs(
+    [
+        "🏠 Beranda",
+        "📋 Rencana",
+        "📁 Data",
+        "🔍 Mutu Data",
+        "🧭 Analisis",
+        "📄 Laporan",
+        "🎓 Simulasi Sidang",
+        "👤 Akun",
+    ]
+)
+
+with tab_beranda:
+    beranda.render(df, kamus, penelitian)
+with tab_rencana:
+    proyek.render(df, kamus, penelitian)
+with tab_data:
+    _tab_data()
+with tab_mutu_data:
+    _tab_mutu_data()
+with tab_analisis:
+    _tab_analisis()
+with tab_laporan:
+    _tab_laporan()
+with tab_sidang:
+    _tab_simulasi_sidang()
+with tab_akun:
+    akun.render()

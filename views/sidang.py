@@ -15,122 +15,132 @@ from nalardata import formatting, kamus as km, kesimpulan_ui as kui, sidang as s
 
 JAWABAN = "sidang_jawaban"
 
-ui.butuh_fitur("sidang", "Simulasi Sidang")
-ui.page_setup(
-    "Simulasi Sidang",
-    "Laporan",
-    "Pertanyaan penguji yang disusun dari analisis Anda sendiri, beserta jawaban "
-    "model yang diturunkan dari angka Anda — bukan dari contoh buku.",
-)
-df = ui.require_dataset()
-ui.sidebar_info()
-kui.pasang_gaya()
 
-analisis, laporan = kui.siapkan_laporan(df)
-penelitian = ui.penelitian()
-jejak = ui.jejak()
-hasil_audit = ad.jalankan_audit(df, ui.kamus())
+def render(df, kamus, penelitian) -> None:
+    if not ui.butuh_fitur("sidang", "Simulasi Sidang"):
+        return
 
-simulasi = sd.susun(laporan, penelitian, jejak, hasil_audit)
-jawaban = st.session_state.setdefault(JAWABAN, {})
+    kui.pasang_gaya()
 
-if simulasi.kosong():
-    ui.keadaan_kosong(
-        "Belum ada yang dapat ditanyakan",
-        "Jalankan analisis lebih dulu pada halaman Laporan Akademik, lalu kembali "
-        "ke sini.",
-        ikon="?",
-    )
-    st.stop()
+    # ``siapkan_laporan`` merender widget "Atur cakupan analisis" dengan kunci
+    # tetap (``kesimpulan_var`` dst). Ia sudah dipanggil sekali oleh tab Laporan
+    # dalam giliran render ini bila pengguna membukanya — memanggilnya lagi di
+    # sini akan menabrak kunci widget yang sama pada satu giliran render yang
+    # sama. Simulasi Sidang membaca hasil yang sudah tersimpan di sesi, bukan
+    # menghitung ulang.
+    laporan = st.session_state.get("kesimpulan_laporan")
+    if laporan is None:
+        ui.keadaan_kosong(
+            "Laporan belum tersusun",
+            "Buka tab 📄 Laporan → Ringkasan Otomatis terlebih dahulu, lalu kembali "
+            "ke sini — simulasi sidang membaca pertanyaannya dari laporan itu.",
+            ikon="🎓",
+        )
+        return
 
-# --------------------------------------------------------------------------- #
-# Kesiapan
-# --------------------------------------------------------------------------- #
+    jejak = ui.jejak()
+    hasil_audit = ad.jalankan_audit(df, kamus)
 
-lulus, total, siap = sd.kesiapan(simulasi, jawaban)
+    simulasi = sd.susun(laporan, penelitian, jejak, hasil_audit)
+    jawaban = st.session_state.setdefault(JAWABAN, {})
 
-kolom = st.columns(3)
-kolom[0].metric("Pertanyaan", formatting.num(len(simulasi.pertanyaan)))
-kolom[1].metric("Wajib dijawab", formatting.num(total))
-kolom[2].metric("Sudah Anda jawab", formatting.num(lulus))
+    if simulasi.kosong():
+        ui.keadaan_kosong(
+            "Belum ada yang dapat ditanyakan",
+            "Jalankan analisis lebih dulu pada tab Laporan → Ringkasan Otomatis, lalu "
+            "kembali ke sini.",
+            ikon="?",
+        )
+        return
 
-if siap:
-    st.success(
-        "**Siap Sidang.** Seluruh pertanyaan wajib sudah Anda jawab sendiri. "
-        "Perlu diingat, penguji sungguhan dapat menanyakan apa saja — termasuk hal "
-        "yang tidak terbaca dari data. Lulus simulasi ini bukan jaminan lulus sidang.",
-        icon=":material/verified:",
-    )
-else:
-    st.info(
-        f"Lencana **Siap Sidang** diberikan setelah {formatting.num(total)} pertanyaan "
-        "wajib Anda jawab sendiri. Membaca jawaban model tidak menggantikannya — yang "
-        "dinilai penguji adalah kemampuan Anda menjelaskan, bukan isi berkasnya.",
-        icon=":material/school:",
-    )
+    # --------------------------------------------------------------------------- #
+    # Kesiapan
+    # --------------------------------------------------------------------------- #
 
-st.caption(
-    "Pemeriksaan jawaban di bawah bersifat kasar: aplikasi hanya melihat apakah "
-    "gagasan kuncinya Anda sebut, bukan apakah kalimatnya benar. Menilai pemahaman "
-    "bukan wewenang aplikasi."
-)
+    lulus, total, siap = sd.kesiapan(simulasi, jawaban)
 
-# --------------------------------------------------------------------------- #
-# Pertanyaan
-# --------------------------------------------------------------------------- #
+    kolom = st.columns(3)
+    kolom[0].metric("Pertanyaan", formatting.num(len(simulasi.pertanyaan)))
+    kolom[1].metric("Wajib dijawab", formatting.num(total))
+    kolom[2].metric("Sudah Anda jawab", formatting.num(lulus))
 
-for nomor, butir in enumerate(simulasi.pertanyaan):
-    cukup, terlewat = butir.nilai(jawaban.get(nomor, ""))
-    tanda = "✓" if cukup else ("●" if butir.bobot == sd.WAJIB else "○")
-    label = f"{tanda}  **{nomor + 1}. {butir.pertanyaan}**"
-
-    with st.expander(label, expanded=not cukup and nomor == lulus):
-        st.caption(
-            f"{sd.LABEL_KATEGORI[butir.kategori]}"
-            + (" · wajib dijawab" if butir.bobot == sd.WAJIB else " · mungkin ditanyakan")
+    if siap:
+        st.success(
+            "**Siap Sidang.** Seluruh pertanyaan wajib sudah Anda jawab sendiri. "
+            "Perlu diingat, penguji sungguhan dapat menanyakan apa saja — termasuk hal "
+            "yang tidak terbaca dari data. Lulus simulasi ini bukan jaminan lulus sidang.",
+            icon=":material/verified:",
+        )
+    else:
+        st.info(
+            f"Lencana **Siap Sidang** diberikan setelah {formatting.num(total)} pertanyaan "
+            "wajib Anda jawab sendiri. Membaca jawaban model tidak menggantikannya — yang "
+            "dinilai penguji adalah kemampuan Anda menjelaskan, bukan isi berkasnya.",
+            icon=":material/school:",
         )
 
-        isi = st.text_area(
-            "Jawaban Anda",
-            value=jawaban.get(nomor, ""),
-            key=f"sidang_jawab_{nomor}",
-            height=110,
-            placeholder="Tuliskan dengan kalimat Anda sendiri, seperti saat menjawab penguji.",
-        )
-        if isi != jawaban.get(nomor, ""):
-            jawaban[nomor] = isi
-            st.rerun()
+    st.caption(
+        "Pemeriksaan jawaban di bawah bersifat kasar: aplikasi hanya melihat apakah "
+        "gagasan kuncinya Anda sebut, bukan apakah kalimatnya benar. Menilai pemahaman "
+        "bukan wewenang aplikasi."
+    )
 
-        if isi.strip():
-            if cukup:
-                st.success("Gagasan kuncinya sudah Anda sebut.", icon=":material/check:")
-            else:
-                st.warning(
-                    "Belum menyinggung: " + ", ".join(f"**{k}**" for k in terlewat),
-                    icon=":material/lightbulb:",
-                )
+    # --------------------------------------------------------------------------- #
+    # Pertanyaan
+    # --------------------------------------------------------------------------- #
 
-        with st.popover("Lihat jawaban model", width="stretch"):
-            st.write(butir.jawaban)
+    for nomor, butir in enumerate(simulasi.pertanyaan):
+        cukup, terlewat = butir.nilai(jawaban.get(nomor, ""))
+        tanda = "✓" if cukup else ("●" if butir.bobot == sd.WAJIB else "○")
+        label = f"{tanda}  **{nomor + 1}. {butir.pertanyaan}**"
 
-# --------------------------------------------------------------------------- #
-# Daftar pertanyaan
-# --------------------------------------------------------------------------- #
+        with st.expander(label, expanded=not cukup and nomor == lulus):
+            st.caption(
+                f"{sd.LABEL_KATEGORI[butir.kategori]}"
+                + (" · wajib dijawab" if butir.bobot == sd.WAJIB else " · mungkin ditanyakan")
+            )
 
-st.divider()
-ui.judul_bagian(
-    "Seluruh pertanyaan",
-    "Dapat diunduh untuk dilatih di luar aplikasi.",
-    kicker="Sidang",
-)
-ui.show_table(
-    simulasi.ringkas(),
-    "pertanyaan_sidang.csv",
-    bagian="Persiapan sidang",
-    judul="Pertanyaan penguji yang mungkin muncul",
-    catatan="Disusun dari rancangan, asumsi, dan hasil analisis ini sendiri.",
-)
+            isi = st.text_area(
+                "Jawaban Anda",
+                value=jawaban.get(nomor, ""),
+                key=f"sidang_jawab_{nomor}",
+                height=110,
+                placeholder="Tuliskan dengan kalimat Anda sendiri, seperti saat menjawab penguji.",
+            )
+            if isi != jawaban.get(nomor, ""):
+                jawaban[nomor] = isi
+                st.rerun()
 
-if st.button("Kosongkan jawaban", key="sidang_kosongkan"):
-    st.session_state[JAWABAN] = {}
-    st.rerun()
+            if isi.strip():
+                if cukup:
+                    st.success("Gagasan kuncinya sudah Anda sebut.", icon=":material/check:")
+                else:
+                    st.warning(
+                        "Belum menyinggung: " + ", ".join(f"**{k}**" for k in terlewat),
+                        icon=":material/lightbulb:",
+                    )
+
+            with st.popover("Lihat jawaban model", width="stretch"):
+                st.write(butir.jawaban)
+
+    # --------------------------------------------------------------------------- #
+    # Daftar pertanyaan
+    # --------------------------------------------------------------------------- #
+
+    st.divider()
+    ui.judul_bagian(
+        "Seluruh pertanyaan",
+        "Dapat diunduh untuk dilatih di luar aplikasi.",
+        kicker="Sidang",
+    )
+    ui.show_table(
+        simulasi.ringkas(),
+        "pertanyaan_sidang.csv",
+        bagian="Persiapan sidang",
+        judul="Pertanyaan penguji yang mungkin muncul",
+        catatan="Disusun dari rancangan, asumsi, dan hasil analisis ini sendiri.",
+    )
+
+    if st.button("Kosongkan jawaban", key="sidang_kosongkan"):
+        st.session_state[JAWABAN] = {}
+        st.rerun()

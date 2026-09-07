@@ -162,20 +162,6 @@ def _gaya() -> str:
   font-size: .88rem; line-height: 1.6; color: var(--tinta2); max-width: 82ch}}
 .mva-baca b {{color: var(--tinta)}}
 
-/* ---- Panel sidebar ---- */
-.mva-data, .mva-akun {{border: 1px solid var(--garis); border-radius: 9px;
-  padding: .6rem .75rem}}
-.mva-data {{background: var(--aksenSamar)}}
-.mva-akun {{margin-bottom: .5rem}}
-.mva-data .nama, .mva-akun .nm {{font-size: .83rem; font-weight: 650;
-  color: var(--tinta); overflow-wrap: anywhere}}
-.mva-data .rinci {{font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .72rem; color: var(--redup); margin-top: .2rem}}
-.mva-akun .pk {{font-size: .74rem; font-weight: 700; letter-spacing: .04em;
-  text-transform: uppercase; color: var(--aksen2); margin-top: .2rem}}
-.mva-akun .al {{font-size: .72rem; color: var(--redup); margin-top: .25rem;
-  line-height: 1.4}}
-
 /* ---- Komponen bawaan Streamlit ---- */
 [data-testid="stMetric"] {{border: 1px solid var(--garis); border-radius: 11px;
   padding: .8rem .9rem; background: var(--kertas2)}}
@@ -183,6 +169,9 @@ def _gaya() -> str:
 [data-testid="stDataFrame"] {{border: 1px solid var(--garis); border-radius: 10px;
   overflow: hidden}}
 .stButton > button, .stDownloadButton > button {{border-radius: 8px; font-weight: 650}}
+
+/* Menu bawaan Streamlit Cloud (Deploy/Fork) tidak relevan bagi pengguna produk publik. */
+[data-testid="stToolbar"], [data-testid="stDecoration"] {{display: none !important}}
 
 /* Gerak dihentikan bagi yang memintanya lewat pengaturan sistem. */
 @media (prefers-reduced-motion: reduce) {{
@@ -254,23 +243,27 @@ def keadaan_kosong(judul: str, keterangan: str, ikon: str = "○") -> None:
     )
 
 
-def page_setup(title: str, kicker: str = "NalarData", description: str = "") -> None:
-    """Kepala halaman standar: kicker, judul, deskripsi, garis pemisah.
+def siapkan_aplikasi() -> None:
+    """Konfigurasi global, dipanggil sekali di puncak ``app.py`` sebelum tab mana pun dirender.
 
-    Ikon sengaja tidak dipakai di sini — penanda visual tiap halaman sudah ada pada
-    menu sisi kiri, sehingga judul cukup berupa teks dan tidak menyaingi isi halaman.
+    Aplikasi satu halaman tidak lagi memanggil ``page_setup`` per halaman — ukuran
+    halaman, gaya, dan giliran penyimpanan hasil (``awali_giliran``) hanya berlaku
+    sekali per render, bukan sekali per halaman seperti pada arsitektur lama.
     """
     if not st.session_state.get("_page_configured"):
         st.set_page_config(page_title="NalarData", page_icon="📊", layout="wide")
         st.session_state["_page_configured"] = True
     st.html(_gaya())
-    deskripsi = f'<p class="desc">{description}</p>' if description else ""
+    awali_giliran()
+
+
+def kepala_aplikasi() -> None:
+    """Bilah merek tipis di puncak aplikasi, tampil pada tab apa pun yang sedang dibuka."""
     st.html(
-        f'<div class="mva-head"><div class="kicker">'
-        f'<span class="tanda">ND</span>{escape(kicker)}</div>'
-        f"<h1>{escape(title)}</h1>{deskripsi}<hr></div>"
+        '<div class="mva-head" style="margin-bottom:.7rem"><div class="kicker">'
+        '<span class="tanda">ND</span>NalarData — analisis multivariat, tanpa harus '
+        "jadi ahli statistik</div></div>"
     )
-    strip_status()
 
 
 PAKET_KEY = "paket_langganan"
@@ -328,29 +321,37 @@ def _ajakan_naik(pelanggaran: langganan.Pelanggaran) -> None:
     st.warning(pelanggaran.pesan)
     if saran:
         st.caption(
-            f"Tersedia pada paket **{saran.nama}**. Buka halaman *Akun & Langganan* "
+            f"Tersedia pada paket **{saran.nama}**. Buka tab 👤 **Akun** "
             "untuk mengubah paket."
         )
 
 
-def butuh_fitur(kode_fitur: str, judul: str = "") -> None:
-    """Hentikan halaman bila fitur tidak termasuk paket yang sedang aktif.
+def butuh_fitur(kode_fitur: str, judul: str = "") -> bool:
+    """Tampilkan pesan kunci bila fitur tidak termasuk paket aktif; kembalikan izinnya.
 
-    ``judul`` dipakai sebagai judul halaman terkunci. Tanpa itu, keterangan fitur
+    Sebelum aplikasi satu halaman, fungsi ini menghentikan seluruh render lewat
+    ``st.stop()`` — sah ketika satu berkas memang satu-satunya isi layar. Pada
+    tata letak bertab, menghentikan seluruh render dari dalam satu tab akan ikut
+    menutup tab lain yang tidak terkait. Sekarang ia mengembalikan ``False`` dan
+    pemanggilnya sendiri yang menghentikan render **bagian itu saja**
+    (``if not ui.butuh_fitur(...): return``), bukan seluruh aplikasi.
+
+    ``judul`` dipakai sebagai judul kartu terkunci. Tanpa itu, keterangan fitur
     yang panjang dipakai apa adanya sebagai tajuk — "Simulasi sidang: latihan
-    menjawab pertanyaan penguji" terbaca sebagai kalimat, bukan nama halaman.
+    menjawab pertanyaan penguji" terbaca sebagai kalimat, bukan nama bagian.
     """
     pelanggaran = langganan.periksa_fitur(paket_aktif(), kode_fitur)
-    if pelanggaran is not None:
-        keterangan = langganan.FITUR.get(kode_fitur, "")
-        page_setup(
-            judul or keterangan.split(":")[0].strip() or "Fitur terkunci",
-            "Terkunci",
-            f"{keterangan} — belum termasuk dalam paket Anda." if keterangan
-            else "Halaman ini belum termasuk dalam paket Anda.",
-        )
-        _ajakan_naik(pelanggaran)
-        st.stop()
+    if pelanggaran is None:
+        return True
+    keterangan = langganan.FITUR.get(kode_fitur, "")
+    judul_bagian(
+        judul or keterangan.split(":")[0].strip() or "Fitur terkunci",
+        f"{keterangan} — belum termasuk dalam paket Anda." if keterangan
+        else "Bagian ini belum termasuk dalam paket Anda.",
+        kicker="Terkunci",
+    )
+    _ajakan_naik(pelanggaran)
+    return False
 
 
 def set_dataset(
@@ -465,58 +466,39 @@ def load_sample() -> pd.DataFrame:
     return pd.read_csv(SAMPLE_PATH)
 
 
-def require_dataset() -> pd.DataFrame:
-    """Ambil data aktif; hentikan halaman dengan pesan bila belum ada."""
-    df = get_dataset()
+def dataset_valid(df: pd.DataFrame | None) -> bool:
+    """Apakah data aktif ada dan berada dalam batas paket.
+
+    Menggantikan ``require_dataset`` lama yang menghentikan seluruh skrip lewat
+    ``st.stop()`` begitu data kosong atau melampaui batas — pada aplikasi satu
+    halaman itu akan ikut menghentikan tab lain yang tidak terkait. ``app.py``
+    memanggil ini sekali per render, lalu meneruskan hasilnya ke setiap panel
+    yang membutuhkan data (lihat ``pesan_data_diperlukan`` untuk pesannya).
+    """
     if df is None:
-        st.warning(
-            "Belum ada data. Buka halaman **Beranda & Data** untuk mengunggah berkas "
-            "CSV/Excel atau memuat contoh data."
-        )
-        if st.button("Muat contoh data nasabah", type="primary"):
-            set_dataset(load_sample(), "contoh_data_nasabah.csv", contoh=True)
-            st.rerun()
-        st.stop()
+        return False
     # Contoh data bawaan dikecualikan dari batas ukuran paket. Ia lebih besar
     # daripada batas paket Gratis, sehingga tanpa pengecualian ini tombol
     # "Muat contoh data" milik aplikasi sendiri justru mengantar pengguna baru
     # ke dinding berbayar sebelum ia sempat melihat apa pun.
-    if not st.session_state.get(CONTOH_KEY):
-        pelanggaran = langganan.periksa_ukuran(paket_aktif(), len(df), df.shape[1])
-        if pelanggaran is not None:
-            _ajakan_naik(pelanggaran)
-            st.stop()
-    return df
+    if st.session_state.get(CONTOH_KEY):
+        return True
+    return langganan.periksa_ukuran(paket_aktif(), len(df), df.shape[1]) is None
 
 
-def sidebar_info() -> None:
-    """Ringkasan data aktif pada sidebar, dibuat ringkas agar tidak memakan ruang."""
-    df = get_dataset()
-    akun = pengguna_aktif()
-    with st.sidebar:
-        st.divider()
-        if akun is not None:
-            paket = paket_aktif()
-            st.html(
-                f'<div class="mva-akun"><div class="nm">{akun.nama}</div>'
-                f'<div class="pk">{paket.nama}</div>'
-                f'<div class="al">{akun.alasan_paket()}</div></div>'
-            )
-            if st.button("Keluar", key="tombol_keluar", width="stretch"):
-                keluar()
-                st.rerun()
-        if df is None:
-            st.caption("Belum ada data dimuat.")
-            return
-        paket = paket_aktif()
-        st.caption(f"Paket {paket.nama}")
-        nama = st.session_state.get(NAME_KEY, "data")
-        numerik = len(preprocessing.numeric_columns(df))
-        st.html(
-            f'<div class="mva-data"><div class="nama">{nama}</div>'
-            f'<div class="rinci">{formatting.num(len(df))} baris · {df.shape[1]} kolom · '
-            f"{numerik} numerik</div></div>"
+def pesan_data_diperlukan(df: pd.DataFrame | None) -> None:
+    """Pesan yang tepat untuk data yang belum ada atau melampaui batas paket."""
+    if df is None:
+        keadaan_kosong(
+            "Perlu data terlebih dahulu",
+            "Muat data pada tab 📁 Data — unggah berkas, coba data contoh, atau buka "
+            "proyek yang tersimpan.",
+            ikon="📁",
         )
+        return
+    pelanggaran = langganan.periksa_ukuran(paket_aktif(), len(df), df.shape[1])
+    if pelanggaran is not None:
+        _ajakan_naik(pelanggaran)
 
 
 def numeric_selector(
@@ -658,7 +640,7 @@ def show_table(
         key=f"dl_{filename}_{abs(hash(tuple(df.columns))) % 10**6}",
     )
     if bagian:
-        simpan_ke_keranjang(bagian, judul or _judul_dari_berkas(filename), df, catatan)
+        catat_hasil(bagian, judul or _judul_dari_berkas(filename), tabel=df, catatan=catatan)
 
 
 # Penanda markdown sederhana yang dipakai pada teks tafsiran. Urutannya penting:
@@ -686,45 +668,58 @@ def _markdown_ringkas(teks: str) -> str:
 def interpretation(text: str, bagian: str | None = None) -> None:
     st.html(f'<div class="mva-baca"><b>Cara membaca:</b> {_markdown_ringkas(text)}</div>')
     if bagian:
-        simpan_ke_keranjang(bagian, "Cara membaca", teks=text, jenis="tafsiran")
+        catat_hasil(bagian, "Cara membaca", teks=text, jenis="tafsiran")
 
 
-def simpan_ke_keranjang(
+# Kategori (bagian) yang sudah disegarkan pada render skrip yang sedang berjalan.
+# Direset sekali di awal tiap giliran lewat ``awali_giliran``, supaya beberapa
+# pemanggilan ``catat_hasil`` dengan bagian yang sama dalam satu render (misalnya
+# tabel koefisien dan tabel asumsi pada panel Regresi) saling menambah, bukan
+# saling menimpa — sementara hasil dari render sebelumnya tetap terganti bersih.
+_DISEGARKAN_KEY = "kategori_disegarkan_giliran_ini"
+
+
+def awali_giliran() -> None:
+    """Reset penanda kategori yang sudah disegarkan. Dipanggil sekali di puncak app.py.
+
+    Tanpa ini, kategori yang pernah disegarkan pada giliran pertama tidak akan
+    pernah disegarkan lagi pada giliran berikutnya — hasil lama dari metode yang
+    sama akan menumpuk alih-alih tergantikan.
+    """
+    st.session_state[_DISEGARKAN_KEY] = set()
+
+
+def catat_hasil(
     bagian: str,
     judul: str,
     tabel: pd.DataFrame | None = None,
-    catatan: str = "",
     teks: str = "",
+    catatan: str = "",
     jenis: str = "tabel",
 ) -> None:
-    """Tombol simpan satu hasil ke keranjang, beserta penanda bila sudah tersimpan.
+    """Simpan satu keluaran ke Laporan, otomatis — tidak ada lagi tombol manual.
 
-    Penyimpanan sengaja atas permintaan pengguna, bukan otomatis: menangkap setiap
-    tabel yang pernah terlihat akan memenuhi laporan dengan keluaran percobaan yang
-    tidak jadi dipakai.
+    Setiap kategori metode menyimpan **satu hasil terakhir**: menjalankan ulang
+    metode yang sama mengganti hasil lama sekategori, bukan menumpuknya. Ini
+    menyatukan mesin laporan otomatis dan keranjang manual yang sebelumnya
+    terpisah — pengguna tidak lagi memilih apakah harus menekan "simpan".
     """
     isi = keranjang()
-    calon = kr.Item(
-        bagian=bagian,
-        judul=judul,
-        jenis=jenis,
-        tabel=tabel,
-        teks=teks,
-        catatan=catatan,
-        tanda_data=tanda_data(),
+    disegarkan = st.session_state.setdefault(_DISEGARKAN_KEY, set())
+    if bagian not in disegarkan:
+        isi.hapus_bagian(bagian)
+        disegarkan.add(bagian)
+    isi.tambah(
+        kr.Item(
+            bagian=bagian,
+            judul=judul,
+            jenis=jenis,
+            tabel=tabel,
+            teks=teks,
+            catatan=catatan,
+            tanda_data=tanda_data(),
+        )
     )
-    sudah = any(i.sidik == calon.sidik for i in isi.item)
-    kunci = f"simpan_{calon.sidik}"
-    if sudah:
-        st.caption(":material/check: Tersimpan di **Laporan Hasil**.")
-        return
-    if st.button(
-        "Simpan ke laporan",
-        key=kunci,
-        help="Hasil ini akan muncul di halaman Laporan Hasil dan ikut saat diekspor.",
-    ):
-        isi.tambah(calon)
-        st.rerun()
 
 
 def sumber_angka(teks: str, indeks, kunci: str, label: str = "Lihat sumber angka") -> None:
@@ -753,20 +748,6 @@ def sumber_angka(teks: str, indeks, kunci: str, label: str = "Lihat sumber angka
                 "yang sama — namun belum punya sel yang dapat ditunjuk pembimbing. "
                 "Sebutkan sendiri asalnya bila dikutip pada naskah."
             )
-
-
-def tautan_halaman(jalur: str, label: str, ikon: str = "") -> None:
-    """Tautan ke halaman lain, dengan mundur ke teks biasa bila belum terdaftar.
-
-    ``st.page_link`` hanya sah untuk halaman yang sudah dilewatkan ke
-    ``st.navigation``. Saat sebuah halaman dijalankan sendirian — misalnya pada uji
-    asap — pemanggilan itu melempar galat dan menghentikan halaman, padahal tautannya
-    hanya pelengkap.
-    """
-    try:
-        st.page_link(jalur, label=label, icon=ikon or None)
-    except Exception:  # noqa: BLE001 - halaman belum terdaftar pada navigasi
-        st.caption(f"Buka halaman **{label}** dari menu di sebelah kiri.")
 
 
 def method_note(title: str, body: str) -> None:

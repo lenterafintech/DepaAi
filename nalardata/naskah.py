@@ -80,7 +80,7 @@ def _bab3(laporan, penelitian, kamus) -> list[Blok]:
         blok.append(
             Blok(
                 "paragraf",
-                "Rancangan penelitian belum diisi pada halaman Ruang Proyek, sehingga "
+                "Rancangan penelitian belum diisi pada tab Rencana, sehingga "
                 "bagian ini belum dapat disusun. Isi rancangan, populasi, teknik "
                 "sampling, dan unit analisis lebih dulu agar bab ini terisi dengan "
                 "keterangan yang benar.",

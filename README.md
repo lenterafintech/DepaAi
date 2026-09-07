@@ -45,12 +45,44 @@ sehingga penerapan gagal dengan pesan
 skrip peluncur lewat `--server.port`, yang mengalahkan berkas konfigurasi di komputer
 sendiri tanpa mengganggu penerapan.
 
-Mulai dari halaman **Beranda & Data** untuk mengunggah berkas, atau tekan *Muat contoh
-data nasabah* untuk mencoba seluruh metode dengan data contoh.
+Aplikasi terbuka pada tab **🏠 Beranda**, dengan tiga cara memulai: unggah berkas,
+tekan *Muat contoh data nasabah* untuk mencoba seluruh metode dengan data contoh, atau
+buka berkas proyek `.nalardata` yang tersimpan dari sesi sebelumnya.
+
+## Alur aplikasi: satu halaman, delapan tab
+
+```
+🏠 Beranda │ 📋 Rencana │ 📁 Data │ 🔍 Mutu Data │ 🧭 Analisis │ 📄 Laporan │ 🎓 Simulasi Sidang │ 👤 Akun
+```
+
+Aplikasi ini **satu halaman bertab**, bukan sekumpulan halaman terpisah di sidebar —
+pengguna maju dari tab ke tab mengikuti urutan penelitian sungguhan, bukan menebak dari
+daftar dua puluh metode. Beranda berubah tampilan menurut keadaan: sebelum data dimuat
+ia menjelaskan aplikasi dan menawarkan cara memulai; sesudahnya ia menjadi dasbor
+ringkas dengan **satu tombol tindakan berikutnya** yang selalu menunjuk langkah yang
+benar (periksa mutu data → pilih metode → baca laporan). Rencana (Ruang Proyek) adalah
+langkah opsional di awal — menentukan apakah kesimpulan nanti boleh berbunyi
+sebab-akibat — dan Simulasi Sidang adalah langkah terakhir, berlatih menjawab
+pertanyaan dari laporan yang baru disusun. Panduan penggunaan lengkap tersedia sebagai
+expander di tab Beranda.
+
+Tab **🧭 Analisis** menawarkan dua cara memilih metode: **Dipandu aplikasi**
+memeriksa data lalu menyarankan satu metode utama beserta alasan menolak
+alternatifnya (Pemandu Uji), dan begitu disetujui, panel metode itu langsung tampil
+di bawahnya dengan variabel yang sudah terisi — tanpa perlu berpindah tab. **Pilih
+metode sendiri** menampilkan seluruh dua belas metode dikelompokkan seperti menu
+lama (Uji Beda & Hubungan, Pemodelan, Reduksi & Kelompok, Instrumen).
+
+Hasil yang berhasil dihitung otomatis tercatat ke tab **📄 Laporan** — satu hasil
+terakhir per kategori metode, tanpa tombol "simpan" apa pun. Tab Laporan sendiri
+berisi tiga sub-bagian: **Ringkasan Otomatis** (narasi tiga register dari baterai
+metode baku, lihat di bawah), **Hasil yang Anda Jalankan** (tabel persis dari metode
+yang benar-benar dipakai di tab Analisis), dan **Kesesuaian Hasil** (perbandingan
+dengan R pada dataset acuan).
 
 ## Laporan analisis: pembaca × kedalaman
 
-Kelompok menu **Laporan Analisis** memisahkan dua hal yang sering tertukar:
+Sub-bagian **Ringkasan Otomatis** memisahkan dua hal yang sering tertukar:
 
 - **Pembaca** menentukan bahasanya — Umum, Akademik, atau Profesional.
 - **Kedalaman** menentukan bentuk dokumennya — Ringkasan atau Laporan Lengkap.
@@ -65,24 +97,24 @@ membaca hal yang sama tiga kali.
 | Isi | Kesimpulan utama, status pemeriksaan, peringkat pendorong, rekomendasi, batas kesimpulan | Seluruh isi ringkasan, ditambah uraian tiap temuan, seluruh tabel hasil, rujukan ambang, dan catatan analisis yang tidak dapat dijalankan |
 | Akademik | — | Ditambah kalimat siap salin bergaya jurnal |
 
-Ketiga halaman menjalankan rangkaian metode yang sama pada data aktif, namun
+Ketiga register menjalankan rangkaian metode yang sama pada data aktif, namun
 menuliskan hasilnya untuk pembaca yang berbeda:
 
-| Halaman | Untuk siapa | Isinya |
+| Register | Untuk siapa | Isinya |
 | --- | --- | --- |
 | **Umum** | Pimpinan dan pembaca non-statistik | Kesimpulan utama, lampu status pemeriksaan, peringkat pendorong beserta matriks prioritas (kepentingan terhadap kinerja), rekomendasi tindakan berprioritas, dan batas kesimpulan — tanpa notasi statistik |
 | **Mahasiswa & Pengajar** | Mahasiswa, dosen, dan pengajar | Pelaporan bergaya jurnal (statistik uji, derajat bebas, p-value, ukuran efek), tabel bergaya APA, paragraf siap salin untuk bab metode/hasil/pembahasan, keterbatasan, dan rujukan ambang |
 | **Profesional** | Analis dan praktisi | Metrik kunci model, kontribusi fitur, temuan teknis, ringkasan pemeriksaan asumsi, tindak lanjut berprioritas, dan risiko pemakaian |
 
 Pengaturan cakupan analisis (variabel, target, prediktor, kelompok) dibuat sekali dan
-berlaku untuk ketiga halaman; hasil perhitungan dipakai ulang sehingga berpindah
-halaman tidak menghitung ulang. Seluruh angka dihitung ulang dari data yang sedang
+berlaku untuk ketiga register; hasil perhitungan dipakai ulang sehingga berpindah
+register tidak menghitung ulang. Seluruh angka dihitung ulang dari data yang sedang
 aktif — tidak ada nilai contoh yang ditanam.
 
 ### Menyimpan pekerjaan: berkas proyek
 
 Aplikasi ini **tidak menyimpan apa pun di server**. Data yang diunggah, hasil pada
-Laporan Hasil, dan pengaturan cakupan analisis semuanya hidup di dalam sesi, sehingga
+tab Laporan, dan pengaturan cakupan analisis semuanya hidup di dalam sesi, sehingga
 hilang ketika peramban ditutup atau layanan hosting menidurkan aplikasi.
 
 Berkas proyek `.nalardata` menutup celah itu — satu arsip berisi:
@@ -91,40 +123,39 @@ Berkas proyek `.nalardata` menutup celah itu — satu arsip berisi:
 proyek.json        manifest: format, versi, waktu pembuatan
 data.csv           data aktif, selalu ada dan dapat dibaca manusia
 data.parquet       salinan yang mempertahankan tipe data
-konfigurasi.json   pilihan variabel pada halaman laporan
+konfigurasi.json   pilihan variabel pada Ringkasan Otomatis
 keranjang.json     daftar hasil yang disimpan
 keranjang/NN.csv   tabel tiap hasil
 ```
 
 CSV selalu ditulis meski Parquet berhasil, sehingga proyek tetap terbuka di komputer
-tanpa engine Parquet. Simpan lewat panel di bawah halaman **Beranda & Data**, buka
-lewat tab **Buka proyek** di halaman yang sama.
+tanpa engine Parquet. Simpan dan buka lewat sub-tab **Muat Data** pada tab
+**📁 Data**.
 
 Berkas proyek berasal dari luar aplikasi, jadi diperiksa sebelum isinya dibaca: ukuran
 arsip maksimal 250 MB, ukuran setelah dibuka maksimal 500 MB, dan jumlah berkas
 internal maksimal 500. Batas kedua yang menahan *zip bomb* — arsip kecil yang
 mengembang menjadi raksasa dan menghabiskan memori server.
 
-### Laporan Hasil — analisis yang Anda jalankan sendiri
+### Hasil yang Anda Jalankan — otomatis, satu per kategori
 
-Ketiga halaman di atas disusun otomatis oleh mesin narasi dari rangkaian metodenya
-sendiri. Halaman **Laporan Hasil** melengkapinya dari arah sebaliknya: setiap tabel
-hasil di halaman metode punya tombol *Simpan ke laporan*, dan yang tersimpan
-dikumpulkan di sini menjadi satu dokumen — persis analisis yang Anda pilih dan
-jalankan, lengkap dengan judul laporan dan nama penyusun.
+**Ringkasan Otomatis** disusun oleh mesin narasi dari rangkaian metode bakunya
+sendiri. Sub-tab **Hasil yang Anda Jalankan** melengkapinya dari arah sebaliknya:
+begitu sebuah metode di tab Analisis berhasil dihitung, hasilnya otomatis tercatat di
+sini — persis analisis yang Anda pilih dan jalankan, tanpa tombol "simpan" apa pun.
 
-Penyimpanan sengaja atas permintaan, bukan otomatis: menangkap setiap tabel yang
-pernah terlihat akan memenuhi laporan dengan percobaan yang tidak jadi dipakai. Hasil
-disimpan sebagai salinan, sehingga tetap utuh ketika data aktif berubah — dan hasil
-yang berasal dari data lain ditandai agar tidak tercampur tanpa disadari.
+Setiap kategori metode menyimpan **satu hasil terakhir**: menjalankan ulang metode
+yang sama menggantikan hasil lama sekategori, bukan menumpuknya. Hasil disimpan
+sebagai salinan, sehingga tetap utuh ketika data aktif berubah — dan hasil yang
+berasal dari data lain ditandai agar tidak tercampur tanpa disadari.
 
 ### Ekspor laporan
 
-Tiap halaman ringkasan memuat panel **Ekspor hasil analisis** dengan dua pilihan ragam
+Ringkasan Otomatis memuat panel **Ekspor hasil analisis** dengan dua pilihan ragam
 dan delapan pilihan format:
 
-Yang diekspor mengikuti pilihan *Bentuk laporan* di bagian atas halaman, sehingga
-berkasnya persis sama dengan yang tampil di layar.
+Yang diekspor mengikuti pilihan *Bentuk laporan* di bagian atas, sehingga berkasnya
+persis sama dengan yang tampil di layar.
 
 | Format | Kegunaan |
 | --- | --- |
@@ -143,7 +174,8 @@ berkasnya persis sama dengan yang tampil di layar.
 
 Seluruh penulis format kini melewati satu lapisan dokumen netral (`Dokumen` di
 `nalardata/ekspor.py`), sehingga angka dan kesimpulannya tidak pernah berbeda antar
-berkas — dan sumber yang sama dapat berupa laporan naratif maupun Laporan Hasil.
+berkas — dan sumber yang sama dapat berupa laporan naratif maupun Hasil yang Anda
+Jalankan.
 
 ### Galat baku robust pada regresi
 
@@ -210,8 +242,8 @@ masa itu berakhir, akun berlanjut pada paket yang dipilih saat mendaftar.
 | Institusi (Khusus) | Sesuai kesepakatan | 1.000.000 baris · 500 kolom | Seluruh fitur untuk kampus dan perusahaan; ketentuan disepakati tersendiri |
 
 **Penagihan belum terpasang.** Selama masa perkenalan seluruh paket dapat
-diaktifkan tanpa pembayaran, dan halaman *Akun & Langganan* menyatakan hal itu
-secara terbuka. Rencana pembayaran memakai Doku; hosting memakai VPS Hostinger.
+diaktifkan tanpa pembayaran, dan tab **👤 Akun** menyatakan hal itu secara terbuka.
+Rencana pembayaran memakai Doku; hosting memakai VPS Hostinger.
 
 Yang belum ada pada lapisan akun, dan diperlukan sebelum aplikasi dibuka untuk
 umum: verifikasi alamat surel, pemulihan kata sandi, dan pembatasan percobaan masuk.
@@ -241,12 +273,12 @@ pembalikan otomatis dari palet terang — dan yang menentukan adalah **tema Stre
 bukan `prefers-color-scheme` peramban: pengguna dapat memilih tema di dalam aplikasi,
 dan pilihan itu tidak selalu sama dengan pengaturan sistem operasinya.
 
-Tiga komponen dipakai bersama seluruh halaman:
+Tiga komponen dipakai bersama seluruh tab:
 
 | Komponen | Kegunaan |
 | --- | --- |
-| Bilah status | Data aktif, ukurannya, dan paket yang berlaku — di **atas** halaman, bukan tersembunyi di sidebar. Kekeliruan paling mahal adalah menganalisis data yang salah tanpa menyadarinya |
-| Judul bagian | Batang aksen, kicker, judul, dan keterangan; seragam di semua halaman |
+| Bilah status | Data aktif, ukurannya, dan paket yang berlaku — di **puncak aplikasi**, di atas tab mana pun yang sedang dibuka, dipanggil sekali saja. Tidak ada lagi sidebar: kekeliruan paling mahal adalah menganalisis data yang salah tanpa menyadarinya, dan dua tempat yang bisa menampilkan status berbeda dalam satu render adalah sumber kekeliruan itu |
+| Judul bagian | Batang aksen, kicker, judul, dan keterangan; seragam di semua tab |
 | Keadaan kosong | Mengarahkan langkah berikutnya, bukan sekadar memberi tahu bahwa isinya kosong |
 
 Gerak dimatikan bagi pengguna yang memintanya lewat `prefers-reduced-motion`.
@@ -262,8 +294,9 @@ otomatis diubah menjadi variabel dummy pada analisis regresi.
 ## Struktur proyek
 
 ```
-app.py                 Entri aplikasi & navigasi halaman
-views/                 Halaman antarmuka Streamlit (satu berkas per metode)
+app.py                 Entri aplikasi: satu halaman, delapan st.tabs(), tanpa sidebar
+views/                 Fungsi render(df, kamus, penelitian) per metode/bagian,
+                       dipanggil dari app.py — bukan lagi skrip halaman berdiri sendiri
 nalardata/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   io_utils.py          Pemuatan berkas dan profil data
   preprocessing.py     Missing value, penskalaan, encoding, matriks desain
@@ -291,8 +324,9 @@ nalardata/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   pengguna.py          Basis data akun, autentikasi, dan masa uji coba
   narrative.py         Penyusun kesimpulan naratif tiga register pembaca
   report_html.py       Laporan HTML mandiri yang dapat diunduh
-  kesimpulan_ui.py     Komponen bersama ketiga halaman laporan
-  keranjang.py         Keranjang hasil: kumpulan analisis yang disimpan pengguna
+  kesimpulan_ui.py     Komponen bersama ketiga register Ringkasan Otomatis
+  keranjang.py         Keranjang hasil: satu hasil terakhir per kategori metode,
+                       dicatat otomatis lewat ui.catat_hasil saat metode berhasil
   proyek.py            Simpan/buka berkas proyek .nalardata beserta batas keamanannya
   plots.py             Visualisasi Plotly
   ui.py                Komponen antarmuka bersama
@@ -300,7 +334,7 @@ data/                  Contoh data
 scripts/               Pembuat contoh data sintetis
 jalankan.cmd           Peluncur Windows pada port 8503
 jalankan.sh            Peluncur Linux/macOS pada port 8503
-tests/                 Uji perhitungan dan uji asap halaman
+tests/                 Uji perhitungan dan uji asap app.py
 ```
 
 Pustaka `nalardata` dapat dipakai langsung tanpa antarmuka:
@@ -324,7 +358,8 @@ Terdapat tiga lapis pengujian: kebenaran perhitungan statistik (koefisien regres
 dipulihkan dari data simulasi, klaster yang ditanam berhasil ditemukan, Hotelling's
 T² konsisten dengan MANOVA), penyusunan narasi kesimpulan (ketiga register benar-benar
 berbeda, register awam bebas notasi statistik, metode yang gagal dicatat alih-alih
-menggagalkan laporan), dan uji asap yang merender setiap halaman Streamlit.
+menggagalkan laporan), dan uji asap yang merender `app.py` secara utuh pada tiap
+kombinasi tab dan mode (dengan/tanpa data, dipandu/manual, tiap metode dan paket).
 
 Uji non-parametrik dibandingkan langsung dengan `scipy.stats` sebagai acuan, dan
 ekspor diperiksa dengan membuka kembali berkas hasilnya (docx, xlsx, pptx, dan pdf

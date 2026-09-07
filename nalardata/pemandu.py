@@ -987,7 +987,7 @@ def _memperkirakan_nilai(df, kamus, outcome, prediktor, kelompok, berpasangan) -
         ),
         syarat=syarat,
         lanjutan=(
-            "Periksa uji asumsi klasik pada halaman Regresi: normalitas residual, "
+            "Periksa uji asumsi klasik pada panel Regresi: normalitas residual, "
             "heteroskedastisitas, autokorelasi, dan linearitas."
         ),
         peringatan=peringatan,

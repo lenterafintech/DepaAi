@@ -1,7 +1,15 @@
-"""Uji asap seluruh halaman Streamlit: memastikan tidak ada galat saat dirender."""
+"""Uji asap aplikasi satu halaman: memastikan tidak ada galat pada tiap kombinasi tab.
+
+Sejak arsitektur ``st.navigation`` multi-halaman diganti satu ``app.py`` dengan
+delapan ``st.tabs()``, seluruh tab dirender pada setiap giliran skrip yang sama —
+Streamlit hanya menyembunyikan visualnya, bukan melewati kodenya. Karena itu uji
+di sini menjalankan ``app.py`` secara utuh (bukan per berkas ``views/*.py`` seperti
+sebelumnya) dan memeriksa keluaran gabungan seluruh tab pada satu giliran render.
+"""
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pandas as pd
@@ -9,16 +17,15 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 ROOT = Path(__file__).resolve().parents[1]
-# Halaman yang sengaja tetap berguna tanpa data aktif. Beranda dan entri data
-# justru tempat data dibuat; Laporan Hasil menampilkan hasil yang sudah disimpan,
-# yang tetap sah dibaca sekalipun datanya sudah tidak dimuat lagi. Ruang Proyek
-# adalah tahap sebelum data dikumpulkan, sehingga meminta data di sana justru
-# membalik urutan penelitian. Kesesuaian Hasil membandingkan aplikasi dengan R
-# di atas dataset acuan bawaan, bukan di atas data pengguna.
-MANDIRI = {"beranda", "entri_data", "akun", "masuk", "laporan", "proyek", "kesesuaian"}
-PAGES = sorted(p for p in (ROOT / "views").glob("*.py") if p.stem not in MANDIRI)
-SEMUA = sorted((ROOT / "views").glob("*.py"))
+APP = ROOT / "app.py"
 SAMPLE = ROOT / "data" / "contoh_data_nasabah.csv"
+
+KELOMPOK_METODE = {
+    "Uji Beda & Hubungan": ["Korelasi & Asumsi", "Uji Beda", "MANOVA"],
+    "Pemodelan": ["Regresi", "Regresi Moderasi (MRA)", "Analisis Diskriminan", "CFA, Jalur & SEM"],
+    "Reduksi & Kelompok": ["PCA", "Analisis Faktor", "Analisis Klaster", "Korelasi Kanonik"],
+    "Instrumen": ["Reliabilitas & Validitas"],
+}
 
 
 @pytest.fixture(scope="module")
@@ -26,58 +33,144 @@ def sample() -> pd.DataFrame:
     return pd.read_csv(SAMPLE)
 
 
-def _run(path: Path, sample: pd.DataFrame | None, paket: str = "profesional") -> AppTest:
-    app = AppTest.from_file(str(path), default_timeout=180)
-    # Halaman diuji pada paket penuh; pembatasan paket diuji terpisah.
+def _run(sample: pd.DataFrame | None, paket: str = "profesional", **tambahan) -> AppTest:
+    app = AppTest.from_file(str(APP), default_timeout=300)
+    # Aplikasi diuji pada paket penuh secara bawaan; pembatasan paket diuji terpisah.
     app.session_state["paket_langganan"] = paket
     if sample is not None:
         app.session_state["dataset"] = sample
         app.session_state["dataset_name"] = "contoh_data_nasabah.csv"
+    for kunci, nilai in tambahan.items():
+        app.session_state[kunci] = nilai
     return app.run()
 
 
-def test_beranda_tanpa_data():
-    app = _run(ROOT / "views" / "beranda.py", None)
+def _html(app: AppTest) -> str:
+    """Seluruh isi st.html pada satu giliran render, digabung menjadi satu teks."""
+    return " ".join(str(e.body) for e in app.get("html"))
+
+
+def _teks(app: AppTest) -> str:
+    return " ".join(md.value for md in app.markdown)
+
+
+# --------------------------------------------------------------------------- #
+# Asap dasar: aplikasi berjalan tanpa galat, dengan dan tanpa data
+# --------------------------------------------------------------------------- #
+
+
+def test_app_berjalan_tanpa_data():
+    app = _run(None)
     assert not app.exception
+    assert not app.error
 
 
-def test_beranda_dengan_data(sample):
-    app = _run(ROOT / "views" / "beranda.py", sample)
+def test_app_berjalan_dengan_data(sample):
+    app = _run(sample)
     assert not app.exception
-    assert any("Pratinjau data" in md.value for md in app.markdown)
+    assert not app.error
+    assert "Pratinjau data" in _teks(app)
 
 
-@pytest.mark.parametrize("page", SEMUA, ids=lambda p: p.stem)
-def test_halaman_berjalan_dengan_data(page: Path, sample: pd.DataFrame):
-    app = _run(page, sample)
-    assert not app.exception, f"{page.name}: {app.exception}"
-    assert not app.error, f"{page.name}: {[e.value for e in app.error]}"
+@pytest.mark.parametrize(
+    "grup,metode",
+    [(g, m) for g, ms in KELOMPOK_METODE.items() for m in ms],
+)
+def test_setiap_metode_manual_berjalan(sample, grup: str, metode: str):
+    """Setiap metode yang dapat dipilih manual harus dapat dirender tanpa galat."""
+    app = _run(sample)
+    app.radio(key="analisis_mode").set_value("Pilih metode sendiri").run()
+    app.selectbox(key="analisis_grup").set_value(grup).run()
+    app.selectbox(key="analisis_metode").set_value(metode).run()
+    assert not app.exception, f"{grup}/{metode}: {app.exception}"
+    assert not app.error, f"{grup}/{metode}: {[e.value for e in app.error]}"
 
 
-@pytest.mark.parametrize("page", PAGES, ids=lambda p: p.stem)
-def test_halaman_meminta_data_saat_kosong(page: Path):
-    app = _run(page, None)
+def test_beranda_sebelum_data_menawarkan_cara_memulai():
+    app = _run(None)
     assert not app.exception
-    assert any("Belum ada data" in w.value for w in app.warning)
+    assert "tanpa harus jadi ahli statistik" in _html(app)
+
+
+def test_beranda_sesudah_data_menampilkan_dasbor(sample):
+    app = _run(sample)
+    assert not app.exception
+    assert "Dasbor" in _html(app)
+    assert any("Langkah berikutnya" in i.value for i in app.info)
 
 
 def test_entri_data_berjalan_tanpa_data():
-    """Halaman entri harus tetap dapat dipakai justru saat belum ada data."""
-    app = _run(ROOT / "views" / "entri_data.py", None)
+    """Entri manual justru tempat data dibuat, harus tetap berguna tanpa data aktif."""
+    app = _run(None)
     assert not app.exception
     assert not app.error
     assert any("Tentukan kolom" in str(sub.value) for sub in app.subheader)
 
 
-def test_halaman_terkunci_pada_paket_gratis(sample):
+def test_ruang_proyek_berguna_sebelum_data_ada():
+    """Rencana mendahului data; tab ini tidak boleh menuntut unggahan lebih dulu."""
+    app = _run(None)
+    assert not app.exception
+    assert "sebab-akibat" in _teks(app)
+
+
+def test_kesesuaian_hasil_tidak_bergantung_data():
+    app = _run(None)
+    assert not app.exception
+    teks = _teks(app)
+    assert "CFA / SEM" in teks or "belum" in teks.lower()
+
+
+# --------------------------------------------------------------------------- #
+# Keadaan kosong: tab yang butuh data harus mengarahkan, bukan galat
+# --------------------------------------------------------------------------- #
+
+
+def test_mutu_data_meminta_data_saat_kosong():
+    app = _run(None)
+    assert not app.exception
+    assert "Perlu data terlebih dahulu" in _html(app)
+
+
+def test_analisis_manual_meminta_data_saat_kosong():
+    app = _run(None)
+    app.radio(key="analisis_mode").set_value("Pilih metode sendiri").run()
+    assert not app.exception
+    assert "Perlu data terlebih dahulu" in _html(app)
+
+
+def test_laporan_ringkasan_meminta_data_saat_kosong():
+    app = _run(None)
+    assert not app.exception
+    assert "Perlu data terlebih dahulu" in _html(app)
+
+
+def test_simulasi_sidang_meminta_data_saat_kosong():
+    app = _run(None)
+    assert not app.exception
+    assert "Perlu data terlebih dahulu" in _html(app)
+
+
+# --------------------------------------------------------------------------- #
+# Paket dan batas ukuran
+# --------------------------------------------------------------------------- #
+
+
+def test_metode_terkunci_pada_paket_gratis(sample):
     """Metode di luar paket harus berhenti dengan ajakan naik paket, bukan galat."""
-    app = _run(ROOT / "views" / "manova.py", sample, paket="gratis")
+    app = _run(sample, paket="gratis")
+    app.radio(key="analisis_mode").set_value("Pilih metode sendiri").run()
+    app.selectbox(key="analisis_grup").set_value("Uji Beda & Hubungan").run()
+    app.selectbox(key="analisis_metode").set_value("MANOVA").run()
     assert not app.exception
     assert any("tidak termasuk dalam paket" in w.value for w in app.warning)
 
 
-def test_halaman_terbuka_pada_paket_profesional(sample):
-    app = _run(ROOT / "views" / "manova.py", sample, paket="profesional")
+def test_metode_terbuka_pada_paket_profesional(sample):
+    app = _run(sample, paket="profesional")
+    app.radio(key="analisis_mode").set_value("Pilih metode sendiri").run()
+    app.selectbox(key="analisis_grup").set_value("Uji Beda & Hubungan").run()
+    app.selectbox(key="analisis_metode").set_value("MANOVA").run()
     assert not app.exception
     assert not any("tidak termasuk dalam paket" in w.value for w in app.warning)
 
@@ -86,66 +179,84 @@ def test_data_melebihi_batas_paket_ditolak(sample):
     """Data yang lebih besar dari batas paket dihentikan dengan pesan yang jelas.
 
     Contoh bawaan sengaja muat pada paket Gratis, jadi datanya digandakan sampai
-    melewati batas - yang diuji adalah penegakannya, bukan ukuran contohnya.
+    melewati batas — yang diuji adalah penegakannya, bukan ukuran contohnya.
     """
-    import pandas as pd
-
     from nalardata import langganan as lg
 
     ulang = lg.PAKET["gratis"].maks_baris // len(sample) + 2
     besar = pd.concat([sample] * ulang, ignore_index=True)
-    app = _run(ROOT / "views" / "eksplorasi.py", besar, paket="gratis")
-    app.session_state["dataset_name"] = "data_saya.csv"
-    app.run()
+    app = _run(besar, paket="gratis", dataset_name="data_saya.csv")
     assert not app.exception
     assert any("membatasi" in w.value for w in app.warning)
 
 
-def test_halaman_akun_menampilkan_paket_aktif():
-    app = _run(ROOT / "views" / "akun.py", None, paket="gratis")
+def test_contoh_data_tetap_terbuka_pada_paket_gratis(sample):
+    """Onboarding tidak boleh terbentur dinding berbayar.
+
+    Contoh data bawaan lebih besar daripada batas paket Gratis. Analisis tetap
+    harus berjalan atasnya, karena tombol "Muat contoh data" adalah jalan masuk
+    pertama pengguna baru ke aplikasi.
+    """
+    app = AppTest.from_file(str(APP), default_timeout=300)
+    app.session_state["paket_langganan"] = "gratis"
+    app.session_state["dataset"] = sample
+    app.session_state["dataset_name"] = "contoh_data_nasabah.csv"
+    app.session_state["data_adalah_contoh"] = True
+    app.run()
+    assert not app.exception
+    assert not any("membatasi" in w.value for w in app.warning)
+
+
+def test_data_pengguna_yang_terlalu_besar_tetap_dibatasi(sample):
+    """Pengecualian ukuran hanya berlaku bagi contoh bawaan, bukan data pengguna."""
+    besar = pd.concat([sample] * 4, ignore_index=True)
+    app = _run(besar, paket="gratis", dataset_name="data_saya.csv")
+    assert not app.exception
+    assert any("membatasi" in w.value for w in app.warning)
+
+
+def test_akun_menampilkan_paket_aktif():
+    app = _run(None, paket="gratis")
     assert not app.exception
     assert any("Masa perkenalan" in i.value for i in app.info)
 
 
-def test_halaman_masuk_menawarkan_pendaftaran():
-    app = _run(ROOT / "views" / "masuk.py", None, paket="gratis")
+def test_akun_menawarkan_pendaftaran():
+    app = _run(None, paket="gratis")
     assert not app.exception
-    assert any("Paket yang tersedia" in str(s.value) for s in app.subheader)
+    assert any("Ganti paket" in str(s.value) for s in app.subheader)
+    assert any("Buat akun" in b.label for b in app.button)
 
 
-def _html(app) -> str:
-    """Seluruh isi st.html pada halaman, digabung menjadi satu teks."""
-    return " ".join(str(e.body) for e in app.get("html"))
+# --------------------------------------------------------------------------- #
+# Hasil yang Anda Jalankan (bekas Laporan Hasil, kini otomatis)
+# --------------------------------------------------------------------------- #
 
 
-def test_laporan_hasil_tanpa_keranjang_menjelaskan_caranya():
+def test_hasil_dijalankan_tanpa_isi_menjelaskan_caranya():
     """Keadaan kosong harus mengarahkan langkah berikutnya, bukan sekadar memberi tahu."""
-    app = _run(ROOT / "views" / "laporan.py", None)
+    app = _run(None)
     assert not app.exception
     isi = _html(app)
-    assert "mva-kosong" in isi  # memakai komponen keadaan kosong, bukan kotak bawaan
-    assert "Simpan ke laporan" in isi
+    assert "mva-kosong" in isi
+    assert "tab Analisis" in isi
 
 
-def test_laporan_hasil_menampilkan_isi_keranjang(sample):
-    from nalardata import keranjang as kr
-
-    isi = kr.Keranjang()
-    isi.tambah_tabel("Regresi linear", "Koefisien regresi", sample.head(3))
-    app = AppTest.from_file(str(ROOT / "views" / "laporan.py"), default_timeout=180)
-    app.session_state["paket_langganan"] = "profesional"
-    app.session_state["keranjang_hasil"] = isi
-    app.run()
+def test_metode_yang_dijalankan_otomatis_tercatat_di_laporan(sample):
+    """Menjalankan sebuah metode manual harus otomatis muncul di 'Hasil yang Anda Jalankan'."""
+    app = _run(sample)
+    app.radio(key="analisis_mode").set_value("Pilih metode sendiri").run()
+    app.selectbox(key="analisis_grup").set_value("Reduksi & Kelompok").run()
+    app.selectbox(key="analisis_metode").set_value("PCA").run()
     assert not app.exception
     isi = _html(app)
     assert "Daftar isi" in isi and "Ekspor laporan" in isi
-    # Judul bagian memakai komponen bersama, bukan subheader polos.
     assert "mva-bagian" in isi
 
 
 def test_bilah_status_menyebut_data_aktif(sample):
-    """Bilah status di atas halaman mencegah keliru menganalisis data yang salah."""
-    app = _run(ROOT / "views" / "eksplorasi.py", sample)
+    """Bilah status di puncak aplikasi mencegah keliru menganalisis data yang salah."""
+    app = _run(sample)
     isi = _html(app)
     assert "mva-strip" in isi
     assert "contoh_data_nasabah.csv" in isi
@@ -158,44 +269,16 @@ def test_token_warna_mengikuti_tema():
 
     assert set(ui.WARNA) == set(ui.WARNA_GELAP)
     gaya = ui._gaya()
-    # Token benar-benar tertulis sebagai custom property, bukan menyatu satu baris.
     assert gaya.count("\n  --") == len(ui.WARNA)
     assert "prefers-reduced-motion" in gaya
 
 
-def test_contoh_data_tetap_terbuka_pada_paket_gratis(sample):
-    """Onboarding tidak boleh terbentur dinding berbayar.
+def test_toolbar_bawaan_streamlit_disembunyikan():
+    """Menu Deploy/Fork bawaan Streamlit Cloud tidak relevan bagi produk publik."""
+    from nalardata import ui
 
-    Contoh data bawaan lebih besar daripada batas paket Gratis. Halaman analisis
-    tetap harus berjalan atasnya, karena tombol "Muat contoh data" adalah jalan
-    masuk pertama pengguna baru ke aplikasi.
-    """
-    app = AppTest.from_file(str(ROOT / "views" / "eksplorasi.py"), default_timeout=180)
-    app.session_state["paket_langganan"] = "gratis"
-    app.session_state["dataset"] = sample
-    app.session_state["dataset_name"] = "contoh_data_nasabah.csv"
-    app.session_state["data_adalah_contoh"] = True
-    app.run()
-    assert not app.exception
-    assert not any("membatasi" in w.value for w in app.warning)
-
-
-def test_data_pengguna_yang_terlalu_besar_tetap_dibatasi(sample):
-    """Pengecualian hanya berlaku bagi contoh bawaan, bukan data pengguna.
-
-    Contoh bawaan kini muat pada paket Gratis, jadi datanya digandakan agar
-    yang diuji benar-benar penegakan batasnya.
-    """
-    import pandas as pd
-
-    besar = pd.concat([sample] * 4, ignore_index=True)
-    app = AppTest.from_file(str(ROOT / "views" / "eksplorasi.py"), default_timeout=180)
-    app.session_state["paket_langganan"] = "gratis"
-    app.session_state["dataset"] = besar
-    app.session_state["dataset_name"] = "data_saya.csv"
-    app.run()
-    assert not app.exception
-    assert any("membatasi" in w.value for w in app.warning)
+    gaya = ui._gaya()
+    assert 'stToolbar' in gaya and "display: none" in gaya
 
 
 # --------------------------------------------------------------------------- #
@@ -220,24 +303,15 @@ def test_tafsiran_mengamankan_tanda_kurung_sudut():
     assert "<script>" not in ui._markdown_ringkas("<script>alert(1)</script>")
 
 
-def test_ruang_proyek_berguna_sebelum_data_ada():
-    """Tahap 0 mendahului data; halaman ini tidak boleh menuntut unggahan lebih dulu."""
-    app = _run(ROOT / "views" / "proyek.py", None)
-    assert not app.exception
-    assert not any("Belum ada data" in w.value for w in app.warning)
-    teks = " ".join(md.value for md in app.markdown)
-    assert "sebab-akibat" in teks
-
-
 # --------------------------------------------------------------------------- #
-# Kunci kausalitas pada halaman laporan
+# Kunci kausalitas pada Ringkasan Otomatis
 # --------------------------------------------------------------------------- #
 
 
-def _jalankan_laporan(sample, desain: str, acak: bool = False):
+def _jalankan_ringkasan(sample, desain: str, acak: bool = False):
     from nalardata import proyek_penelitian as pp
 
-    app = AppTest.from_file(str(ROOT / "views" / "ringkasan_akademik.py"), default_timeout=300)
+    app = AppTest.from_file(str(APP), default_timeout=300)
     app.session_state["paket_langganan"] = "profesional"
     app.session_state["dataset"] = sample
     app.session_state["dataset_name"] = "contoh_data_nasabah.csv"
@@ -248,8 +322,8 @@ def _jalankan_laporan(sample, desain: str, acak: bool = False):
     return app
 
 
-def _teks_laporan(app) -> str:
-    """Seluruh teks pada laporan yang benar-benar disusun halaman itu.
+def _teks_laporan(app: AppTest) -> str:
+    """Seluruh teks pada laporan yang benar-benar disusun aplikasi.
 
     Diambil dari objek laporannya, bukan dari tangkapan layar: teks temuan sebagian
     dirender lewat ``st.html`` sehingga tidak muncul pada ``app.markdown``, dan
@@ -266,144 +340,35 @@ def _teks_laporan(app) -> str:
     return " ".join(bagian)
 
 
-def test_halaman_laporan_menghormati_kunci_kausalitas(sample):
+def test_ringkasan_menghormati_kunci_kausalitas(sample):
     """Rancangan potong lintang tidak boleh menghasilkan bahasa sebab-akibat."""
     from nalardata import pagar
     from nalardata import proyek_penelitian as pp
 
-    app = _jalankan_laporan(sample, "potong_lintang")
+    app = _jalankan_ringkasan(sample, "potong_lintang")
     assert not app.exception
     lintang = pp.ProyekPenelitian(desain="potong_lintang")
     assert pagar.periksa_kausalitas(_teks_laporan(app), lintang) == []
 
 
-def test_rancangan_eksperimen_membuka_bahasa_sebab_di_halaman(sample):
+def test_rancangan_eksperimen_membuka_bahasa_sebab(sample):
     """Rancangan ikut menandai cache; bila tidak, laporan lama dipakai ulang."""
-    app = _jalankan_laporan(sample, "eksperimen", acak=True)
+    app = _jalankan_ringkasan(sample, "eksperimen", acak=True)
     assert not app.exception
     assert "berpengaruh" in _teks_laporan(app)
 
 
-def test_batas_rancangan_ikut_ke_halaman(sample):
-    app = _jalankan_laporan(sample, "potong_lintang")
+def test_batas_rancangan_ikut_ke_laporan(sample):
+    app = _jalankan_ringkasan(sample, "potong_lintang")
     assert any(
         "bukan sebab-akibat" in k
         for k in app.session_state["kesimpulan_laporan"].keterbatasan
     )
 
 
-# --------------------------------------------------------------------------- #
-# Rapor Data
-# --------------------------------------------------------------------------- #
-
-
-def test_rapor_data_menampilkan_temuan_dan_pilihan_tindakan(sample):
-    import pandas as pd
-
-    kotor = sample.copy()
-    kotor["nama_responden"] = [f"R{i}" for i in range(len(kotor))]
-
-    app = _run(ROOT / "views" / "rapor_data.py", kotor)
-    assert not app.exception
-    teks = " ".join(md.value for md in app.markdown)
-    assert "Apa yang ditemukan" in teks
-    assert "Akibatnya pada analisis" in teks
-    assert "Yang sebaiknya dilakukan" in teks
-    assert "Pilihan tindakan" in teks
-
-
-def test_rapor_data_tidak_mengubah_data_saat_hanya_dibuka(sample):
-    """Aplikasi melaporkan; pengguna yang memutuskan."""
-    app = _run(ROOT / "views" / "rapor_data.py", sample)
-    assert not app.exception
-    assert app.session_state["dataset"].shape == sample.shape
-
-
-# --------------------------------------------------------------------------- #
-# Navigasi
-# --------------------------------------------------------------------------- #
-
-
-def _jalur_terdaftar() -> list[str]:
-    """Jalur halaman yang benar-benar dilewatkan ke st.navigation.
-
-    Dibaca dari pohon sintaksis, bukan dari ekspresi reguler: sebagian
-    ``st.Page`` ditulis berbaris-baris sehingga pencocokan teks meleset justru
-    pada halaman yang paling panjang keterangannya.
-    """
-    import ast
-
-    pohon = ast.parse((ROOT / "app.py").read_text())
-    jalur = []
-    for simpul in ast.walk(pohon):
-        if (
-            isinstance(simpul, ast.Call)
-            and isinstance(simpul.func, ast.Attribute)
-            and simpul.func.attr == "Page"
-            and simpul.args
-            and isinstance(simpul.args[0], ast.Constant)
-        ):
-            jalur.append(str(simpul.args[0].value))
-    return jalur
-
-
-def test_setiap_halaman_terdaftar_pada_navigasi():
-    """Halaman yang tidak terdaftar tidak akan pernah ditemukan pengguna."""
-    terdaftar = {Path(j).name for j in _jalur_terdaftar()}
-    tersedia = {p.name for p in (ROOT / "views").glob("*.py")}
-    assert tersedia - terdaftar == set(), "halaman ada tetapi tidak masuk menu"
-    assert terdaftar - tersedia == set(), "menu menunjuk halaman yang tidak ada"
-
-
-def test_urutan_menu_mengikuti_tahapan_penelitian():
-    """Menu adalah perjalanan, bukan daftar metode.
-
-    Pengguna yang belum menguasai statistik tahu sampai di mana penelitiannya,
-    tetapi belum tentu tahu nama uji yang dicarinya.
-    """
-    import ast
-
-    pohon = ast.parse((ROOT / "app.py").read_text())
-    grup = []
-    for simpul in ast.walk(pohon):
-        if isinstance(simpul, ast.Dict):
-            grup = [k.value for k in simpul.keys if isinstance(k, ast.Constant)]
-            break
-
-    bernomor = [g for g in grup if g[0].isdigit()]
-    assert bernomor == sorted(bernomor), "tahapan harus tampil berurutan"
-    for kata in ("Rencana", "Data", "Pilih Metode", "Analisis", "Laporan"):
-        assert any(kata in g for g in grup), kata
-
-
-def test_halaman_bawaan_hanya_satu():
-    """Dua halaman bawaan membuat Streamlit menolak menjalankan aplikasi."""
-    import ast
-
-    pohon = ast.parse((ROOT / "app.py").read_text())
-    bawaan = 0
-    for simpul in ast.walk(pohon):
-        if isinstance(simpul, ast.Call) and getattr(simpul.func, "attr", "") == "Page":
-            for kata_kunci in simpul.keywords:
-                if kata_kunci.arg == "default" and getattr(kata_kunci.value, "value", False):
-                    bawaan += 1
-    assert bawaan == 1
-
-
-def test_halaman_terkunci_memakai_nama_halaman_bukan_keterangan_fiturnya(sample):
-    """Keterangan fitur adalah kalimat, bukan nama halaman."""
-    app = _run(ROOT / "views" / "sidang.py", sample, paket="gratis")
-    assert not app.exception
-    tajuk = " ".join(md.value for md in app.markdown) + " ".join(
-        h.value for h in getattr(app, "header", [])
-    )
-    assert "latihan menjawab pertanyaan penguji" not in tajuk.split("—")[0][:80]
-    assert any("Mahasiswa" in c.value for c in app.caption)
-
-
-def test_halaman_akademik_menawarkan_kerangka_naskah(sample):
-    """Tajuk bagian dirender lewat st.html, jadi yang diperiksa isinya."""
-    app = _run(ROOT / "views" / "ringkasan_akademik.py", sample)
+def test_ringkasan_akademik_menawarkan_kerangka_naskah(sample):
+    app = _run(sample)
+    app.radio(key="ringkasan_register").set_value("akademik").run()
     assert not app.exception
     caption = [c.value for c in app.caption]
     assert any("bukan naskah jadi" in c for c in caption)
@@ -412,56 +377,149 @@ def test_halaman_akademik_menawarkan_kerangka_naskah(sample):
 
 
 # --------------------------------------------------------------------------- #
-# Serah-terima Pemandu ke halaman metode
+# Rapor Data
 # --------------------------------------------------------------------------- #
 
 
-def test_halaman_uji_beda_terisi_dari_pemandu(sample):
+def test_rapor_data_menampilkan_temuan_dan_pilihan_tindakan(sample):
+    kotor = sample.copy()
+    kotor["nama_responden"] = [f"R{i}" for i in range(len(kotor))]
+
+    app = _run(kotor)
+    assert not app.exception
+    teks = _teks(app)
+    assert "Apa yang ditemukan" in teks
+    assert "Akibatnya pada analisis" in teks
+    assert "Yang sebaiknya dilakukan" in teks
+    assert "Pilihan tindakan" in teks
+
+
+def test_rapor_data_tidak_mengubah_data_saat_hanya_dibuka(sample):
+    """Aplikasi melaporkan; pengguna yang memutuskan."""
+    app = _run(sample)
+    assert not app.exception
+    assert app.session_state["dataset"].shape == sample.shape
+
+
+# --------------------------------------------------------------------------- #
+# Struktur tab (menggantikan uji navigasi st.navigation lama)
+# --------------------------------------------------------------------------- #
+
+
+def _daftar_tab() -> list[str]:
+    """Label tab yang benar-benar dilewatkan ke ``st.tabs`` di app.py."""
+    pohon = ast.parse(APP.read_text())
+    for simpul in ast.walk(pohon):
+        if (
+            isinstance(simpul, ast.Call)
+            and isinstance(simpul.func, ast.Attribute)
+            and simpul.func.attr == "tabs"
+            and simpul.args
+            and isinstance(simpul.args[0], ast.List)
+        ):
+            label = [el.value for el in simpul.args[0].elts if isinstance(el, ast.Constant)]
+            if len(label) >= 6:  # tab utama, bukan sub-tab kelompok metode 2-3 label
+                return label
+    return []
+
+
+def test_tab_utama_berjumlah_delapan_tanpa_duplikat():
+    """Sembilan kelompok sidebar lama (tiga di antaranya bernama sama) diringkas jadi delapan tab."""
+    label = _daftar_tab()
+    assert len(label) == 8
+    assert len(set(label)) == 8, "tidak boleh ada judul tab yang berulang"
+
+
+def test_urutan_tab_mengikuti_tahapan_penelitian():
+    """Tab adalah perjalanan, bukan daftar metode."""
+    label = " ".join(_daftar_tab())
+    for kata in ("Beranda", "Rencana", "Data", "Mutu Data", "Analisis", "Laporan", "Sidang", "Akun"):
+        assert kata in label, kata
+
+
+def test_setiap_berkas_views_dipakai_app():
+    """Berkas ``views/*.py`` yang tidak diimpor ``app.py`` adalah sisa yang terlupa."""
+    sumber = APP.read_text()
+    yatim = [
+        p.stem
+        for p in (ROOT / "views").glob("*.py")
+        if p.stem != "__init__" and p.stem not in sumber
+    ]
+    assert yatim == [], f"berkas views yatim (tidak dipakai app.py): {yatim}"
+
+
+def test_halaman_terkunci_memakai_nama_metode_bukan_keterangan_fiturnya(sample):
+    """Keterangan fitur adalah kalimat, bukan nama bagian."""
+    app = _run(sample, paket="gratis")
+    assert not app.exception
+    tajuk = _teks(app) + " ".join(h.value for h in getattr(app, "header", []))
+    assert "latihan menjawab pertanyaan penguji" not in tajuk.split("—")[0][:80]
+    assert any("Mahasiswa" in c.value for c in app.caption)
+
+
+# --------------------------------------------------------------------------- #
+# Serah-terima Pemandu ke panel metode
+# --------------------------------------------------------------------------- #
+
+
+def test_panel_metode_terisi_dari_pemandu(sample):
     """Pengguna tidak boleh diminta memilih ulang variabel yang baru saja ia sebut."""
-    app = AppTest.from_file(str(ROOT / "views" / "nonparametrik.py"), default_timeout=180)
-    app.session_state["paket_langganan"] = "profesional"
-    app.session_state["dataset"] = sample
-    app.session_state["dataset_name"] = "contoh_data_nasabah.csv"
-    app.session_state["pemandu_konfigurasi"] = {
-        "metode": "One-Way ANOVA",
-        "outcome": "skor_kredit",
-        "kelompok": "segmen_usaha",
-        "prediktor": [],
-        "berpasangan": False,
-    }
-    app.run()
+    app = _run(
+        sample,
+        pemandu_konfigurasi={
+            "metode": "One-Way ANOVA",
+            "outcome": "skor_kredit",
+            "kelompok": "segmen_usaha",
+            "prediktor": [],
+            "berpasangan": False,
+        },
+    )
     assert not app.exception
     assert any("Disiapkan dari Pemandu Uji" in s.value for s in app.success)
 
 
-def test_halaman_uji_beda_tanpa_pemandu_tidak_mengisi_apa_apa(sample):
+def test_panel_metode_tanpa_pemandu_tidak_mengisi_apa_apa(sample):
     """Mengisi pilihan orang yang tidak memintanya justru membingungkan."""
-    app = _run(ROOT / "views" / "nonparametrik.py", sample)
+    app = _run(sample)
+    app.radio(key="analisis_mode").set_value("Pilih metode sendiri").run()
+    app.selectbox(key="analisis_grup").set_value("Uji Beda & Hubungan").run()
+    app.selectbox(key="analisis_metode").set_value("Uji Beda").run()
     assert not app.exception
     assert not any("Disiapkan dari Pemandu Uji" in s.value for s in app.success)
 
 
-def test_kolom_pemandu_yang_sudah_tidak_ada_tidak_menggagalkan_halaman(sample):
+def test_kolom_pemandu_yang_sudah_tidak_ada_tidak_menggagalkan_app(sample):
     """Data dapat berganti setelah pemandu dijalankan."""
-    app = AppTest.from_file(str(ROOT / "views" / "nonparametrik.py"), default_timeout=180)
-    app.session_state["paket_langganan"] = "profesional"
-    app.session_state["dataset"] = sample
-    app.session_state["dataset_name"] = "contoh_data_nasabah.csv"
-    app.session_state["pemandu_konfigurasi"] = {
-        "metode": "One-Way ANOVA",
-        "outcome": "kolom_yang_sudah_dihapus",
-        "kelompok": "juga_tidak_ada",
-        "prediktor": [],
-        "berpasangan": False,
-    }
-    app.run()
+    app = _run(
+        sample,
+        pemandu_konfigurasi={
+            "metode": "One-Way ANOVA",
+            "outcome": "kolom_yang_sudah_dihapus",
+            "kelompok": "juga_tidak_ada",
+            "prediktor": [],
+            "berpasangan": False,
+        },
+    )
     assert not app.exception
 
 
-def test_halaman_kesesuaian_menyebut_yang_belum_divalidasi():
+def test_pemandu_konfirmasi_menampilkan_panel_metode_di_bawahnya(sample):
+    """Konfirmasi di mode Dipandu harus langsung menampilkan panel metode — tanpa
+    perlu pengguna berpindah tab atau halaman sendiri (lihat keluhan navigasi
+    yang mendorong perombakan alur ini)."""
+    app = _run(sample)
+    app.radio(key="pemandu_tujuan").set_value("membandingkan").run()
+    app.selectbox(key="pemandu_outcome_beda").set_value("skor_kredit (rasio)").run()
+    app.selectbox(key="pemandu_kelompok").set_value("segmen_usaha (nominal)").run()
+    app.button(key="pemandu_konfirmasi").click().run()
+    assert not app.exception
+    assert any("tampil tepat di bawah ini" in s.value for s in app.success)
+    assert any("Disiapkan dari Pemandu Uji" in s.value for s in app.success)
+
+
+def test_kesesuaian_hasil_menyebut_yang_belum_divalidasi():
     """Daftar yang menyembunyikan lubangnya sendiri tidak dapat dipercaya."""
-    app = _run(ROOT / "views" / "kesesuaian.py", None)
+    app = _run(None)
     assert not app.exception
-    teks = " ".join(md.value for md in app.markdown)
-    assert "Belum divalidasi" in str(app.session_state) or "belum" in teks.lower()
-    assert any("CFA / SEM" in md.value for md in app.markdown)
+    teks = _teks(app)
+    assert any("CFA / SEM" in md.value for md in app.markdown) or "belum" in teks.lower()

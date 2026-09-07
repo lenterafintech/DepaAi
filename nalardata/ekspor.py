@@ -584,7 +584,7 @@ def _petunjuk_sintaks() -> str:
         "di sini karena paket laporan memang tidak membawa data mentah. Ambil datanya\n"
         "dengan salah satu cara berikut, lalu letakkan sebagai data.csv di folder yang\n"
         "sama:\n\n"
-        "  - Unduh dari halaman Beranda & Data pada aplikasi, atau\n"
+        "  - Unduh dari tab Data (sub-tab Muat Data) pada aplikasi, atau\n"
         "  - Buka berkas proyek .nalardata Anda; data.csv ada di dalamnya.\n\n"
         "Perbedaan kecil antar perangkat adalah hal wajar. Sebelum membandingkan,\n"
         "samakan lebih dulu penanganan nilai hilang, standardisasi, pengkodean\n"

@@ -121,7 +121,7 @@ def test_bab3_tanpa_kamus_menjelaskan_yang_hilang(laporan, penelitian):
 
 def test_bab3_tanpa_ruang_proyek_meminta_diisi_dulu(laporan, kamus):
     teks = _teks(nk.susun(laporan, nk.BAB3, None, kamus))
-    assert "belum diisi pada halaman Ruang Proyek" in teks
+    assert "belum diisi pada tab Rencana" in teks
 
 
 def test_bab3_menyebut_praregistrasi_bila_ada(laporan, kamus):

@@ -213,7 +213,7 @@ def _tanya_sampel(laporan, penelitian, jejak, audit) -> list[Pertanyaan]:
         f"Analisis dijalankan pada {_num(n)} pengamatan. Kecukupan sampel tidak "
         "ditentukan angka mutlak, melainkan oleh daya uji: besar pengaruh yang "
         "hendak dideteksi, taraf signifikansi, dan banyaknya prediktor. Hitungan "
-        "daya uji tersedia pada halaman Ruang Proyek."
+        "daya uji tersedia pada tab Rencana."
     )
     if penelitian is not None and penelitian.target_sampel:
         selisih = n - int(penelitian.target_sampel)
