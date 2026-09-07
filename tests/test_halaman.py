@@ -623,6 +623,37 @@ def test_pemandu_konfirmasi_menampilkan_panel_metode_di_bawahnya(sample):
     assert any("Disiapkan dari Pemandu Uji" in s.value for s in app.success)
 
 
+def test_pemandu_langkah_2_terisi_dari_peran_kamus(sample):
+    """Kolom yang perannya sudah dikonfirmasi di Kamus Variabel tidak perlu dipilih ulang."""
+    from nalardata import kamus as km
+
+    kamus = km.Kamus.dari_data(sample)
+    kamus.tetapkan("skor_kredit", peran="outcome", dikonfirmasi=True)
+    kamus.tetapkan("segmen_usaha", peran="kelompok", dikonfirmasi=True)
+
+    app = _run(sample, kamus_variabel=kamus)
+    app.radio(key="pemandu_tujuan").set_value("membandingkan").run()
+    assert not app.exception
+    assert app.selectbox(key="pemandu_outcome_beda").value == "skor_kredit"
+    assert app.selectbox(key="pemandu_kelompok").value == "segmen_usaha"
+
+
+def test_kamus_kartu_konfirmasi_menandai_kolom(sample):
+    """Kartu bahasa awam adalah cara utama menandai kolom sudah diperiksa."""
+    from nalardata import kamus as km
+
+    kamus = km.Kamus.dari_data(sample)
+    perlu = kamus.perlu_diperiksa()
+    assert perlu, "data contoh harus punya kolom yang perlu diperiksa agar uji ini berarti"
+    target = perlu[0]
+
+    app = _run(sample, kamus_variabel=kamus)
+    assert not app.exception
+    app.button(key=f"kartu_konfirmasi_{target}").click().run()
+    assert not app.exception
+    assert app.session_state["kamus_variabel"][target].dikonfirmasi
+
+
 def test_kesesuaian_hasil_menyebut_yang_belum_divalidasi():
     """Daftar yang menyembunyikan lubangnya sendiri tidak dapat dipercaya."""
     app = _run(None)
