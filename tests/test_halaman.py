@@ -654,6 +654,50 @@ def test_kamus_kartu_konfirmasi_menandai_kolom(sample):
     assert app.session_state["kamus_variabel"][target].dikonfirmasi
 
 
+def test_kamus_kartu_hanya_satu_per_giliran(sample):
+    """Kartu ditampilkan satu per satu, bukan semua sekaligus — kolom berikutnya baru
+    muncul setelah kolom sekarang dikonfirmasi."""
+    from nalardata import kamus as km
+
+    kamus = km.Kamus.dari_data(sample)
+    perlu = kamus.perlu_diperiksa()
+    assert len(perlu) >= 2, "data contoh harus punya sekurang-kurangnya dua kolom tebakan"
+    pertama, kedua = perlu[0], perlu[1]
+
+    app = _run(sample, kamus_variabel=kamus)
+    kunci = [b.key for b in app.button]
+    assert f"kartu_konfirmasi_{pertama}" in kunci
+    assert f"kartu_konfirmasi_{kedua}" not in kunci
+
+    app.button(key=f"kartu_konfirmasi_{pertama}").click().run()
+    assert not app.exception
+    kunci_baru = [b.key for b in app.button]
+    assert f"kartu_konfirmasi_{pertama}" not in kunci_baru
+    assert f"kartu_konfirmasi_{kedua}" in kunci_baru
+
+
+def test_pemandu_konfirmasi_menyimpan_peran_tanpa_mengubah_status_skala(sample):
+    """Peran ditulis diam-diam dari Pemandu; status konfirmasi skala tidak boleh ikut
+    berubah — menuliskan peran bukan alasan untuk membungkam peringatan skala."""
+    from nalardata import kamus as km
+
+    kamus = km.Kamus.dari_data(sample)
+    status_awal = kamus["skor_kredit"].dikonfirmasi
+    assert kamus["skor_kredit"].peran != "outcome"
+
+    app = _run(sample, kamus_variabel=kamus)
+    app.radio(key="pemandu_tujuan").set_value("membandingkan").run()
+    app.selectbox(key="pemandu_outcome_beda").set_value("skor_kredit (rasio)").run()
+    app.selectbox(key="pemandu_kelompok").set_value("segmen_usaha (nominal)").run()
+    app.button(key="pemandu_konfirmasi").click().run()
+    assert not app.exception
+
+    hasil = app.session_state["kamus_variabel"]
+    assert hasil["skor_kredit"].peran == "outcome"
+    assert hasil["segmen_usaha"].peran == "kelompok"
+    assert hasil["skor_kredit"].dikonfirmasi == status_awal
+
+
 def test_kesesuaian_hasil_menyebut_yang_belum_divalidasi():
     """Daftar yang menyembunyikan lubangnya sendiri tidak dapat dipercaya."""
     app = _run(None)

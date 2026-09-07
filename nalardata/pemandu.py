@@ -1251,12 +1251,18 @@ def _menguji_model(df, kamus, outcome, prediktor, kelompok, berpasangan) -> Reko
     )
     hasil.alternatif.append(
         Saran(
-            metode="Regresi berganda berurutan",
+            # Nama ini sengaja menghindari kata "regresi berganda" saja — itu nama
+            # metode yang sudah tersedia di halaman Regresi, dan pengguna yang
+            # membaca sekilas dapat salah paham aplikasi ini tidak punya regresi
+            # berganda sama sekali, padahal yang tidak ada hanya cara bertahapnya.
+            metode="Menguji tiap jalur satu-satu lewat regresi terpisah",
             halaman="Regresi",
             alasan="",
             ditolak_karena=(
-                "Menguji model bertahap lewat beberapa regresi terpisah mengabaikan "
-                "galat pengukuran dan tidak menghasilkan indeks kecocokan model."
+                "Ini berbeda dari regresi berganda biasa (tersedia di halaman "
+                "Regresi): di sini setiap jalur model diuji satu-satu lewat regresi "
+                "terpisah, bertahap. Cara itu mengabaikan galat pengukuran dan "
+                "tidak menghasilkan indeks kecocokan model secara keseluruhan."
             ),
         )
     )

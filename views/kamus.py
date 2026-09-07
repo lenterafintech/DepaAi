@@ -32,22 +32,6 @@ _SKALA_CONTOH = {
     km.RASIO: "misalnya umur, pendapatan, skor ujian, jumlah anak",
 }
 
-# Peran yang paling sering dipakai muncul langsung; sisanya (kovariat, mediator,
-# moderator, indikator, waktu) disembunyikan di balik "Peran lain" karena
-# istilahnya sendiri menuntut penjelasan yang tidak muat dalam satu kartu.
-_PERAN_UMUM = (km.BELUM, "outcome", "prediktor", "kelompok", "id", "tidak dipakai")
-_PERAN_LANJUT = ("kovariat", "mediator", "moderator", "indikator", "waktu")
-_PERAN_LAINNYA = "__lainnya__"
-_PERAN_LABEL_AWAM = {
-    km.BELUM: "Belum tahu — tentukan nanti saat memilih metode",
-    "outcome": "Hasil yang ingin saya jelaskan atau bandingkan",
-    "prediktor": "Diduga memengaruhi atau membedakan hasil di atas",
-    "kelompok": "Membagi responden menjadi beberapa kelompok",
-    "id": "Sekadar identitas responden, bukan untuk dianalisis",
-    "tidak dipakai": "Tidak dipakai dalam analisis",
-}
-
-
 def _kartu_konfirmasi(df: pd.DataFrame, kamus: km.Kamus, nama: str) -> None:
     v = kamus[nama]
     with st.container(border=True):
@@ -73,40 +57,18 @@ def _kartu_konfirmasi(df: pd.DataFrame, kamus: km.Kamus, nama: str) -> None:
             horizontal=True,
         )
 
-        with st.expander("Dipakai sebagai apa dalam analisis? (boleh dilewati)"):
-            urutan_peran = _PERAN_UMUM + (_PERAN_LAINNYA,)
-            peran_sekarang = v.peran if v.peran in _PERAN_UMUM else _PERAN_LAINNYA
-            pilihan_peran = st.radio(
-                "Peran variabel",
-                urutan_peran,
-                index=urutan_peran.index(peran_sekarang),
-                format_func=lambda k: (
-                    "Peran lain (kovariat, mediator, moderator, dst.)"
-                    if k == _PERAN_LAINNYA
-                    else _PERAN_LABEL_AWAM[k]
-                ),
-                key=f"kartu_peran_{nama}",
-                label_visibility="collapsed",
-            )
-            peran_baru = pilihan_peran
-            if pilihan_peran == _PERAN_LAINNYA:
-                indeks_lanjut = (
-                    _PERAN_LANJUT.index(v.peran) if v.peran in _PERAN_LANJUT else 0
-                )
-                peran_baru = st.selectbox(
-                    "Pilih peran",
-                    _PERAN_LANJUT,
-                    index=indeks_lanjut,
-                    format_func=lambda k: km.LABEL_PERAN[k],
-                    key=f"kartu_peran_lanjut_{nama}",
-                )
+        st.caption(
+            "Dipakai sebagai apa dalam analisis (outcome, kelompok, dst.) akan "
+            "ditanyakan nanti di Pemandu Uji — dalam konteks pertanyaan penelitian "
+            "Anda, bukan di sini."
+        )
 
         if st.button(
             "Sesuai, tandai sudah diperiksa",
             key=f"kartu_konfirmasi_{nama}",
             type="primary",
         ):
-            kamus.tetapkan(nama, skala=skala_baru, peran=peran_baru, dikonfirmasi=True)
+            kamus.tetapkan(nama, skala=skala_baru, dikonfirmasi=True)
             ui.set_kamus(kamus)
             st.rerun()
 
@@ -141,14 +103,21 @@ def render(df, kamus, penelitian) -> None:
     # --------------------------------------------------------------------------- #
 
     if perlu:
+        # Total tetap (tidak menyusut seperti len(perlu)) supaya "Kolom N dari M"
+        # berarti posisi saat ini, bukan sisa yang berubah-ubah setiap konfirmasi.
+        total_periksa = len([v for v in kamus if v.keyakinan != km.PASTI])
+        sudah = total_periksa - len(perlu)
+
         ui.judul_bagian(
-            f"{formatting.num(len(perlu))} kolom masih memakai tebakan aplikasi",
+            f"Kolom {formatting.num(sudah + 1)} dari {formatting.num(total_periksa)} "
+            "yang perlu diperiksa",
             "Saran metode pada Pemandu Uji bergantung pada jawaban di sini — kolom "
-            "Likert yang tercatat sebagai angka biasa akan mengantar ke uji yang keliru.",
+            "Likert yang tercatat sebagai angka biasa akan mengantar ke uji yang keliru. "
+            "Satu per satu, agar tidak membingungkan.",
             kicker="Konfirmasi",
         )
-        for nama in perlu:
-            _kartu_konfirmasi(df, kamus, nama)
+        st.progress(sudah / total_periksa if total_periksa else 0.0)
+        _kartu_konfirmasi(df, kamus, perlu[0])
     else:
         st.success("Seluruh kolom sudah Anda konfirmasi.", icon=":material/check_circle:")
 
@@ -235,6 +204,7 @@ def render(df, kamus, penelitian) -> None:
 
         if berubah:
             ui.set_kamus(kamus)
+            st.rerun()
 
     ui.interpretation(
         "**Ordinal atau rasio** adalah pilihan yang paling menentukan. Skor Likert yang "

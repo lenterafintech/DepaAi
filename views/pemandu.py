@@ -25,6 +25,19 @@ def _prasi_banyak(kandidat: list[str], kamus: km.Kamus, *peran: str) -> list[str
     return [n for n in kamus.dengan_peran(*peran) if n in kandidat]
 
 
+def _simpan_peran(kamus: km.Kamus, nama: str | None, peran: str) -> None:
+    """Menuliskan peran yang baru saja dipilih pengguna kembali ke Kamus Variabel.
+
+    Pengguna awam tidak pernah ditanya "peran" secara abstrak di Kamus Variabel —
+    pertanyaan itu hanya masuk akal dalam konteks pertanyaan penelitian yang
+    sedang dijawab di sini. ``dikonfirmasi`` sengaja dipertahankan apa adanya:
+    menuliskan peran tidak boleh diam-diam membungkam peringatan "skala kolom
+    ini masih tebakan", karena keduanya adalah hal yang berbeda.
+    """
+    if nama and nama in kamus and kamus[nama].peran != peran:
+        kamus.tetapkan(nama, peran=peran, dikonfirmasi=kamus[nama].dikonfirmasi)
+
+
 def render(df, kamus, penelitian) -> None:
     if not ui.butuh_fitur("pemandu"):
         return
@@ -298,6 +311,12 @@ def render(df, kamus, penelitian) -> None:
         key="pemandu_konfirmasi",
         disabled=not utama.tersedia,
     ):
+        _simpan_peran(kamus, outcome, "outcome")
+        _simpan_peran(kamus, kelompok, "kelompok")
+        for nama in prediktor or []:
+            _simpan_peran(kamus, nama, "prediktor")
+        ui.set_kamus(kamus)
+
         ui.jejak().catat_keputusan(
             f"Memilih {utama.metode}",
             halaman="Pemandu Uji",
