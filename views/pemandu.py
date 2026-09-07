@@ -13,6 +13,18 @@ from nalardata import audit as ad
 from nalardata import formatting, kamus as km, pagar, pemandu as pmd, ui
 
 
+def _prasi_tunggal(kandidat: list[str], kamus: km.Kamus, *peran: str) -> str | None:
+    """Kolom pertama di antara ``kandidat`` yang perannya sudah dikonfirmasi di Kamus Variabel."""
+    for nama in kamus.dengan_peran(*peran):
+        if nama in kandidat:
+            return nama
+    return None
+
+
+def _prasi_banyak(kandidat: list[str], kamus: km.Kamus, *peran: str) -> list[str]:
+    return [n for n in kamus.dengan_peran(*peran) if n in kandidat]
+
+
 def render(df, kamus, penelitian) -> None:
     if not ui.butuh_fitur("pemandu"):
         return
@@ -73,7 +85,12 @@ def render(df, kamus, penelitian) -> None:
     # Variabel
     # --------------------------------------------------------------------------- #
 
-    ui.judul_bagian("Variabel mana yang terlibat?", kicker="Langkah 2")
+    ui.judul_bagian(
+        "Variabel mana yang terlibat?",
+        "Kolom yang perannya sudah Anda konfirmasi di Kamus Variabel otomatis "
+        "terisi di sini — periksa dan ubah bila keliru.",
+        kicker="Langkah 2",
+    )
 
     semua = list(df.columns)
     numerik = kamus.numerik()
@@ -83,6 +100,10 @@ def render(df, kamus, penelitian) -> None:
     def _label(nama: str) -> str:
         butir = kamus.variabel.get(nama)
         return f"{kamus.judul(nama)} ({butir.skala})" if butir else nama
+
+
+    def _indeks(kandidat: list[str], nilai: str | None) -> int:
+        return ([None] + kandidat).index(nilai) if nilai in kandidat else 0
 
 
     outcome = prediktor = kelompok = None
@@ -100,7 +121,11 @@ def render(df, kamus, penelitian) -> None:
         )
         if berpasangan:
             pilihan = st.multiselect(
-                "Kolom pengukuran berulang", numerik, key="pemandu_ulang", format_func=_label
+                "Kolom pengukuran berulang",
+                numerik,
+                key="pemandu_ulang",
+                format_func=_label,
+                help="Misalnya skor sebelum dan sesudah pelatihan, diukur pada orang yang sama.",
             )
             outcome = pilihan[0] if pilihan else None
             prediktor = pilihan[1:]
@@ -109,14 +134,18 @@ def render(df, kamus, penelitian) -> None:
             outcome = kiri.selectbox(
                 "Variabel yang dibandingkan",
                 [None] + semua,
+                index=_indeks(semua, _prasi_tunggal(semua, kamus, "outcome")),
                 format_func=lambda k: "— pilih —" if k is None else _label(k),
                 key="pemandu_outcome_beda",
+                help="Angka atau kategori yang ingin Anda lihat bedanya antar kelompok, misalnya skor ujian.",
             )
             kelompok = kanan.selectbox(
                 "Penanda kelompok",
                 [None] + kategorik,
+                index=_indeks(kategorik, _prasi_tunggal(kategorik, kamus, "kelompok")),
                 format_func=lambda k: "— pilih —" if k is None else _label(k),
                 key="pemandu_kelompok",
+                help="Kolom yang membagi responden menjadi beberapa kelompok, misalnya jenis kelamin atau kelas perlakuan.",
             )
 
     elif tujuan in {"menghubungkan"}:
@@ -126,6 +155,7 @@ def render(df, kamus, penelitian) -> None:
             max_selections=2,
             key="pemandu_hubungan",
             format_func=_label,
+            help="Urutan tidak penting — Pemandu hanya menguji apakah keduanya bergerak bersamaan.",
         )
         outcome = pilihan[0] if pilihan else None
         prediktor = pilihan[1:]
@@ -136,24 +166,52 @@ def render(df, kamus, penelitian) -> None:
         outcome = kiri.selectbox(
             "Yang ingin diperkirakan",
             [None] + kandidat,
+            index=_indeks(kandidat, _prasi_tunggal(kandidat, kamus, "outcome")),
             format_func=lambda k: "— pilih —" if k is None else _label(k),
             key="pemandu_outcome_reg",
+            help="Angka atau kategori yang nilainya ingin Anda jelaskan atau perkirakan.",
         )
+        kandidat_prediktor = [k for k in numerik if k != outcome]
         prediktor = kanan.multiselect(
             "Variabel penjelas",
-            [k for k in numerik if k != outcome],
+            kandidat_prediktor,
+            default=_prasi_banyak(kandidat_prediktor, kamus, "prediktor", "kovariat"),
             key="pemandu_prediktor",
             format_func=_label,
+            help="Variabel yang Anda duga ikut menentukan naik-turunnya nilai di atas.",
         )
 
     else:
-        label = {
-            "meringkas": "Variabel yang ingin diringkas",
-            "mengelompokkan": "Variabel dasar pengelompokan",
-            "menguji_model": "Indikator penyusun konstruk",
-            "mutu_instrumen": "Butir penyusun satu konstruk",
+        label, bantuan, peran_disukai = {
+            "meringkas": (
+                "Variabel yang ingin diringkas",
+                "Belasan butir kuesioner yang Anda duga sebenarnya mengukur beberapa hal saja.",
+                ("indikator", "prediktor"),
+            ),
+            "mengelompokkan": (
+                "Variabel dasar pengelompokan",
+                "Variabel angka yang dipakai untuk menemukan kemiripan antar responden.",
+                ("prediktor",),
+            ),
+            "menguji_model": (
+                "Indikator penyusun konstruk",
+                "Seluruh butir yang menyusun konstruk-konstruk dalam model Anda, digabung dari semua konstruk.",
+                ("indikator",),
+            ),
+            "mutu_instrumen": (
+                "Butir penyusun satu konstruk",
+                "Butir kuesioner yang dirancang untuk mengukur satu hal yang sama.",
+                ("indikator",),
+            ),
         }[tujuan]
-        prediktor = st.multiselect(label, semua, key="pemandu_banyak", format_func=_label)
+        prediktor = st.multiselect(
+            label,
+            semua,
+            default=_prasi_banyak(semua, kamus, *peran_disukai),
+            key="pemandu_banyak",
+            format_func=_label,
+            help=bantuan,
+        )
 
     # --------------------------------------------------------------------------- #
     # Saran
@@ -256,6 +314,12 @@ def render(df, kamus, penelitian) -> None:
             "Aplikasi tidak menjalankan uji apa pun sebelum Anda menekan tombol ini. "
             "Mengenali nama kolom bukan alasan yang cukup untuk menyimpulkan."
         )
+
+    st.caption(
+        "Ada pertanyaan penelitian lain? Pilih tujuan yang berbeda di Langkah 1 dan "
+        "jalankan Pemandu lagi — hasil yang sudah dikonfirmasi tidak hilang, semuanya "
+        "terkumpul otomatis di tab Laporan."
+    )
 
     # --------------------------------------------------------------------------- #
     # Alternatif
