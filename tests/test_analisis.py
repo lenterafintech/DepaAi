@@ -320,6 +320,90 @@ def test_box_m_membedakan_kovarians():
     assert assumptions.box_m(beda, grup_beda).p_value < 0.001
 
 
+def test_rm_anova_mendeteksi_perbedaan_antar_kondisi():
+    rng = np.random.default_rng(23)
+    n = 40
+    subjek = rng.normal(0, 1, n)  # efek subjek: berkorelasi antar kondisi
+    df = pd.DataFrame(
+        {
+            "pre": subjek + rng.normal(0, 0.4, n),
+            "post": subjek + 0.8 + rng.normal(0, 0.4, n),
+            "follow": subjek + 1.2 + rng.normal(0, 0.4, n),
+        }
+    )
+    hasil = manova.run_repeated_measures(df, ["pre", "post", "follow"])
+    assert hasil.n == n
+    assert float(hasil.anova.iloc[0]["Pr > F"]) < 0.001
+    assert hasil.mauchly.berlaku
+    assert 1 / 2 <= hasil.gg_epsilon <= 1.0
+    assert hasil.hf_epsilon >= hasil.gg_epsilon
+    # Ketiga baris (mentah + 2 koreksi) harus sepakat pada data sejelas ini.
+    assert (hasil.terkoreksi["p-value"] < 0.001).all()
+
+
+def test_rm_anova_dua_kondisi_sphericity_trivial():
+    rng = np.random.default_rng(29)
+    n = 30
+    subjek = rng.normal(0, 1, n)
+    df = pd.DataFrame({"a": subjek, "b": subjek + 1.0 + rng.normal(0, 0.3, n)})
+    hasil = manova.run_repeated_measures(df, ["a", "b"])
+    assert not hasil.mauchly.berlaku
+    assert hasil.mauchly.terpenuhi
+    assert hasil.gg_epsilon == 1.0 and hasil.hf_epsilon == 1.0
+
+
+def test_mauchly_menolak_sphericity_saat_ragam_selisih_jauh_berbeda():
+    """Ragam kondisi yang jauh berbeda melanggar sphericity; W harus jauh dari 1."""
+    rng = np.random.default_rng(31)
+    n = 200
+    subjek = rng.normal(0, 1, n)
+    df = pd.DataFrame(
+        {
+            "a": subjek + rng.normal(0, 0.1, n),
+            "b": subjek + rng.normal(0, 2.5, n),
+            "c": subjek + rng.normal(0, 6.0, n),
+        }
+    )
+    mauchly, gg, hf = manova.mauchly_sphericity(df.to_numpy(float))
+    assert mauchly.berlaku
+    assert mauchly.w < 0.5
+    assert mauchly.p_value < 0.001
+    assert not mauchly.terpenuhi
+    assert 1 / 2 <= gg < 1.0  # p = k-1 = 2, batas bawah 1/p = 0,5
+    assert gg <= hf <= 1.0
+
+
+def test_mauchly_menerima_data_compound_symmetric():
+    """Ragam dan kovarians seragam antar kondisi: sphericity semestinya tidak ditolak."""
+    rng = np.random.default_rng(37)
+    n = 500
+    k = 4
+    subjek = rng.normal(0, 1, n)
+    # Semua kondisi berbagi galat subjek yang sama plus derau independen bervarian
+    # sama -- inilah struktur compound symmetric yang mendasari sphericity.
+    kondisi = {
+        f"k{i}": subjek + rng.normal(0, 1, n) for i in range(k)
+    }
+    df = pd.DataFrame(kondisi)
+    mauchly, gg, _ = manova.mauchly_sphericity(df.to_numpy(float))
+    assert mauchly.w > 0.8
+    assert mauchly.p_value > 0.05
+    assert mauchly.terpenuhi
+    assert gg > 0.9
+
+
+def test_rm_anova_gagal_dengan_satu_kondisi():
+    df = pd.DataFrame({"a": [1, 2, 3]})
+    with pytest.raises(ValueError):
+        manova.run_repeated_measures(df, ["a"])
+
+
+def test_rm_anova_gagal_subjek_terlalu_sedikit():
+    df = pd.DataFrame({"a": [1, 2], "b": [2, 3], "c": [3, 4]})
+    with pytest.raises(ValueError):
+        manova.run_repeated_measures(df, ["a", "b", "c"])
+
+
 def test_cca_memulihkan_hubungan_antar_gugus(data):
     result = cca.run_cca(data, ["x1", "x2", "x3"], ["y1", "y2", "y3"])
     assert len(result.correlations) == 3

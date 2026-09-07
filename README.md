@@ -19,7 +19,7 @@ interpretasinya dalam bahasa Indonesia.
 | Pengelompokan | K-Means (elbow, silhouette, Calinski-Harabasz, Davies-Bouldin), hierarki + dendrogram, DBSCAN, profil klaster dengan uji ANOVA |
 | Pemodelan | Regresi linear berganda (koefisien baku, ANOVA, VIF, uji asumsi klasik termasuk Breusch-Pagan dan White, galat baku robust HC0–HC3 dengan anjuran otomatis, stepwise), regresi logistik biner (odds ratio, ROC/AUC, matriks konfusi), dan regresi moderasi/MRA (suku interaksi, ΔR², simple slopes, Johnson-Neyman) |
 | Uji non-parametrik | Mann-Whitney U, Kolmogorov-Smirnov dua sampel, median Mood, Kruskal-Wallis dengan uji lanjutan Dunn (koreksi Holm/Bonferroni), Wilcoxon peringkat bertanda, uji tanda, Friedman + Kendall's W, chi-square kebebasan + Cramér's V, uji eksak Fisher, korelasi Spearman & Kendall — seluruhnya dilaporkan bersama ukuran efek dan padanan parametriknya |
-| Uji beda & hubungan | Analisis diskriminan linear/kuadratik (fungsi kanonik, Wilks' lambda), MANOVA satu jalur + Hotelling's T², MANCOVA dengan rata-rata terkoreksi dan uji homogenitas kemiringan, korelasi kanonik dengan indeks redundansi |
+| Uji beda & hubungan | Analisis diskriminan linear/kuadratik (fungsi kanonik, Wilks' lambda), MANOVA satu jalur + Hotelling's T², MANCOVA dengan rata-rata terkoreksi dan uji homogenitas kemiringan, ANOVA pengukuran berulang dengan uji sphericity Mauchly dan koreksi Greenhouse-Geisser/Huynh-Feldt, korelasi kanonik dengan indeks redundansi |
 | Model struktural | CFA (muatan terstandardisasi, CR/AVE, indeks kecocokan termasuk SRMR), analisis jalur dengan dekomposisi efek langsung/tidak langsung, SEM penuh, uji mediasi bootstrap dengan VAF, pilihan estimator ML / FIML / DWLS / ULS / GLS beserta saran otomatis sesuai ciri data, serta spesifikasi model bebas bergaya lavaan lengkap dengan pemeriksaan sintaks |
 | Ekspor & reproduksi | Laporan Lengkap maupun Ringkasan diekspor ke Word, PDF, Excel, PowerPoint, HTML, Markdown, JSON, atau satu paket ZIP; disertai sintaks Python, R, SPSS, AMOS, dan Mplus yang menjalankan ulang analisis yang sama |
 | Laporan analisis | Tiga halaman menurut pembaca — Umum, Mahasiswa & Pengajar, Profesional — masing-masing tersedia dalam dua bentuk: **Ringkasan** dan **Laporan Lengkap**. Ditambah **Laporan Hasil**, yang mengumpulkan analisis yang benar-benar dijalankan pengguna |
@@ -314,7 +314,8 @@ nalardata/           Pustaka perhitungan (murni pandas/numpy, tanpa Streamlit)
   clustering.py        K-Means, hierarki, DBSCAN, profil klaster
   regression.py        Regresi linear & logistik, galat baku robust, stepwise, prediksi
   discriminant.py      LDA/QDA, fungsi kanonik, Wilks' lambda
-  manova.py            MANOVA satu jalur, Hotelling's T²
+  manova.py            MANOVA satu jalur, Hotelling's T², ANOVA pengukuran berulang
+                       (Mauchly, Greenhouse-Geisser, Huynh-Feldt)
   cca.py               Korelasi kanonik
   data_entry.py        Pembuatan data, pembersihan, dan variabel gabungan dari butir
   reliability.py       Alpha, Spearman-Brown, omega, CR, AVE, Fornell-Larcker, HTMT

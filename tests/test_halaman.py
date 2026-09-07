@@ -86,6 +86,19 @@ def test_setiap_metode_manual_berjalan(sample, grup: str, metode: str):
     assert not app.error, f"{grup}/{metode}: {[e.value for e in app.error]}"
 
 
+def test_manova_pengukuran_berulang_berjalan(sample):
+    """Mode ANOVA pengukuran berulang (Mauchly + koreksi) harus berjalan tanpa galat."""
+    app = _run(sample)
+    app.radio(key="analisis_mode").set_value("Pilih metode sendiri").run()
+    app.selectbox(key="analisis_grup").set_value("Uji Beda & Hubungan").run()
+    app.selectbox(key="analisis_metode").set_value("MANOVA").run()
+    app.radio(key="manova_mode").set_value("Pengukuran berulang (dalam-subjek)").run()
+    ms = app.multiselect(key="rm_kondisi")
+    ms.set_value(ms.options[:3]).run()
+    assert not app.exception
+    assert not app.error
+
+
 def test_beranda_sebelum_data_menawarkan_cara_memulai():
     app = _run(None)
     assert not app.exception

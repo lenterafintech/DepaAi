@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pandas as pd
 import streamlit as st
 
 from nalardata import assumptions, descriptive, mancova, manova, plots, preprocessing, ui
@@ -18,6 +19,20 @@ def render(df, kamus, penelitian) -> None:
         "korelasi antar variabel dependen dan menjaga tingkat kesalahan tipe I.",
     )
 
+    mode = st.radio(
+        "Desain",
+        ["Antar kelompok (MANOVA)", "Pengukuran berulang (dalam-subjek)"],
+        horizontal=True,
+        key="manova_mode",
+    )
+    st.divider()
+    if mode == "Antar kelompok (MANOVA)":
+        _render_antar_kelompok(df)
+    else:
+        _render_berulang(df)
+
+
+def _render_antar_kelompok(df) -> None:
     factor = ui.group_selector(df, "Variabel faktor (kelompok)", key="manova_factor")
     numeric_cols = [c for c in preprocessing.numeric_columns(df) if c != factor]
     dependents = st.multiselect(
@@ -181,3 +196,74 @@ def render(df, kamus, penelitian) -> None:
         levene = assumptions.levene_by_variable(subset[dependents], subset[factor])
         if not levene.empty:
             ui.show_table(levene, "manova_levene.csv")
+
+
+def _render_berulang(df) -> None:
+    ui.method_note(
+        "ANOVA pengukuran berulang",
+        "Membandingkan lebih dari dua pengukuran pada **subjek yang sama** — misalnya "
+        "skor sebelum, sesudah, dan tindak lanjut pelatihan. Karena pengukurannya "
+        "berkorelasi (subjeknya sama), sphericity — ragam selisih antar semua pasangan "
+        "kondisi yang seragam — harus diperiksa lebih dulu; bila dilanggar, derajat "
+        "bebasnya dikoreksi (Greenhouse-Geisser atau Huynh-Feldt) sebelum nilai p dibaca.",
+    )
+    numeric_cols = preprocessing.numeric_columns(df)
+    kondisi = st.multiselect(
+        "Kolom kondisi/waktu (minimal 2, subjek yang sama pada tiap kolom)",
+        numeric_cols,
+        default=numeric_cols[: min(3, len(numeric_cols))],
+        key="rm_kondisi",
+    )
+    if len(kondisi) < 2:
+        st.info("Pilih minimal 2 kolom yang mewakili pengukuran berulang pada subjek yang sama.")
+        return
+
+    try:
+        hasil = manova.run_repeated_measures(df, kondisi)
+    except ValueError as exc:
+        st.error(str(exc))
+        return
+
+    st.subheader("Rata-rata tiap kondisi")
+    ui.show_table(hasil.ringkasan, "rm_ringkasan.csv")
+
+    st.subheader("Uji sphericity (Mauchly)")
+    if not hasil.mauchly.berlaku:
+        st.info("Hanya 2 kondisi: sphericity otomatis terpenuhi, tidak perlu diuji.")
+    else:
+        tabel_mauchly = pd.DataFrame(
+            [
+                {
+                    "Mauchly's W": hasil.mauchly.w,
+                    "Chi-square": hasil.mauchly.chi_square,
+                    "df": hasil.mauchly.df,
+                    "p-value": hasil.mauchly.p_value,
+                    "Sphericity": "Terpenuhi" if hasil.mauchly.terpenuhi else "Dilanggar",
+                }
+            ]
+        )
+        ui.show_table(tabel_mauchly, "rm_mauchly.csv", bagian="MANOVA", judul="Uji sphericity Mauchly")
+
+    st.subheader("ANOVA pengukuran berulang")
+    st.caption("Baris pertama tanpa koreksi; gunakan baris terkoreksi bila sphericity dilanggar.")
+    ui.show_table(hasil.anova.reset_index().rename(columns={"index": "Sumber"}), "rm_anova.csv")
+    ui.show_table(
+        hasil.terkoreksi,
+        "rm_terkoreksi.csv",
+        bagian="MANOVA",
+        judul="ANOVA pengukuran berulang (terkoreksi)",
+    )
+
+    if hasil.mauchly.terpenuhi:
+        st.success(hasil.kesimpulan(), icon=":material/check_circle:")
+    else:
+        st.warning(hasil.kesimpulan(), icon=":material/warning:")
+
+    for catatan in hasil.catatan:
+        st.caption(catatan)
+
+    ui.interpretation(
+        "Greenhouse-Geisser lebih konservatif (epsilon lebih kecil, cenderung lebih "
+        "aman dipakai) dibanding Huynh-Feldt; laporkan salah satunya secara konsisten "
+        "beserta nilai epsilonnya, bukan memilih yang kebetulan signifikan."
+    )
