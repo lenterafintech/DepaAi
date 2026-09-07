@@ -525,6 +525,54 @@ def test_sampel_kecil_untuk_sem_ditandai_dilanggar(acak):
     assert "200" in ukuran.rincian
 
 
+def test_menguji_model_satu_konstruk_disebut_cfa(acak):
+    """Gap yang diselesaikan: teks alasan sekarang membedakan CFA (satu
+    konstruk terdeteksi dari pola nama) dan SEM (banyak konstruk + jalur)."""
+    dasar = acak.normal(0, 1, 300)
+    df = pd.DataFrame({f"b{i}": dasar + acak.normal(0, 0.6, 300) for i in range(6)})
+    hasil = _sarankan(df, tujuan="menguji_model", prediktor=list(df.columns))
+    assert "CFA" in hasil.utama.alasan
+    assert "SEM penuh" not in hasil.utama.alasan
+
+
+def test_menguji_model_banyak_konstruk_disebut_sem(acak):
+    kual = acak.normal(0, 1, 300)
+    puas = 0.5 * kual + acak.normal(0, 1, 300)
+    df = pd.DataFrame(
+        {
+            "KUAL1": kual + acak.normal(0, 0.4, 300),
+            "KUAL2": kual + acak.normal(0, 0.4, 300),
+            "KUAL3": kual + acak.normal(0, 0.4, 300),
+            "PUAS1": puas + acak.normal(0, 0.4, 300),
+            "PUAS2": puas + acak.normal(0, 0.4, 300),
+            "PUAS3": puas + acak.normal(0, 0.4, 300),
+        }
+    )
+    hasil = _sarankan(df, tujuan="menguji_model", prediktor=list(df.columns))
+    assert "SEM" in hasil.utama.alasan
+    assert "konstruk" in hasil.utama.alasan.lower()
+    assert "KUAL" in hasil.utama.alasan and "PUAS" in hasil.utama.alasan
+
+
+def test_menguji_model_sampel_kecil_menawarkan_pls_sem(acak):
+    """Gap yang diselesaikan: PLS-SEM sebelumnya tidak pernah muncul sebagai
+    alternatif di Pemandu, meski mesin dan teksnya sudah ada di aplikasi."""
+    dasar = acak.normal(0, 1, 80)
+    df = pd.DataFrame({f"b{i}": dasar + acak.normal(0, 0.6, 80) for i in range(6)})
+    hasil = _sarankan(df, tujuan="menguji_model", prediktor=list(df.columns))
+    pls = [a for a in hasil.alternatif if a.metode == "PLS-SEM"]
+    assert pls, [a.metode for a in hasil.alternatif]
+    assert pls[0].tersedia
+    assert pmd.METODE_TERSEDIA["PLS-SEM"] == "CFA, Jalur & SEM"
+
+
+def test_menguji_model_sampel_besar_tidak_menawarkan_pls_sem(acak):
+    dasar = acak.normal(0, 1, 300)
+    df = pd.DataFrame({f"b{i}": dasar + acak.normal(0, 0.6, 300) for i in range(6)})
+    hasil = _sarankan(df, tujuan="menguji_model", prediktor=list(df.columns))
+    assert not any(a.metode == "PLS-SEM" for a in hasil.alternatif)
+
+
 def test_mutu_instrumen_menghasilkan_reliabilitas(acak):
     dasar = acak.normal(0, 1, 300)
     df = pd.DataFrame({f"b{i}": dasar + acak.normal(0, 0.6, 300) for i in range(5)})
@@ -802,7 +850,50 @@ def test_banyak_outcome_menghasilkan_manova(acak):
     assert hasil.utama.metode == "MANOVA"
     assert hasil.utama.halaman == "MANOVA"
     assert hasil.utama.tersedia
+    assert hasil.utama.variant == ""
     assert any("ANOVA terpisah" in a.metode for a in hasil.alternatif)
+
+
+def test_banyak_outcome_dengan_kovariat_menghasilkan_mancova(acak):
+    """Gap yang diselesaikan: MANCOVA sebelumnya cuma disebut di teks, tidak
+    pernah benar-benar jadi rekomendasi lewat kovariat."""
+    n = 150
+    g = ["A"] * n + ["B"] * n + ["C"] * n
+    y1 = np.r_[acak.normal(50, 8, n), acak.normal(55, 8, n), acak.normal(60, 8, n)]
+    y2 = np.r_[acak.normal(20, 5, n), acak.normal(22, 5, n), acak.normal(25, 5, n)]
+    usia = acak.normal(30, 5, 3 * n)
+    df = pd.DataFrame({"g": g, "y1": y1, "y2": y2, "usia": usia})
+    hasil = _sarankan(
+        df,
+        tujuan="membandingkan_banyak_outcome",
+        prediktor=["y1", "y2"],
+        kelompok="g",
+        kovariat=["usia"],
+    )
+    assert hasil.utama.metode == "MANCOVA"
+    assert hasil.utama.variant == "mancova"
+    assert hasil.utama.halaman == "MANOVA"
+    assert hasil.utama.tersedia
+    assert "usia" in hasil.utama.alasan
+    assert pmd.METODE_TERSEDIA["MANCOVA"] == "MANOVA"
+
+
+def test_banyak_outcome_kovariat_yang_juga_variabel_hasil_diabaikan(acak):
+    """Kovariat yang tumpang tindih dengan variabel hasil atau kelompok tidak
+    masuk akal secara statistik — harus difilter, bukan dipakai apa adanya."""
+    n = 150
+    g = ["A"] * n + ["B"] * n + ["C"] * n
+    y1 = np.r_[acak.normal(50, 8, n), acak.normal(55, 8, n), acak.normal(60, 8, n)]
+    y2 = np.r_[acak.normal(20, 5, n), acak.normal(22, 5, n), acak.normal(25, 5, n)]
+    df = pd.DataFrame({"g": g, "y1": y1, "y2": y2})
+    hasil = _sarankan(
+        df,
+        tujuan="membandingkan_banyak_outcome",
+        prediktor=["y1", "y2"],
+        kelompok="g",
+        kovariat=["y1", "g"],
+    )
+    assert hasil.utama.metode == "MANOVA"  # kovariat tersaring habis, kembali ke MANOVA biasa
 
 
 def test_banyak_outcome_perlu_dua_variabel_hasil(acak):

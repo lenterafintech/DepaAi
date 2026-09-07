@@ -139,6 +139,7 @@ METODE_TERSEDIA: dict[str, str] = {
     "Friedman": "Uji Beda",
     "ANOVA ukur ulang": "MANOVA",
     "MANOVA": "MANOVA",
+    "MANCOVA": "MANOVA",
     "Chi-square": "Uji Beda",
     "Uji eksak Fisher": "Uji Beda",
     "Korelasi Pearson": "Korelasi & Asumsi",
@@ -152,6 +153,7 @@ METODE_TERSEDIA: dict[str, str] = {
     "Analisis Komponen Utama (PCA)": "PCA",
     "Analisis klaster": "Analisis Klaster",
     "CFA / Analisis Jalur / SEM": "CFA, Jalur & SEM",
+    "PLS-SEM": "CFA, Jalur & SEM",
     "Uji validitas dan reliabilitas": "Reliabilitas & Validitas",
     "Regresi Panel": "Regresi Panel",
     "ARIMA": "Deret Waktu (ARIMA)",
@@ -626,6 +628,7 @@ def sarankan(
     kelompok: str | None = None,
     berpasangan: bool = False,
     penelitian: pp.ProyekPenelitian | None = None,
+    kovariat: list[str] | None = None,
 ) -> Rekomendasi:
     """Sarankan metode dengan memeriksa data yang sungguh ada.
 
@@ -638,6 +641,10 @@ def sarankan(
     desain penelitian. Yang dipengaruhi hanyalah BAHASA alasannya (kata kerja
     "berpengaruh terhadap" vs "berhubungan dengan", lewat ``pagar.kata_hubungan``)
     pada tujuan yang benar-benar menyusun kalimat hubungan sebab-akibat/asosiatif.
+
+    ``kovariat`` hanya dipakai tujuan ``membandingkan_banyak_outcome`` (MANOVA
+    menjadi MANCOVA bila diisi) — parameter tambahan di akhir signature supaya
+    13 fungsi cabang lain tidak perlu ikut diubah.
     """
     if tujuan not in TUJUAN:
         raise ValueError(f"Tujuan '{tujuan}' tidak dikenal. Pilih dari {list(TUJUAN)}.")
@@ -664,7 +671,12 @@ def sarankan(
         "meramalkan_waktu": _arima,
         "menganalisis_teks": _teks,
     }
-    hasil = penanganan[tujuan](df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian)
+    if tujuan == "membandingkan_banyak_outcome":
+        hasil = _membandingkan_banyak_outcome(
+            df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian, kovariat
+        )
+    else:
+        hasil = penanganan[tujuan](df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian)
 
     # Penetapan variabel diikutkan pada hasil agar halaman metode dapat terbuka
     # sudah terisi. Tanpa ini, pengguna yang baru saja memberi tahu pemandu
@@ -1219,15 +1231,25 @@ def _berpasangan_banyak_nonparametrik(hasil, jumlah_kolom, syarat, alasan):
     return hasil
 
 
-def _membandingkan_banyak_outcome(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
+def _membandingkan_banyak_outcome(
+    df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian, kovariat=None
+) -> Rekomendasi:
     """MANOVA: beberapa variabel hasil dibandingkan sekaligus antar kelompok.
 
     ``prediktor`` di sini bukan penjelas seperti pada regresi, melainkan daftar
     variabel hasil (dependen) yang diuji bersama — mengikuti bentuk widget
     multiselect yang sama seperti tujuan lain, bukan parameter baru.
+
+    ``kovariat`` opsional: bila diisi dengan variabel numerik yang ingin
+    dikendalikan, rekomendasi menjadi MANCOVA (varian MANOVA) alih-alih
+    MANOVA biasa — bukan tujuan/halaman baru, tab MANCOVA ada pada halaman
+    MANOVA yang sama.
     """
     hasil = Rekomendasi()
     variabel = [v for v in prediktor if _numerik(kamus, v)]
+    kovariat = [
+        v for v in (kovariat or []) if _numerik(kamus, v) and v not in variabel and v != kelompok
+    ]
     if not kelompok:
         hasil.belum_terjawab.append("Kolom mana yang menandai kelompoknya?")
     if len(variabel) < 2:
@@ -1265,24 +1287,47 @@ def _membandingkan_banyak_outcome(df, kamus, outcome, prediktor, kelompok, berpa
     )
     syarat = [ukuran, sebaran]
 
-    hasil.utama = Saran(
-        metode="MANOVA",
-        halaman="MANOVA",
-        alasan=(
-            f"{len(variabel)} variabel hasil dibandingkan sekaligus antar {k} kelompok "
-            f"pada '{kelompok}'. MANOVA memperhitungkan korelasi antar variabel hasil "
-            "dan menjaga tingkat kesalahan tipe I dibanding menjalankan ANOVA terpisah "
-            "untuk tiap variabel."
-        ),
-        syarat=syarat,
-        lanjutan=(
-            "Box's M dan normalitas multivariat diperiksa penuh pada halaman MANOVA. "
-            "Bila ada variabel kovariat yang ingin dikendalikan, pakai tab MANCOVA "
-            "pada halaman yang sama alih-alih menjalankan MANOVA biasa."
-        ),
-        ukuran_efek="Eta-squared parsial per variabel hasil (tab ANOVA Lanjutan).",
-        pembanding="SPSS: Analyze ▸ General Linear Model ▸ Multivariate",
-    )
+    if kovariat:
+        nama_kovariat = ", ".join(f"'{k}'" for k in kovariat)
+        hasil.utama = Saran(
+            metode="MANCOVA",
+            variant="mancova",
+            halaman="MANOVA",
+            alasan=(
+                f"{len(variabel)} variabel hasil dibandingkan sekaligus antar {k} kelompok "
+                f"pada '{kelompok}', dengan {nama_kovariat} dikendalikan sebagai kovariat. "
+                "MANCOVA memperhitungkan korelasi antar variabel hasil sekaligus "
+                "menghilangkan pengaruh kovariat sebelum kelompok dibandingkan."
+            ),
+            syarat=syarat,
+            lanjutan=(
+                "Buka tab MANCOVA pada halaman MANOVA — kovariat di atas harus dipilih "
+                "ulang di sana. Box's M, normalitas multivariat, dan homogenitas "
+                "kemiringan regresi (asumsi tambahan khusus MANCOVA) diperiksa penuh "
+                "di tab itu."
+            ),
+            ukuran_efek="Eta-squared parsial per variabel hasil, disesuaikan kovariat.",
+            pembanding="SPSS: Analyze ▸ General Linear Model ▸ Multivariate (tambahkan kovariat)",
+        )
+    else:
+        hasil.utama = Saran(
+            metode="MANOVA",
+            halaman="MANOVA",
+            alasan=(
+                f"{len(variabel)} variabel hasil dibandingkan sekaligus antar {k} kelompok "
+                f"pada '{kelompok}'. MANOVA memperhitungkan korelasi antar variabel hasil "
+                "dan menjaga tingkat kesalahan tipe I dibanding menjalankan ANOVA terpisah "
+                "untuk tiap variabel."
+            ),
+            syarat=syarat,
+            lanjutan=(
+                "Box's M dan normalitas multivariat diperiksa penuh pada halaman MANOVA. "
+                "Bila ada variabel kovariat yang ingin dikendalikan, pakai tab MANCOVA "
+                "pada halaman yang sama alih-alih menjalankan MANOVA biasa."
+            ),
+            ukuran_efek="Eta-squared parsial per variabel hasil (tab ANOVA Lanjutan).",
+            pembanding="SPSS: Analyze ▸ General Linear Model ▸ Multivariate",
+        )
     hasil.alternatif.append(
         Saran(
             metode="ANOVA terpisah untuk tiap variabel hasil",
@@ -1709,6 +1754,7 @@ def _mengelompokkan(df, kamus, outcome, prediktor, kelompok, berpasangan, peneli
 
 
 def _menguji_model(df, kamus, outcome, prediktor, kelompok, berpasangan, penelitian) -> Rekomendasi:
+    from nalardata import reliability as rb
     from nalardata import sem_analysis
 
     hasil = Rekomendasi()
@@ -1720,14 +1766,15 @@ def _menguji_model(df, kamus, outcome, prediktor, kelompok, berpasangan, penelit
         return hasil
 
     n = len(_bersih(df, variabel))
+    sampel_kecil = n < 200
     syarat = [
         Syarat(
             "Ukuran sampel",
-            DILANGGAR if n < 200 else TERPENUHI,
+            DILANGGAR if sampel_kecil else TERPENUHI,
             f"{n} pengamatan"
             + (
                 ". Model laten lazimnya menuntut sekurang-kurangnya 200."
-                if n < 200
+                if sampel_kecil
                 else "."
             ),
         )
@@ -1737,13 +1784,34 @@ def _menguji_model(df, kamus, outcome, prediktor, kelompok, berpasangan, penelit
     except Exception:  # noqa: BLE001
         estimator, alasan_estimator = "ML", ""
 
+    # Konstruk ditebak dari pola penamaan kolom (mis. KUAL1, KUAL2 -> satu
+    # konstruk "KUAL"), memakai ulang reliability.tebak_konstruk() yang sudah
+    # dipakai tab PLS-SEM di views/sem.py — bukan heuristik baru. Ini tebakan
+    # dari pola nama, bukan kepastian, sehingga dinyatakan begitu adanya pada
+    # teksnya, konsisten dengan nada "Pemandu membaca bentuk, bukan maksud".
+    konstruk = rb.tebak_konstruk(variabel)
+    if len(konstruk) >= 2:
+        nama_konstruk = ", ".join(sorted(konstruk))
+        alasan_model = (
+            f"Pola penamaan kolom menunjukkan {len(konstruk)} kemungkinan konstruk "
+            f"({nama_konstruk}), sehingga ini bentuknya SEM penuh: hubungan berjalur "
+            "antar konstruk diuji sekaligus dengan model pengukurannya, bukan "
+            "sepotong-sepotong lewat beberapa regresi terpisah."
+        )
+    else:
+        alasan_model = (
+            "Pola penamaan kolom tidak menunjukkan lebih dari satu kelompok "
+            "indikator, sehingga ini pada dasarnya CFA (analisis faktor "
+            "konfirmatori): model pengukuran satu konstruk diuji tanpa jalur "
+            "struktural. Bila indikator Anda sebenarnya menyusun beberapa "
+            "konstruk berbeda, ganti nama kolom mengikuti pola 'KONSTRUK1, "
+            "KONSTRUK2, ...' agar Pemandu dapat mengenalinya."
+        )
+
     hasil.utama = Saran(
         metode="CFA / Analisis Jalur / SEM",
         halaman="CFA, Jalur & SEM",
-        alasan=(
-            "Model hubungan antar konstruk laten diuji sekaligus, bukan sepotong demi "
-            "sepotong lewat beberapa regresi terpisah."
-        ),
+        alasan=alasan_model,
         syarat=syarat,
         lanjutan=(
             "Periksa model pengukuran lebih dulu (muatan, AVE, CR, HTMT), baru model "
@@ -1769,6 +1837,24 @@ def _menguji_model(df, kamus, outcome, prediktor, kelompok, berpasangan, penelit
             ),
         )
     )
+    if sampel_kecil:
+        hasil.alternatif.append(
+            Saran(
+                metode="PLS-SEM",
+                halaman="CFA, Jalur & SEM",
+                alasan="",
+                ditolak_karena=(
+                    f"Bukan ditolak dalam arti keliru — pada {n} pengamatan ini, "
+                    "PLS-SEM justru sering jadi pilihan yang lebih realistis "
+                    "daripada SEM berbasis kovarians di atas, karena memaksimalkan "
+                    "varians yang dijelaskan alih-alih kecocokan matriks kovarians "
+                    "sehingga tetap dapat diestimasi pada sampel kecil — dengan "
+                    "harga tidak ada uji kecocokan model keseluruhan (chi-square, "
+                    "CFI, RMSEA). Hanya indikator reflektif yang didukung. Tersedia "
+                    "di tab PLS-SEM pada halaman yang sama."
+                ),
+            )
+        )
     return hasil
 
 

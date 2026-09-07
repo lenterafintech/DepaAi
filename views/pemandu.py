@@ -179,6 +179,7 @@ def render(df, kamus, penelitian) -> None:
 
     outcome = prediktor = kelompok = None
     berpasangan = False
+    kovariat: list[str] = []
 
     if tujuan == "membandingkan":
         berpasangan = st.toggle(
@@ -236,6 +237,16 @@ def render(df, kamus, penelitian) -> None:
             format_func=_label,
             help="Pilih sekurang-kurangnya dua ukuran hasil yang diuji bersama, "
             "misalnya nilai ujian dan skor motivasi.",
+        )
+        kandidat_kovariat = [k for k in numerik if k not in {kelompok, *prediktor}]
+        kovariat = st.multiselect(
+            "Kovariat (opsional) — mengubah saran menjadi MANCOVA",
+            kandidat_kovariat,
+            key="pemandu_kovariat_manova",
+            format_func=_label,
+            help="Variabel numerik yang ingin dikendalikan sebelum kelompok "
+            "dibandingkan, misalnya usia sebagai kovariat saat membandingkan "
+            "skor tes antar kelas. Kosongkan bila tidak ada.",
         )
 
     elif tujuan in {"menguji_mediasi", "menguji_moderasi"}:
@@ -402,6 +413,7 @@ def render(df, kamus, penelitian) -> None:
         kelompok=kelompok,
         berpasangan=berpasangan,
         penelitian=penelitian,
+        kovariat=kovariat,
     )
 
     ui.judul_bagian("Yang disarankan", kicker="Langkah 3")

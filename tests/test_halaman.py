@@ -926,6 +926,20 @@ def test_pemandu_banyak_outcome_menyarankan_manova(sample):
     assert any(s.value.startswith("**MANOVA**") for s in app.success)
 
 
+def test_pemandu_kovariat_manova_menyarankan_mancova(sample):
+    """Gap yang diselesaikan: kovariat opsional pada tujuan
+    'membandingkan_banyak_outcome' mengubah saran menjadi MANCOVA."""
+    app = _run(sample)
+    app.radio(key="pemandu_tujuan").set_value("membandingkan_banyak_outcome").run()
+    app.selectbox(key="pemandu_kelompok_manova").set_value("segmen_usaha (nominal)").run()
+    app.multiselect(key="pemandu_outcome_manova").set_value(
+        ["skor_kredit (rasio)", "pendapatan_bulanan (rasio)"]
+    ).run()
+    app.multiselect(key="pemandu_kovariat_manova").set_value(["usia (rasio)"]).run()
+    assert not app.exception
+    assert any(s.value.startswith("**MANCOVA**") for s in app.success)
+
+
 def test_pemandu_moderasi_menyarankan_mra(sample):
     """Langkah 6: tujuan baru 'menguji_moderasi' menyambungkan halaman Regresi
     Moderasi (MRA) yang mesinnya sudah ada (nalardata/moderation.py)."""
